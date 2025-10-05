@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -14,11 +14,14 @@ import java.time.LocalDateTime;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 
 public class CandidateProfileResponse {
-    LocalDateTime dob;
+    int id;
+    LocalDate dob;
     String title;
     String phone;
     String address;
     String image;
     String gender;
+    String jobLevel;
+    Integer experience;
     String link;
 }

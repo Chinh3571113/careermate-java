@@ -1,6 +1,7 @@
 package com.fpt.careermate.services;
 
 import com.fpt.careermate.constant.PredefineRole;
+import com.fpt.careermate.constant.StatusAccount;
 import com.fpt.careermate.domain.Account;
 import com.fpt.careermate.domain.Role;
 import com.fpt.careermate.repository.AccountRepo;
@@ -32,6 +33,7 @@ public class AccountImp implements com.fpt.careermate.services.impl.AccountServi
     RoleRepo roleRepo;
     AccountMapper accountMapper;
     PasswordEncoder passwordEncoder;
+
     @Override
     public AccountResponse createAccount(AccountCreationRequest request) {
         if (accountRepo.existsByEmail(request.getEmail()))
@@ -65,14 +67,14 @@ public class AccountImp implements com.fpt.careermate.services.impl.AccountServi
                 accountResponses.getSize(),
                 accountResponses.getTotalElements(),
                 accountResponses.getTotalPages()
-        );      }
+        );
+    }
 
     @Override
     public void deleteAccount(int id) {
-        if (!accountRepo.existsById(id)) {
-            throw new AppException(ErrorCode.USER_NOT_EXISTED);
-        }
-        accountRepo.deleteById(id);
+        Account account = accountRepo.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        account.setStatus(StatusAccount.INACTIVE);
+        accountRepo.save(account);
     }
 
 }

@@ -2,8 +2,10 @@ package com.fpt.careermate.web.rest;
 
 import com.fpt.careermate.services.CandidateProfileImp;
 import com.fpt.careermate.services.dto.request.CandidateProfileRequest;
+import com.fpt.careermate.services.dto.request.GeneralInfoRequest;
 import com.fpt.careermate.services.dto.response.ApiResponse;
 import com.fpt.careermate.services.dto.response.CandidateProfileResponse;
+import com.fpt.careermate.services.dto.response.GeneralInfoResponse;
 import com.fpt.careermate.services.dto.response.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,13 +27,14 @@ import org.springframework.web.bind.annotation.*;
 public class CandidateController {
     CandidateProfileImp candidateProfileImp;
 
-    @Operation(summary = "Create candidate profile", description = "Create a new candidate profile")
+    @Operation(summary = "Create or Update candidate profile", description = "Create or Update candidate profile")
     @PostMapping("/profiles")
-    public ApiResponse<Void> create(@RequestBody CandidateProfileRequest request) {
-        candidateProfileImp.createProfile(request);
-        return ApiResponse.<Void>builder()
+    public ApiResponse<CandidateProfileResponse> saveOrUpdateCandidateProfile(@RequestBody CandidateProfileRequest request) {
+        CandidateProfileResponse response = candidateProfileImp.saveOrUpdateCandidateProfile(request);
+        return ApiResponse.<CandidateProfileResponse>builder()
                 .code(200)
                 .message("Successfully created candidate profile")
+                .result(response)
                 .build();
     }
 
@@ -55,6 +58,18 @@ public class CandidateController {
         return ApiResponse.<Void>builder()
                 .code(200)
                 .message("Successfully deleted candidate profile")
+                .build();
+    }
+
+    @Operation(summary = "Create or Update candidate general info", description = "Create or Update a candidate " +
+            "profile")
+    @PutMapping("/profiles-general-info")
+    public ApiResponse<GeneralInfoResponse> saveOrUpdateCandidateProfile(@RequestBody GeneralInfoRequest request) {
+        GeneralInfoResponse response = candidateProfileImp.saveOrUpdateCandidateGeneralInfo(request);
+        return ApiResponse.<GeneralInfoResponse>builder()
+                .code(200)
+                .message("Successfully created candidate profile")
+                .result(response)
                 .build();
     }
 
