@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CandidateProfileRequest {
     @NotNull(message = "Day of birth is required")
-    LocalDateTime dob;
+    LocalDate dob;
     @NotNull(message = "title is required")
     String title;
     @NotNull(message = "phone number is required")
@@ -21,8 +22,9 @@ public class CandidateProfileRequest {
     @NotNull(message = "address is required")
     String address;
     String image;
+    String jobLevel;
+    Integer experience;
     String gender;
     String link;
-    @NotNull(message = "Account ID is required")
-    int accountId;
+
 }

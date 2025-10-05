@@ -1,5 +1,6 @@
 package com.fpt.careermate.services;
 
+import com.fpt.careermate.constant.StatusAccount;
 import com.fpt.careermate.domain.Account;
 import com.fpt.careermate.domain.InvalidToken;
 import com.fpt.careermate.repository.AccountRepo;
@@ -54,6 +55,7 @@ public class AuthenticationImp implements AuthenticationService {
     protected final InvalidDateTokenRepo invalidatedTokenRepository;
 
     private final AccountRepo accountRepo;
+
     @Override
     public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
         var token = request.getToken();
@@ -103,10 +105,12 @@ public class AuthenticationImp implements AuthenticationService {
 
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPassword());
 
+        if (user.getStatus().equalsIgnoreCase(StatusAccount.INACTIVE) || user.getStatus().equalsIgnoreCase(StatusAccount.DELETED))
+            throw new AppException(ErrorCode.USER_INACTIVE);
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
-        String accessToken = generateToken(user,false);
-        String refreshToken = generateToken(user,true);
+        String accessToken = generateToken(user, false);
+        String refreshToken = generateToken(user, true);
 
         return AuthenticationResponse.builder()
                 .accessToken(accessToken)
@@ -151,8 +155,8 @@ public class AuthenticationImp implements AuthenticationService {
         var user = accountRepo.findByEmail(username)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
 
-        String newAccessToken = generateToken(user,false);
-        String newRefreshToken = generateToken(user,true);
+        String newAccessToken = generateToken(user, false);
+        String newRefreshToken = generateToken(user, true);
 
         return AuthenticationResponse.builder()
                 .accessToken(newAccessToken)
@@ -162,6 +166,7 @@ public class AuthenticationImp implements AuthenticationService {
                 .tokenType("Bearer")
                 .build();
     }
+
 
     @Override
     public String generateToken(Account account, boolean isRefresh) {
@@ -190,8 +195,6 @@ public class AuthenticationImp implements AuthenticationService {
             throw new RuntimeException(e);
         }
     }
-
-
 
 
     @Override
