@@ -17,6 +17,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ public class OrderImp implements OrderService {
     OrderMapper orderMapper;
     PaymentUtil paymentUtil;
 
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     @Transactional
     public String createOrder(OrderCreationRequest request) {
@@ -58,6 +60,7 @@ public class OrderImp implements OrderService {
         return savedOrder.getOrderCode();
     }
 
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public void deleteOrder(int id) {
         Order order = orderRepo.findById(id)
@@ -72,6 +75,7 @@ public class OrderImp implements OrderService {
         orderRepo.save(order);
     }
 
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public String checkOrderStatus(int id) {
         Order order = orderRepo.findById(id)
@@ -80,11 +84,13 @@ public class OrderImp implements OrderService {
         return order.getStatus();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Override
     public List<OrderResponse> getOrderList() {
         return orderMapper.toOrderResponseList(orderRepo.findAll());
     }
 
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public List<OrderResponse> myOrderList() {
         int candidateId = 1; // TODO: replace with actual candidate id
