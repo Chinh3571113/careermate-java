@@ -57,6 +57,9 @@ public class BlogCommentImp {
 
         comment = blogCommentRepo.save(comment);
 
+        // Update blog's comment count
+        updateBlogCommentCount(blog);
+
         return blogCommentMapper.toBlogCommentResponse(comment);
     }
 
@@ -133,6 +136,9 @@ public class BlogCommentImp {
         }
 
         blogCommentRepo.delete(comment);
+
+        // Update blog's comment count
+        updateBlogCommentCount(comment.getBlog());
     }
 
     public BlogCommentResponse getCommentById(Long commentId) {
@@ -142,5 +148,13 @@ public class BlogCommentImp {
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_EXISTED));
 
         return blogCommentMapper.toBlogCommentResponse(comment);
+    }
+
+    private void updateBlogCommentCount(Blog blog) {
+        Long commentCount = blogCommentRepo.countByBlogIdAndIsDeletedFalse(blog.getId());
+        blog.setCommentCount(commentCount.intValue());
+        blogRepo.save(blog);
+
+        log.info("Updated blog comment count: {}", commentCount);
     }
 }
