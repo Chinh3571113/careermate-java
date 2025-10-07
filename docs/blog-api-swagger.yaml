@@ -1,0 +1,670 @@
+openapi: 3.0.3
+info:
+  title: CareerMate Blog Management API
+  description: |
+    API documentation for the CareerMate blog management system.
+    This API allows admins to create, edit, publish, and manage blog posts,
+    while providing public read access for recruiters and candidates.
+  version: 1.0.0
+  contact:
+    name: CareerMate Development Team
+    email: dev@careermate.com
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.careermate.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /blogs:
+    post:
+      tags:
+        - Admin Blog Management
+      summary: Create a new blog post
+      description: Creates a new blog post. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogCreationRequest'
+            example:
+              title: "Understanding Career Development in Tech"
+              content: "<h1>Introduction</h1><p>Career development is crucial...</p>"
+              summary: "A comprehensive guide to career development in technology sector"
+              thumbnailUrl: "https://example.com/images/blog-thumbnail.jpg"
+              category: "Career Development"
+              tags: ["career", "technology", "development", "guide"]
+              status: "DRAFT"
+      responses:
+        '200':
+          description: Blog created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - Public Blog Access
+      summary: Get all published blogs
+      description: Retrieves paginated list of published blogs. No authentication required.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortDirParam'
+      responses:
+        '200':
+          description: List of blogs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBlogResponse'
+
+  /blogs/{blogId}:
+    get:
+      tags:
+        - Public Blog Access
+      summary: Get blog by ID
+      description: Retrieves a single blog post by ID and increments view count
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 1
+      responses:
+        '200':
+          description: Blog retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Admin Blog Management
+      summary: Update blog post
+      description: Updates an existing blog post. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogUpdateRequest'
+      responses:
+        '200':
+          description: Blog updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Admin Blog Management
+      summary: Delete blog post
+      description: Deletes a blog post. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Blog deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /blogs/{blogId}/publish:
+    put:
+      tags:
+        - Admin Blog Management
+      summary: Publish blog post
+      description: Changes blog status to PUBLISHED. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Blog published successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /blogs/{blogId}/archive:
+    put:
+      tags:
+        - Admin Blog Management
+      summary: Archive blog post
+      description: Changes blog status to ARCHIVED. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Blog archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /blogs/{blogId}/unpublish:
+    put:
+      tags:
+        - Admin Blog Management
+      summary: Unpublish blog post
+      description: Changes blog status from PUBLISHED to DRAFT. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Blog unpublished successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /blogs/{blogId}/unarchive:
+    put:
+      tags:
+        - Admin Blog Management
+      summary: Unarchive blog post
+      description: Changes blog status from ARCHIVED to PUBLISHED. Requires ADMIN role.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blogId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Blog unarchived successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlogApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /blogs/status/{status}:
+    get:
+      tags:
+        - Public Blog Access
+      summary: Get blogs by status
+      description: Retrieves blogs filtered by status
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/BlogStatus'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortDirParam'
+      responses:
+        '200':
+          description: Blogs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBlogResponse'
+
+  /blogs/category/{category}:
+    get:
+      tags:
+        - Public Blog Access
+      summary: Get blogs by category
+      description: Retrieves blogs filtered by category
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "Career Development"
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortDirParam'
+      responses:
+        '200':
+          description: Blogs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBlogResponse'
+
+  /blogs/search:
+    get:
+      tags:
+        - Public Blog Access
+      summary: Search blogs
+      description: Search blogs by keyword and optionally filter by status
+      parameters:
+        - name: keyword
+          in: query
+          required: false
+          schema:
+            type: string
+          example: "career development"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/BlogStatus'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortDirParam'
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBlogResponse'
+
+  /blogs/categories:
+    get:
+      tags:
+        - Public Blog Access
+      summary: Get all blog categories
+      description: Retrieves list of all available blog categories
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      result:
+                        type: array
+                        items:
+                          type: string
+                        example: ["Career Development", "Interview Tips", "Industry Insights", "Job Market"]
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Page number (0-based)
+
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+      description: Number of items per page
+
+    SortByParam:
+      name: sortBy
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [createdAt, updatedAt, title, viewCount, publishedAt]
+        default: createdAt
+      description: Field to sort by
+
+    SortDirParam:
+      name: sortDir
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [ASC, DESC]
+        default: DESC
+      description: Sort direction
+
+  schemas:
+    BlogStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - ARCHIVED
+      description: Blog publication status
+
+    BlogCreationRequest:
+      type: object
+      required:
+        - title
+        - content
+        - status
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          example: "Understanding Career Development in Tech"
+        content:
+          type: string
+          description: Rich HTML content from Quill editor
+          example: "<h1>Introduction</h1><p>Career development is crucial...</p>"
+        summary:
+          type: string
+          maxLength: 1000
+          example: "A comprehensive guide to career development in technology sector"
+        thumbnailUrl:
+          type: string
+          maxLength: 1000
+          format: uri
+          example: "https://example.com/images/blog-thumbnail.jpg"
+        category:
+          type: string
+          maxLength: 100
+          example: "Career Development"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["career", "technology", "development", "guide"]
+        status:
+          $ref: '#/components/schemas/BlogStatus'
+
+    BlogUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/BlogCreationRequest'
+
+    AuthorInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "admin"
+        email:
+          type: string
+          format: email
+          example: "admin@careermate.com"
+
+    BlogResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: "Understanding Career Development in Tech"
+        content:
+          type: string
+          example: "<h1>Introduction</h1><p>Career development is crucial...</p>"
+        summary:
+          type: string
+          example: "A comprehensive guide to career development in technology sector"
+        thumbnailUrl:
+          type: string
+          format: uri
+          example: "https://example.com/images/blog-thumbnail.jpg"
+        category:
+          type: string
+          example: "Career Development"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["career", "technology", "development", "guide"]
+        status:
+          $ref: '#/components/schemas/BlogStatus'
+        viewCount:
+          type: integer
+          example: 156
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-10-04T14:30:00"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-10-04T10:30:00"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2025-10-04T14:30:00"
+        author:
+          $ref: '#/components/schemas/AuthorInfo'
+
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 1000
+        message:
+          type: string
+          example: "Success"
+
+    BlogApiResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            result:
+              $ref: '#/components/schemas/BlogResponse'
+
+    Pageable:
+      type: object
+      properties:
+        sort:
+          type: object
+          properties:
+            empty:
+              type: boolean
+            sorted:
+              type: boolean
+            unsorted:
+              type: boolean
+        offset:
+          type: integer
+        pageSize:
+          type: integer
+        pageNumber:
+          type: integer
+        paged:
+          type: boolean
+        unpaged:
+          type: boolean
+
+    Page:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlogResponse'
+        pageable:
+          $ref: '#/components/schemas/Pageable'
+        last:
+          type: boolean
+        totalPages:
+          type: integer
+        totalElements:
+          type: integer
+        size:
+          type: integer
+        number:
+          type: integer
+        sort:
+          type: object
+          properties:
+            empty:
+              type: boolean
+            sorted:
+              type: boolean
+            unsorted:
+              type: boolean
+        first:
+          type: boolean
+        numberOfElements:
+          type: integer
+        empty:
+          type: boolean
+
+    PagedBlogResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiResponse'
+        - type: object
+          properties:
+            result:
+              $ref: '#/components/schemas/Page'
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 1002
+                  message:
+                    example: "Unauthorized"
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 1003
+                  message:
+                    example: "Access denied. Admin role required."
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  code:
+                    example: 1001
+                  message:
+                    example: "Blog not found"
+
+tags:
+  - name: Admin Blog Management
+    description: Blog management operations for administrators
+  - name: Public Blog Access
+    description: Public read-only blog operations for recruiters and candidates

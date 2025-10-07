@@ -42,3 +42,11 @@ jwt:
   valid-duration: 900 # in second
   refreshable-duration: 604800 # in second
   # in seconds
+
+# Firebase config
+firebase:
+  project-id: careermate-97d8c
+  bucket-name: careermate-97d8c.firebasestorage.app
+  credentials:
+    path: classpath:firebase-service-account.json
+    

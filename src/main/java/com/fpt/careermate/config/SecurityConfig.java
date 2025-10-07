@@ -31,13 +31,14 @@ public class SecurityConfig {
             "/api/users/verify-email/**",
             "/api/users/verify-otp",
             "/api/users/change-password/**",
-            "/api" +
-            "/v1/auth/**",
-
+            "/api/v1/auth/**",
             "/v3/api-docs/**",
             "/v3/api-docs.yaml",
             "/swagger-ui/**",
             "/swagger-ui.html",
+            // Public blog endpoints - no authentication required
+            "/blogs",
+            "/blogs/**"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;
@@ -47,14 +48,16 @@ public class SecurityConfig {
         httpSecurity
                 .cors(Customizer.withDefaults()) // 👈 enable CORS support
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(request -> request.requestMatchers(PUBLIC_ENDPOINTS)
-                        .permitAll()
+                .authorizeHttpRequests(request -> request
+                        .requestMatchers(HttpMethod.GET, "/blogs", "/blogs/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest()
                         .authenticated());
 
         httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwtConfigurer -> jwtConfigurer
-                        .decoder(customJwtDecoder)
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                .decoder(customJwtDecoder)
+                .jwtAuthenticationConverter(jwtAuthenticationConverter()))
                 .authenticationEntryPoint(new JwtAuthenticationEntryPoint()));
         httpSecurity.csrf(AbstractHttpConfigurer::disable);
         httpSecurity .oauth2Login(oauth -> oauth

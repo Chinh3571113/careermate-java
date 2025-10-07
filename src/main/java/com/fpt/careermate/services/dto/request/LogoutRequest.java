@@ -9,5 +9,10 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class LogoutRequest {
+    String accessToken;
+    String refreshToken;
+
+    // For backward compatibility
+    @Deprecated
     String token;
 }
