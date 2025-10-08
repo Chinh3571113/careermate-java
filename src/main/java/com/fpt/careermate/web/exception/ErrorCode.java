@@ -28,6 +28,10 @@ public enum ErrorCode {
     //  30xx: Package
     PACKAGE_NOT_FOUND(3000, "Package not found", HttpStatus.NOT_FOUND),
 
+    // 40xx: Recruiter
+    INVALID_WEBSITE(4000, "Website is not reachable", HttpStatus.BAD_REQUEST),
+    INVALID_LOGO_URL(4001, "Logo URL is not reachable", HttpStatus.BAD_REQUEST),
+
     BLOG_NOT_FOUND(1010, "Blog not found", HttpStatus.NOT_FOUND),
     BLOG_INVALID_STATUS(1011, "Invalid blog status", HttpStatus.BAD_REQUEST),
     BLOG_UNAUTHORIZED(1012, "You are not authorized to modify this blog", HttpStatus.FORBIDDEN),

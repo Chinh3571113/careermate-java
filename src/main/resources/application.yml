@@ -10,7 +10,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create # TODO: change to 'update' or 'validate' in production
   security:
     oauth2:
       client:
