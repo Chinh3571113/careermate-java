@@ -3,9 +3,11 @@ package com.fpt.careermate.services;
 import com.fpt.careermate.config.PaymentConfig;
 import com.fpt.careermate.constant.StatusOrder;
 import com.fpt.careermate.constant.StatusPayment;
+import com.fpt.careermate.domain.Candidate;
 import com.fpt.careermate.domain.Order;
 import com.fpt.careermate.domain.Package;
 import com.fpt.careermate.domain.Payment;
+import com.fpt.careermate.repository.CandidateRepo;
 import com.fpt.careermate.repository.OrderRepo;
 import com.fpt.careermate.repository.PaymentRepo;
 import com.fpt.careermate.services.impl.PaymentService;
@@ -37,6 +39,7 @@ public class PaymentImp implements PaymentService {
     PaymentUtil paymentUtil;
     PaymentRepo paymentRepo;
     OrderRepo orderRepo;
+    CandidateRepo candidateRepo;
 
     static DateTimeFormatter VNP_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -211,14 +214,11 @@ public class PaymentImp implements PaymentService {
                     order.setEndDate(now.plusDays(pkg.getDurationDays()));
                     orderRepo.save(order);
 
-                    // TODO: apply package for candidate
-//                    Candidate candidate = order.getCandidate();
-//                    if (candidate != null && pkg != null) {
-//                        candidate.setCurrentPackage(pkg);
-//                        candidate.setPackageStartAt(order.getStartDate());
-//                        candidate.setPackageEndAt(order.getEndDate());
-//                        candidateRepository.save(candidate);
-//                    }
+                    Candidate candidate = order.getCandidate();
+                    if (candidate != null && pkg != null) {
+                        candidate.setCurrentPackage(pkg);
+                        candidateRepo.save(candidate);
+                    }
                 } else {
                     log.info("Order {} already PAID, skipping applying package", order.getOrderCode());
                 }
