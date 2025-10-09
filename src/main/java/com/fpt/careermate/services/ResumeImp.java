@@ -42,9 +42,7 @@ public class ResumeImp implements ResumeService {
         Candidate candidate = candidateRepo.findByAccountId(account.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
 
-        // Ensure the requested candidateId matches the authenticated user's candidateId
 
-        // Find resume by candidate id
         Resume resume = resumeRepo.findByCandidateCandidateId(candidate.getCandidateId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND)); // You may want to add RESUME_NOT_FOUND
 
