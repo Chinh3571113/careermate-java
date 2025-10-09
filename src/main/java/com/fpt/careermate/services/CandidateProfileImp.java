@@ -122,7 +122,7 @@ public class CandidateProfileImp implements CandidateProfileService {
 
     private Candidate generateProfile() {
         Account account = authenticationService.findByEmail();
-        return candidateRepo.findByAccountId(account.getId())
+        return candidateRepo.findByAccount_Id(account.getId())
                 .orElseGet(() -> {
                     Candidate newCandidate = new Candidate();
                     newCandidate.setAccount(account);

@@ -8,8 +8,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface BlogCommentRepo extends JpaRepository<BlogComment, Long> {
-    Page<BlogComment> findByBlogIdAndIsDeletedFalse(Long blogId, Pageable pageable);
+    Page<BlogComment> findByBlog_IdAndIsDeletedFalse(Long blogId, Pageable pageable);
 
-    Long countByBlogIdAndIsDeletedFalse(Long blogId);
+    Long countByBlog_IdAndIsDeletedFalse(Long blogId);
 }
 

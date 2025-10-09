@@ -76,7 +76,7 @@ public class BlogCommentImp {
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<BlogComment> comments = blogCommentRepo.findByBlogIdAndIsDeletedFalse(blogId, pageable);
+        Page<BlogComment> comments = blogCommentRepo.findByBlog_IdAndIsDeletedFalse(blogId, pageable);
 
         return comments.map(blogCommentMapper::toBlogCommentResponse);
     }
@@ -88,7 +88,7 @@ public class BlogCommentImp {
             throw new AppException(ErrorCode.BLOG_NOT_EXISTED);
         }
 
-        Page<BlogComment> comments = blogCommentRepo.findByBlogIdAndIsDeletedFalse(blogId, pageable);
+        Page<BlogComment> comments = blogCommentRepo.findByBlog_IdAndIsDeletedFalse(blogId, pageable);
 
         return comments.map(blogCommentMapper::toBlogCommentResponse);
     }
@@ -151,7 +151,7 @@ public class BlogCommentImp {
     }
 
     private void updateBlogCommentCount(Blog blog) {
-        Long commentCount = blogCommentRepo.countByBlogIdAndIsDeletedFalse(blog.getId());
+        Long commentCount = blogCommentRepo.countByBlog_IdAndIsDeletedFalse(blog.getId());
         blog.setCommentCount(commentCount.intValue());
         blogRepo.save(blog);
 

@@ -126,7 +126,7 @@ public class BlogImp implements com.fpt.careermate.services.impl.BlogService {
     @Transactional(readOnly = true)
     public Page<BlogResponse> getBlogsByAuthor(int authorId, Pageable pageable) {
         log.info("Fetching blogs by author ID: {}", authorId);
-        return blogRepo.findByAuthorId(authorId, pageable)
+        return blogRepo.findByAuthor_Id(authorId, pageable)
                 .map(blogMapper::toBlogResponse);
     }
 

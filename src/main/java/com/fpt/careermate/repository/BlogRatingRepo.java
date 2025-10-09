@@ -10,11 +10,11 @@ import java.util.Optional;
 
 @Repository
 public interface BlogRatingRepo extends JpaRepository<BlogRating, Long> {
-    Optional<BlogRating> findByBlogIdAndUserId(Long blogId, Long userId);
+    Optional<BlogRating> findByBlog_IdAndUser_Id(Long blogId, Long userId);
 
     @Query("SELECT AVG(r.rating) FROM blog_rating r WHERE r.blog.id = :blogId")
-    Double findAverageRatingByBlogId(@Param("blogId") Long blogId);
+    Double findAverageRatingByBlog_Id(@Param("blogId") Long blogId);
 
-    Long countByBlogId(Long blogId);
+    Long countByBlog_Id(Long blogId);
 }
 

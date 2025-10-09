@@ -52,7 +52,7 @@ public class BlogRatingImp {
         }
 
         // Check if user has already rated this blog
-        Optional<BlogRating> existingRating = blogRatingRepo.findByBlogIdAndUserId(blogId, Long.valueOf(user.getId()));
+        Optional<BlogRating> existingRating = blogRatingRepo.findByBlog_IdAndUser_Id(blogId, Long.valueOf(user.getId()));
 
         BlogRating rating;
         if (existingRating.isPresent()) {
@@ -93,7 +93,7 @@ public class BlogRatingImp {
             throw new AppException(ErrorCode.BLOG_NOT_EXISTED);
         }
 
-        BlogRating rating = blogRatingRepo.findByBlogIdAndUserId(blogId, Long.valueOf(user.getId()))
+        BlogRating rating = blogRatingRepo.findByBlog_IdAndUser_Id(blogId, Long.valueOf(user.getId()))
                 .orElseThrow(() -> new AppException(ErrorCode.RATING_NOT_EXISTED));
 
         return blogRatingMapper.toBlogRatingResponse(rating);
@@ -110,7 +110,7 @@ public class BlogRatingImp {
         Account user = accountRepo.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
-        BlogRating rating = blogRatingRepo.findByBlogIdAndUserId(blogId, Long.valueOf(user.getId()))
+        BlogRating rating = blogRatingRepo.findByBlog_IdAndUser_Id(blogId, Long.valueOf(user.getId()))
                 .orElseThrow(() -> new AppException(ErrorCode.RATING_NOT_EXISTED));
 
         Blog blog = rating.getBlog();
@@ -123,8 +123,8 @@ public class BlogRatingImp {
     }
 
     private void updateBlogRatingStats(Blog blog) {
-        Double averageRating = blogRatingRepo.findAverageRatingByBlogId(blog.getId());
-        Long ratingCount = blogRatingRepo.countByBlogId(blog.getId());
+        Double averageRating = blogRatingRepo.findAverageRatingByBlog_Id(blog.getId());
+        Long ratingCount = blogRatingRepo.countByBlog_Id(blog.getId());
 
         blog.setAverageRating(averageRating != null ? averageRating : 0.0);
         blog.setRatingCount(ratingCount.intValue());

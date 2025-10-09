@@ -16,7 +16,7 @@ public interface BlogRepo extends JpaRepository<Blog, Long> {
 
     Page<Blog> findByCategory(String category, Pageable pageable);
 
-    Page<Blog> findByAuthorId(int authorId, Pageable pageable);
+    Page<Blog> findByAuthor_Id(int authorId, Pageable pageable);
 
     @Query("SELECT DISTINCT b.category FROM blog b WHERE b.category IS NOT NULL")
     List<String> findAllCategories();
