@@ -1,9 +1,9 @@
 package com.fpt.careermate.web.rest;
 
+import com.fpt.careermate.services.PermissionImp;
 import com.fpt.careermate.services.dto.request.PermissionRequest;
 import com.fpt.careermate.services.dto.response.ApiResponse;
 import com.fpt.careermate.services.dto.response.PermissionResponse;
-import com.fpt.careermate.services.impl.PermissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
@@ -21,7 +21,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class PermissionController {
-    PermissionService permissionService;
+    PermissionImp permissionService;
 
     @PostMapping
     @Operation(summary = "Create Permission", description = "Create a new permission")

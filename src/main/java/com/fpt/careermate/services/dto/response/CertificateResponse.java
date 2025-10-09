@@ -12,15 +12,12 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-
-public class CandidateProfileResponse {
-    int id;
-    LocalDate dob;
-    String title;
-    String phone;
-    String address;
-    String image;
-    String gender;
-
-    String link;
+public class CertificateResponse {
+    int certificateId;
+    String name;
+    String organization;
+    LocalDate getDate;
+    String certificateUrl;
+    String description;
 }
+

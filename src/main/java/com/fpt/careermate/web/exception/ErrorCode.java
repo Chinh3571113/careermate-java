@@ -32,11 +32,15 @@ public enum ErrorCode {
 
     PROFILE_NOT_FOUND(1010,"Profile not exist" ,HttpStatus.BAD_REQUEST ),
     CANDIDATE_NOT_FOUND(1011,"Candidate Not found" ,HttpStatus.BAD_REQUEST ),
+
     OTP_INVALID(1012,"Otp is invalid" ,HttpStatus.BAD_REQUEST ),
     OTP_EXPIRED(1013, "Otp is expired",HttpStatus.BAD_REQUEST ),
     PASSWORD_NOT_MATCH(1014,"Password not Match" ,HttpStatus.BAD_REQUEST ),
     INVALID_EMAIL_FORMAT(1015,"Invalid Mail" ,HttpStatus.BAD_REQUEST ),
-    USER_INACTIVE(1016,"Your account is not available" , HttpStatus.BAD_REQUEST ),;
+    USER_INACTIVE(1016,"Your account is not available" , HttpStatus.BAD_REQUEST ),
+
+    RESUME_NOT_FOUND(1017,"Resume Not Found" ,HttpStatus.BAD_REQUEST ),
+    RESUME_ALREADY_EXISTS(1018,"Resume already exists for this candidate" ,HttpStatus.BAD_REQUEST );
 
 
 

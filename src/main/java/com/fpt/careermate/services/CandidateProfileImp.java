@@ -120,6 +120,18 @@ public class CandidateProfileImp implements CandidateProfileService {
         return candidateMapper.toGeneralInfoResponse(savedCandidate);
     }
 
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Override
+    public CandidateProfileResponse getCandidateProfileById() {
+        return null;
+    }
+
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Override
+    public GeneralInfoResponse getCandidateGeneralInfoById() {
+        return null;
+    }
+
     private Candidate generateProfile() {
         Account account = authenticationService.findByEmail();
         return candidateRepo.findByAccountId(account.getId())

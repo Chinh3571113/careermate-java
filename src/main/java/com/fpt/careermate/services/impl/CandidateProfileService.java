@@ -12,4 +12,6 @@ public interface CandidateProfileService {
     CandidateProfileResponse saveOrUpdateCandidateProfile(CandidateProfileRequest request);
     void deleteProfile(int id);
     GeneralInfoResponse saveOrUpdateCandidateGeneralInfo(GeneralInfoRequest request);
+    CandidateProfileResponse getCandidateProfileById();
+    GeneralInfoResponse getCandidateGeneralInfoById();
 }

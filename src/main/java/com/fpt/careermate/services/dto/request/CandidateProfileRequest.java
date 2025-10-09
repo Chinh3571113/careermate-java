@@ -26,8 +26,7 @@ public class CandidateProfileRequest {
     @NotNull(message = "address is required")
     String address;
     String image;
-    String jobLevel;
-    Integer experience;
+
     @NotNull(message = "Gender is required")
     String gender;
     String link;

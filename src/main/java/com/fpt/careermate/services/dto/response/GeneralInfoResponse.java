@@ -13,7 +13,8 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class GeneralInfoResponse {
-
+    String jobLevel;
+    Integer experience;
     List<IndustryExperienceResponse> industryExperiences;
 
     List<WorkModelResponse> workModels;
