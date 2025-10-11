@@ -21,7 +21,6 @@ public class CandidateProfileResponse {
     String address;
     String image;
     String gender;
-    String jobLevel;
-    Integer experience;
+
     String link;
 }

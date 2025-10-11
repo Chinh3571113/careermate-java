@@ -126,7 +126,7 @@ public class BlogImp implements com.fpt.careermate.services.impl.BlogService {
     @Transactional(readOnly = true)
     public Page<BlogResponse> getBlogsByAuthor(int authorId, Pageable pageable) {
         log.info("Fetching blogs by author ID: {}", authorId);
-        return blogRepo.findByAuthorId(authorId, pageable)
+        return blogRepo.findByAuthor_Id(authorId, pageable)
                 .map(blogMapper::toBlogResponse);
     }
 
@@ -172,6 +172,21 @@ public class BlogImp implements com.fpt.careermate.services.impl.BlogService {
 
     @Override
     @Transactional
+    public BlogResponse unpublishBlog(Long blogId) {
+        log.info("Unpublishing blog ID: {}", blogId);
+
+        Blog blog = blogRepo.findById(blogId)
+                .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        blog.setStatus(Blog.BlogStatus.DRAFT);
+        blog.setPublishedAt(null); // Clear the published date
+        blog = blogRepo.save(blog);
+
+        return blogMapper.toBlogResponse(blog);
+    }
+
+    @Override
+    @Transactional
     public BlogResponse archiveBlog(Long blogId) {
         log.info("Archiving blog ID: {}", blogId);
 
@@ -179,6 +194,24 @@ public class BlogImp implements com.fpt.careermate.services.impl.BlogService {
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
 
         blog.setStatus(Blog.BlogStatus.ARCHIVED);
+        blog = blogRepo.save(blog);
+
+        return blogMapper.toBlogResponse(blog);
+    }
+
+    @Override
+    @Transactional
+    public BlogResponse unarchiveBlog(Long blogId) {
+        log.info("Unarchiving blog ID: {}", blogId);
+
+        Blog blog = blogRepo.findById(blogId)
+                .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        blog.setStatus(Blog.BlogStatus.PUBLISHED);
+        // Restore published date if it was previously published
+        if (blog.getPublishedAt() == null) {
+            blog.setPublishedAt(LocalDateTime.now());
+        }
         blog = blogRepo.save(blog);
 
         return blogMapper.toBlogResponse(blog);

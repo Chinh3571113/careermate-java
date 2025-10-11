@@ -2,6 +2,7 @@ package com.fpt.careermate.config;
 
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
@@ -36,8 +37,15 @@ import org.springframework.context.annotation.Configuration;
                 type = SecuritySchemeType.HTTP,
                 scheme = "bearer",
                 bearerFormat = "JWT"
-        )
+        ),
+//        @SecurityScheme(
+//                name = "cookieAuth",
+//                type = SecuritySchemeType.APIKEY,
+//                in = SecuritySchemeIn.COOKIE,
+//                paramName = "refreshToken"
+//        )
 })
+
 public class OpenAPIConfig {
     @Bean
     public GroupedOpenApi publicApi() {

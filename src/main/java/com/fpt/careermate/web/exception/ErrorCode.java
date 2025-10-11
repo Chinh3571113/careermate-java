@@ -61,11 +61,24 @@ public enum ErrorCode {
 
     PROFILE_NOT_FOUND(1010,"Profile not exist" ,HttpStatus.BAD_REQUEST ),
     CANDIDATE_NOT_FOUND(1011,"Candidate Not found" ,HttpStatus.BAD_REQUEST ),
+
     OTP_INVALID(1012,"Otp is invalid" ,HttpStatus.BAD_REQUEST ),
     OTP_EXPIRED(1013, "Otp is expired",HttpStatus.BAD_REQUEST ),
     PASSWORD_NOT_MATCH(1014,"Password not Match" ,HttpStatus.BAD_REQUEST ),
     INVALID_EMAIL_FORMAT(1015,"Invalid Mail" ,HttpStatus.BAD_REQUEST ),
-    USER_INACTIVE(1016,"Your account is not available" , HttpStatus.BAD_REQUEST ),;
+    USER_INACTIVE(1016,"Your account is not available" , HttpStatus.BAD_REQUEST ),
+
+    RESUME_NOT_FOUND(1017,"Resume Not Found" ,HttpStatus.BAD_REQUEST ),
+    RESUME_ALREADY_EXISTS(1018,"Resume already exists for this candidate" ,HttpStatus.BAD_REQUEST ),
+    OVERLOAD(1019,"You just only 3 elements" , HttpStatus.BAD_REQUEST ),
+
+    //Resume detail
+    EDUCATION_NOT_FOUND(1020,"Your school is not exist" ,HttpStatus.BAD_REQUEST ),
+    CERTIFICATE_NOT_FOUND(1021,"Your Certificate is not exist" ,HttpStatus.BAD_REQUEST ),
+    FOREIGN_LANGUAGE_NOT_FOUND(1022,"Your Foreign Language not found" ,HttpStatus.BAD_REQUEST ),
+    SKILL_NOT_FOUND(1023,"Your Skill not found" ,HttpStatus.BAD_REQUEST ),
+    AWARD_NOT_FOUND(1024,"Your Award not found" ,HttpStatus.BAD_REQUEST ),
+    WORK_EXPERIENCE_NOT_FOUND(1025,"Work exp not found" ,HttpStatus.BAD_REQUEST );
 
 
 

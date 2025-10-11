@@ -14,7 +14,7 @@ import java.text.ParseException;
 
 public interface AuthenticationService {
     IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException;
-    SignedJWT verifyToken(String token, boolean isRefresh) throws JOSEException, ParseException;
+    SignedJWT verifyToken(String token) throws JOSEException, ParseException;
     AuthenticationResponse authenticate(AuthenticationRequest request);
     void logout(LogoutRequest request) throws ParseException, JOSEException;
     AuthenticationResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException;

@@ -10,6 +10,7 @@ import com.fpt.careermate.services.dto.response.PageResponse;
 import com.fpt.careermate.util.ChangePassword;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -31,7 +32,7 @@ public class AccountController {
 
     @PostMapping
     @Operation(summary = "Create Account", description = "Create a new account")
-    ApiResponse<AccountResponse> createUser(@RequestBody AccountCreationRequest request) {
+    ApiResponse<AccountResponse> createUser(@RequestBody @Valid AccountCreationRequest request) {
         return ApiResponse.<AccountResponse>builder()
                 .result(accountImp.createAccount(request))
                 .build();

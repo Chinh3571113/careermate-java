@@ -5,6 +5,7 @@ import com.fpt.careermate.domain.Account;
 import com.fpt.careermate.domain.Role;
 import com.fpt.careermate.repository.AccountRepo;
 import com.fpt.careermate.repository.RoleRepo;
+import org.springframework.http.HttpMethod;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;

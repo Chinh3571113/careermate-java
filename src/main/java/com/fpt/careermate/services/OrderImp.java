@@ -104,7 +104,7 @@ public class OrderImp implements OrderService {
     
     private Candidate getCurrentCandidate(){
         Account currentAccount = authenticationImp.findByEmail();
-        Optional<Candidate> candidate = candidateRepo.findByAccountId(Integer.valueOf(currentAccount.getId()));
+        Optional<Candidate> candidate = candidateRepo.findByAccount_Id(Integer.valueOf(currentAccount.getId()));
         Candidate currentCandidate = candidate.get();
         return currentCandidate;
     }

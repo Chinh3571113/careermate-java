@@ -26,160 +26,176 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class BlogController {
-    BlogImp blogImp;
+        BlogImp blogImp;
 
-    // ADMIN ONLY - Blog Management Endpoints
+        // ADMIN ONLY - Blog Management Endpoints
 
-    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    ApiResponse<BlogResponse> createBlog(@RequestBody BlogCreationRequest request) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
+        @PostMapping
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<BlogResponse> createBlog(@RequestBody BlogCreationRequest request) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                String email = authentication.getName();
 
-        return ApiResponse.<BlogResponse>builder()
-                .result(blogImp.createBlog(request, email))
-                .build();
-    }
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.createBlog(request, email))
+                                .build();
+        }
 
-    @PutMapping("/{blogId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    ApiResponse<BlogResponse> updateBlog(
-            @PathVariable Long blogId,
-            @RequestBody BlogUpdateRequest request) {
-        return ApiResponse.<BlogResponse>builder()
-                .result(blogImp.updateBlog(blogId, request))
-                .build();
-    }
+        @PutMapping("/{blogId}")
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<BlogResponse> updateBlog(
+                        @PathVariable Long blogId,
+                        @RequestBody BlogUpdateRequest request) {
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.updateBlog(blogId, request))
+                                .build();
+        }
 
-    @DeleteMapping("/{blogId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    ApiResponse<Void> deleteBlog(@PathVariable Long blogId) {
-        blogImp.deleteBlog(blogId);
-        return ApiResponse.<Void>builder()
-                .message("Blog deleted successfully")
-                .build();
-    }
+        @DeleteMapping("/{blogId}")
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<Void> deleteBlog(@PathVariable Long blogId) {
+                blogImp.deleteBlog(blogId);
+                return ApiResponse.<Void>builder()
+                                .message("Blog deleted successfully")
+                                .build();
+        }
 
-    @PutMapping("/{blogId}/publish")
-    @PreAuthorize("hasRole('ADMIN')")
-    ApiResponse<BlogResponse> publishBlog(@PathVariable Long blogId) {
-        return ApiResponse.<BlogResponse>builder()
-                .result(blogImp.publishBlog(blogId))
-                .build();
-    }
+        @PutMapping("/{blogId}/publish")
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<BlogResponse> publishBlog(@PathVariable Long blogId) {
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.publishBlog(blogId))
+                                .build();
+        }
 
-    @PutMapping("/{blogId}/archive")
-    @PreAuthorize("hasRole('ADMIN')")
-    ApiResponse<BlogResponse> archiveBlog(@PathVariable Long blogId) {
-        return ApiResponse.<BlogResponse>builder()
-                .result(blogImp.archiveBlog(blogId))
-                .build();
-    }
+        @PutMapping("/{blogId}/unpublish")
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<BlogResponse> unpublishBlog(@PathVariable Long blogId) {
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.unpublishBlog(blogId))
+                                .build();
+        }
 
-    // PUBLIC - Read-Only Endpoints (No Authentication Required)
+        @PutMapping("/{blogId}/archive")
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<BlogResponse> archiveBlog(@PathVariable Long blogId) {
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.archiveBlog(blogId))
+                                .build();
+        }
 
-    @GetMapping("/{blogId}")
-    ApiResponse<BlogResponse> getBlogById(@PathVariable Long blogId) {
-        blogImp.incrementViewCount(blogId);
-        return ApiResponse.<BlogResponse>builder()
-                .result(blogImp.getBlogById(blogId))
-                .build();
-    }
+        @PutMapping("/{blogId}/unarchive")
+        @PreAuthorize("hasRole('ADMIN')")
+        ApiResponse<BlogResponse> unarchiveBlog(@PathVariable Long blogId) {
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.unarchiveBlog(blogId))
+                                .build();
+        }
 
-    @GetMapping
-    ApiResponse<Page<BlogResponse>> getAllBlogs(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+        // PUBLIC - Read-Only Endpoints (No Authentication Required)
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        @GetMapping("/{blogId}")
+        ApiResponse<BlogResponse> getBlogById(@PathVariable Long blogId) {
+                blogImp.incrementViewCount(blogId);
+                return ApiResponse.<BlogResponse>builder()
+                                .result(blogImp.getBlogById(blogId))
+                                .build();
+        }
 
-        return ApiResponse.<Page<BlogResponse>>builder()
-                .result(blogImp.getAllBlogs(pageable))
-                .build();
-    }
+        @GetMapping
+        ApiResponse<Page<BlogResponse>> getAllBlogs(
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDir) {
 
-    @GetMapping("/status/{status}")
-    ApiResponse<Page<BlogResponse>> getBlogsByStatus(
-            @PathVariable String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+                Sort sort = sortDir.equalsIgnoreCase("ASC")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
+                Pageable pageable = PageRequest.of(page, size, sort);
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+                return ApiResponse.<Page<BlogResponse>>builder()
+                                .result(blogImp.getAllBlogs(pageable))
+                                .build();
+        }
 
-        return ApiResponse.<Page<BlogResponse>>builder()
-                .result(blogImp.getBlogsByStatus(status, pageable))
-                .build();
-    }
+        @GetMapping("/status/{status}")
+        ApiResponse<Page<BlogResponse>> getBlogsByStatus(
+                        @PathVariable String status,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDir) {
 
-    @GetMapping("/category/{category}")
-    ApiResponse<Page<BlogResponse>> getBlogsByCategory(
-            @PathVariable String category,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+                Sort sort = sortDir.equalsIgnoreCase("ASC")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
+                Pageable pageable = PageRequest.of(page, size, sort);
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+                return ApiResponse.<Page<BlogResponse>>builder()
+                                .result(blogImp.getBlogsByStatus(status, pageable))
+                                .build();
+        }
 
-        return ApiResponse.<Page<BlogResponse>>builder()
-                .result(blogImp.getBlogsByCategory(category, pageable))
-                .build();
-    }
+        @GetMapping("/category/{category}")
+        ApiResponse<Page<BlogResponse>> getBlogsByCategory(
+                        @PathVariable String category,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDir) {
 
-    @GetMapping("/author/{authorId}")
-    ApiResponse<Page<BlogResponse>> getBlogsByAuthor(
-            @PathVariable int authorId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+                Sort sort = sortDir.equalsIgnoreCase("ASC")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
+                Pageable pageable = PageRequest.of(page, size, sort);
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+                return ApiResponse.<Page<BlogResponse>>builder()
+                                .result(blogImp.getBlogsByCategory(category, pageable))
+                                .build();
+        }
 
-        return ApiResponse.<Page<BlogResponse>>builder()
-                .result(blogImp.getBlogsByAuthor(authorId, pageable))
-                .build();
-    }
+        @GetMapping("/author/{authorId}")
+        ApiResponse<Page<BlogResponse>> getBlogsByAuthor(
+                        @PathVariable int authorId,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDir) {
 
-    @GetMapping("/search")
-    ApiResponse<Page<BlogResponse>> searchBlogs(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDir) {
+                Sort sort = sortDir.equalsIgnoreCase("ASC")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
+                Pageable pageable = PageRequest.of(page, size, sort);
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+                return ApiResponse.<Page<BlogResponse>>builder()
+                                .result(blogImp.getBlogsByAuthor(authorId, pageable))
+                                .build();
+        }
 
-        return ApiResponse.<Page<BlogResponse>>builder()
-                .result(blogImp.searchBlogs(keyword, status, pageable))
-                .build();
-    }
+        @GetMapping("/search")
+        ApiResponse<Page<BlogResponse>> searchBlogs(
+                        @RequestParam(required = false) String keyword,
+                        @RequestParam(required = false) String status,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDir) {
 
-    @GetMapping("/categories")
-    ApiResponse<List<String>> getAllCategories() {
-        return ApiResponse.<List<String>>builder()
-                .result(blogImp.getAllCategories())
-                .build();
-    }
+                Sort sort = sortDir.equalsIgnoreCase("ASC")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
+                Pageable pageable = PageRequest.of(page, size, sort);
+
+                return ApiResponse.<Page<BlogResponse>>builder()
+                                .result(blogImp.searchBlogs(keyword, status, pageable))
+                                .build();
+        }
+
+        @GetMapping("/categories")
+        ApiResponse<List<String>> getAllCategories() {
+                return ApiResponse.<List<String>>builder()
+                                .result(blogImp.getAllCategories())
+                                .build();
+        }
 }

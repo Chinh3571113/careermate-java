@@ -49,3 +49,10 @@ vnpay:
   pay-url: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
   api-url: "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
   return-url: "http://localhost:8080/api/payment/return"
+
+# Firebase config
+firebase:
+  project-id: careermate-97d8c
+  bucket-name: careermate-97d8c.firebasestorage.app
+  credentials:
+    path: classpath:firebase-service-account.json

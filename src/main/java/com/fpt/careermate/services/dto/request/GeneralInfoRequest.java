@@ -12,6 +12,8 @@ import java.util.List;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class GeneralInfoRequest {
+    String jobLevel;
+    Integer experience;
     List<IndustryExperienceRequest> industryExperiences;
     List<WorkModelRequest> workModels;
 

@@ -1,5 +1,7 @@
 package com.fpt.careermate.services.dto.request;
 
+import com.fpt.careermate.web.validator.CandidateProfile.DobConstraint;
+import com.fpt.careermate.web.validator.CandidateProfile.PhoneConstraint;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import jakarta.validation.constraints.NotNull;
@@ -14,16 +16,18 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CandidateProfileRequest {
     @NotNull(message = "Day of birth is required")
+    @DobConstraint(message = "Date of birth must be in the past and you must be at least 18 years old")
     LocalDate dob;
     @NotNull(message = "title is required")
     String title;
     @NotNull(message = "phone number is required")
+    @PhoneConstraint(message = "Phone number is not valid")
     String phone;
     @NotNull(message = "address is required")
     String address;
     String image;
-    String jobLevel;
-    Integer experience;
+
+    @NotNull(message = "Gender is required")
     String gender;
     String link;
 
