@@ -13,7 +13,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   careermate:
-    image: chinh3571113/careermate:1.0.0
+    image: chinh3571113/careermate:1.0.1
     depends_on:
       - postgres
     env_file:

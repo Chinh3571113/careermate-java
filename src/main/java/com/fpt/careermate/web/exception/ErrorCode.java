@@ -44,6 +44,7 @@ public enum ErrorCode {
     CANDIDATE_PROFILE_INCOMPLETE(6006, "Your profile is incomplete. Please complete your profile before applying", HttpStatus.BAD_REQUEST),
     CANNOT_CLOSE_JOB_POSTING(6007, "Cannot close job posting if status is not OPEN", HttpStatus.FORBIDDEN),
     INVALID_EXPIRATION_DATE(6008, "Expiration date must be in the future", HttpStatus.BAD_REQUEST),
+    DUPLICATE_JOB_POSTING_TITLE(6009, "Job posting title already exists", HttpStatus.BAD_REQUEST),
 
     BLOG_NOT_FOUND(1010, "Blog not found", HttpStatus.NOT_FOUND),
     BLOG_INVALID_STATUS(1011, "Invalid blog status", HttpStatus.BAD_REQUEST),

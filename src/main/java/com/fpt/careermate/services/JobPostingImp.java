@@ -7,6 +7,8 @@ import com.fpt.careermate.domain.Recruiter;
 import com.fpt.careermate.repository.JobPostingRepo;
 import com.fpt.careermate.repository.RecruiterRepo;
 import com.fpt.careermate.services.dto.request.JobPostingCreationRequest;
+import com.fpt.careermate.services.dto.response.JobPostingForAdminResponse;
+import com.fpt.careermate.services.dto.response.JobPostingForRecruiterResponse;
 import com.fpt.careermate.services.dto.response.JobPostingResponse;
 import com.fpt.careermate.services.impl.JobPostingService;
 import com.fpt.careermate.services.mapper.JobPostingMapper;
@@ -34,15 +36,19 @@ public class JobPostingImp implements JobPostingService {
     JobPostingMapper jobPostingMapper;
     AuthenticationImp authenticationImp;
 
-//    @PreAuthorize("hasRole('RECRUITER')")
+    // Recruiter create job posting
+    @PreAuthorize("hasRole('RECRUITER')")
     @Override
     public void createJobPosting(JobPostingCreationRequest request) {
         // Check expiration date
         if (!request.getExpirationDate().isAfter(LocalDate.now())) throw new AppException(ErrorCode.INVALID_EXPIRATION_DATE);
+        // Check duplicate title
+        jobPostingRepo.findByTitle(request.getTitle())
+                .ifPresent(jobPosting -> {
+                    throw new AppException(ErrorCode.DUPLICATE_JOB_POSTING_TITLE);
+                });
 
-        Account currentAccount = authenticationImp.findByEmail();
-        Optional<Recruiter> currentRecruiter = recruiterRepo.findByAccount_Id(currentAccount.getId());
-        Recruiter recruiter = currentRecruiter.get();
+        Recruiter recruiter = getMyRecruiter();
 
         JobPosting jobPosting = jobPostingMapper.toJobPosting(request);
         jobPosting.setCreateAt(LocalDate.now());
@@ -52,11 +58,37 @@ public class JobPostingImp implements JobPostingService {
         jobPostingRepo.save(jobPosting);
     }
 
-//    @PreAuthorize("hasAnyRole('ADMIN','CANDIDATE')")
+    // Get all active job postings of all recruiters
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public List<JobPostingResponse> getAllJobPostings() {
         return jobPostingMapper.
                 toJobPostingResponseList(jobPostingRepo.findAllByStatus(StatusJobPosting.ACTIVE));
+    }
+
+    // Get all job postings of all recruiters with all status
+    @PreAuthorize("hasRole('ADMIN')")
+    @Override
+    public List<JobPostingForAdminResponse> getAllJobPostingsForAdmin() {
+        return jobPostingMapper.
+                toJobPostingForAdminResponseList(jobPostingRepo.findAll());
+    }
+
+    // Get all job postings of the current recruiter with all status
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    public List<JobPostingForRecruiterResponse> getAllJobPostingForRecruiter() {
+        Recruiter recruiter = getMyRecruiter();
+
+        return jobPostingMapper.
+                toJobPostingForRecruiterResponseList(jobPostingRepo.findAllByRecruiter_Id(recruiter.getId()));
+    }
+
+    // Get current recruiter
+    private Recruiter getMyRecruiter(){
+        Account currentAccount = authenticationImp.findByEmail();
+        Optional<Recruiter> currentRecruiter = recruiterRepo.findByAccount_Id(currentAccount.getId());
+        return currentRecruiter.get();
     }
 
 }

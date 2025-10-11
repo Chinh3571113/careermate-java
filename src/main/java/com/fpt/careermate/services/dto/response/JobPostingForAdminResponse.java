@@ -11,11 +11,13 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class JobPostingResponse {
+public class JobPostingForAdminResponse {
 
     int id;
     String title;
     String address;
+    String status;
+    String recruiterName;
     LocalDate expirationDate;
     LocalDate createAt;
 
