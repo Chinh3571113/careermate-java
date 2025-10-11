@@ -18,11 +18,13 @@ public class EducationRequest {
 
     @NotBlank(message = "Major is required")
     String major;
+
     @NotBlank(message = "Degree is required")
     String degree;
-    @NotBlank(message = "Description is required")
+
+    @NotNull(message = "Start date is required")
     LocalDate startDate;
-    @NotBlank(message = "Description is required")
+
+    @NotNull(message = "End date is required")
     LocalDate endDate;
 }
-
