@@ -9,6 +9,7 @@ import com.fpt.careermate.repository.RecruiterRepo;
 import com.fpt.careermate.services.dto.request.JdSkillRequest;
 import com.fpt.careermate.services.dto.request.JobPostingCreationRequest;
 import com.fpt.careermate.services.dto.response.JobPostingForRecruiterResponse;
+import com.fpt.careermate.services.dto.response.JobPostingSkillResponse;
 import com.fpt.careermate.services.impl.JobPostingService;
 import com.fpt.careermate.services.mapper.JobPostingMapper;
 import com.fpt.careermate.web.exception.AppException;
@@ -91,6 +92,39 @@ public class JobPostingImp implements JobPostingService {
 
         return jobPostingMapper.
                 toJobPostingForRecruiterResponseList(jobPostingRepo.findAllByRecruiter_Id(recruiter.getId()));
+    }
+
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    public JobPostingForRecruiterResponse getJobPostingDetailForRecruiter(int id){
+        JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
+        JobPostingForRecruiterResponse jpResponse= jobPostingMapper.toJobPostingDetailForRecruiterResponse(jobPosting);
+
+        Set<JobPostingSkillResponse> jobPostingSkillResponses = jobPostingMapper.toJobPostingSkillResponseSet(jobPosting.getJobDescriptions());
+        jobPostingSkillResponses.forEach(jobPostingSkillResponse -> {
+            jobPosting.getJobDescriptions().forEach(jd -> {
+                jobPostingSkillResponse.setName(jd.getJdSkill().getName());
+            });
+        });
+
+        jpResponse.setSkills(jobPostingSkillResponses);
+
+        return jpResponse;
+    }
+
+    private JobPosting findJobPostingEntityForRecruiterById(int id){
+        Recruiter recruiter = getMyRecruiter();
+
+        // Check job posting exist
+        JobPosting jobPosting = jobPostingRepo.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+
+        // Check job posting belong to current recruiter
+        if(jobPosting.getRecruiter().getId() != recruiter.getId()){
+            throw new AppException(ErrorCode.JOB_POSTING_FORBIDDEN);
+        }
+
+        return jobPosting;
     }
 
     // Get current recruiter

@@ -46,6 +46,7 @@ public enum ErrorCode {
     CANNOT_CLOSE_JOB_POSTING(6007, "Cannot close job posting if status is not OPEN", HttpStatus.FORBIDDEN),
     INVALID_EXPIRATION_DATE(6008, "Expiration date must be in the future", HttpStatus.BAD_REQUEST),
     DUPLICATE_JOB_POSTING_TITLE(6009, "Job posting title already exists", HttpStatus.BAD_REQUEST),
+    JOB_POSTING_FORBIDDEN(6010, "You are not allowed to access this job posting", HttpStatus.FORBIDDEN),
 
     BLOG_NOT_FOUND(1010, "Blog not found", HttpStatus.NOT_FOUND),
     BLOG_INVALID_STATUS(1011, "Invalid blog status", HttpStatus.BAD_REQUEST),

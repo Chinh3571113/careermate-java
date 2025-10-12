@@ -7,6 +7,7 @@ import com.fpt.careermate.services.dto.response.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -42,6 +43,16 @@ public class JobPostingController {
     ApiResponse<List<JobPostingForRecruiterResponse>> getJobPostingListForRecruiter() {
         return ApiResponse.<List<JobPostingForRecruiterResponse>>builder()
                 .result(jobPostingImp.getAllJobPostingForRecruiter())
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @GetMapping("/recruiter/{id}")
+    @Operation(summary = "Recruiter can get job postings detail of the current recruiter with all status")
+    ApiResponse<JobPostingForRecruiterResponse> getJobPostingDetailForRecruiter(@NotNull @PathVariable int id) {
+        return ApiResponse.<JobPostingForRecruiterResponse>builder()
+                .result(jobPostingImp.getJobPostingDetailForRecruiter(id))
                 .code(200)
                 .message("success")
                 .build();

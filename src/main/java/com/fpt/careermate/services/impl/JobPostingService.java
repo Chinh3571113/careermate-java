@@ -9,4 +9,5 @@ import java.util.List;
 public interface JobPostingService {
     void createJobPosting(JobPostingCreationRequest request);
     List<JobPostingForRecruiterResponse> getAllJobPostingForRecruiter();
+    JobPostingForRecruiterResponse getJobPostingDetailForRecruiter(int id);
 }
