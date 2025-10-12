@@ -37,26 +37,6 @@ public class JobPostingController {
                 .build();
     }
 
-    @GetMapping("/candidate")
-    @Operation(summary = "Candidate can view all active job postings of all recruiters")
-    ApiResponse<List<JobPostingResponse>> getJobPostingList() {
-        return ApiResponse.<List<JobPostingResponse>>builder()
-                .result(jobPostingImp.getAllJobPostings())
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @GetMapping("/admin")
-    @Operation(summary = "Admin can manage all job postings of all recruiters with all status")
-    ApiResponse<List<JobPostingForAdminResponse>> getJobPostingListForAdmin() {
-        return ApiResponse.<List<JobPostingForAdminResponse>>builder()
-                .result(jobPostingImp.getAllJobPostingsForAdmin())
-                .code(200)
-                .message("success")
-                .build();
-    }
-
     @GetMapping("/recruiter")
     @Operation(summary = "Recruiter can manage all job postings of the current recruiter with all status")
     ApiResponse<List<JobPostingForRecruiterResponse>> getJobPostingListForRecruiter() {

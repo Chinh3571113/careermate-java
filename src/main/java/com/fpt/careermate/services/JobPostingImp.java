@@ -8,9 +8,7 @@ import com.fpt.careermate.repository.JobPostingRepo;
 import com.fpt.careermate.repository.RecruiterRepo;
 import com.fpt.careermate.services.dto.request.JdSkillRequest;
 import com.fpt.careermate.services.dto.request.JobPostingCreationRequest;
-import com.fpt.careermate.services.dto.response.JobPostingForAdminResponse;
 import com.fpt.careermate.services.dto.response.JobPostingForRecruiterResponse;
-import com.fpt.careermate.services.dto.response.JobPostingResponse;
 import com.fpt.careermate.services.impl.JobPostingService;
 import com.fpt.careermate.services.mapper.JobPostingMapper;
 import com.fpt.careermate.web.exception.AppException;
@@ -83,22 +81,6 @@ public class JobPostingImp implements JobPostingService {
         jobPosting.setJobDescriptions(jobDescriptions);
 
         jobPostingRepo.save(jobPosting);
-    }
-
-    // Get all active job postings of all recruiters
-    @PreAuthorize("hasRole('CANDIDATE')")
-    @Override
-    public List<JobPostingResponse> getAllJobPostings() {
-        return jobPostingMapper.
-                toJobPostingResponseList(jobPostingRepo.findAllByStatus(StatusJobPosting.ACTIVE));
-    }
-
-    // Get all job postings of all recruiters with all status
-    @PreAuthorize("hasRole('ADMIN')")
-    @Override
-    public List<JobPostingForAdminResponse> getAllJobPostingsForAdmin() {
-        return jobPostingMapper.
-                toJobPostingForAdminResponseList(jobPostingRepo.findAll());
     }
 
     // Get all job postings of the current recruiter with all status
