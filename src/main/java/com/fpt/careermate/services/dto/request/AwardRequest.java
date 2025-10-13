@@ -18,9 +18,7 @@ public class AwardRequest {
 
     @NotBlank(message = "Organization is required")
     String organization;
-    @NotBlank(message = "Date is required")
+    @NotNull(message = "Date is required")
     LocalDate getDate;
-    @NotBlank(message = "Description is required")
     String description;
 }
-

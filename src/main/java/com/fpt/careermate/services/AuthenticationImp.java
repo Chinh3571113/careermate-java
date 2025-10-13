@@ -119,16 +119,35 @@ public class AuthenticationImp implements AuthenticationService {
     public void logout(LogoutRequest request) throws ParseException, JOSEException {
         int invalidatedCount = 0;
 
-        // Invalidate the provided token
+        // 🧩 1. Invalidate refresh token (if exists)
         if (request.getToken() != null && !request.getToken().trim().isEmpty()) {
             try {
                 var signToken = verifyToken(request.getToken());
                 invalidateToken(signToken);
                 invalidatedCount++;
-                log.info("Token invalidated successfully");
+                log.info("Refresh token invalidated successfully");
             } catch (AppException e) {
-                log.info("Token already expired or invalid");
+                log.info("Refresh token already expired or invalid");
             }
+        }
+
+        // 🧩 2. (Optional) Invalidate access token from SecurityContext
+        try {
+            var context = SecurityContextHolder.getContext();
+            var auth = context.getAuthentication();
+            if (auth != null && auth.getCredentials() != null) {
+                String accessToken = auth.getCredentials().toString();
+                try {
+                    var signToken = verifyToken(accessToken);
+                    invalidateToken(signToken);
+                    invalidatedCount++;
+                    log.info("Access token invalidated successfully");
+                } catch (AppException e) {
+                    log.info("Access token already expired or invalid");
+                }
+            }
+        } catch (Exception e) {
+            log.debug("No active access token in context");
         }
 
         log.info("Logout completed. {} token(s) invalidated", invalidatedCount);
@@ -149,20 +168,27 @@ public class AuthenticationImp implements AuthenticationService {
     @Override
     public AuthenticationResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException {
         var signedJWT = verifyToken(request.getToken());
-
-        var jit = signedJWT.getJWTClaimsSet().getJWTID();
+        var jti = signedJWT.getJWTClaimsSet().getJWTID();
         var expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
 
-        InvalidToken invalidatedToken = InvalidToken.builder().id(jit).expiryTime(expiryTime).build();
+        // Check if RT already used (token reuse detection)
+        if (invalidatedTokenRepository.existsById(jti)) {
+            throw new AppException(ErrorCode.TOKEN_REUSE_DETECTED);
+        }
 
+        // Invalidate old RT
+        InvalidToken invalidatedToken = InvalidToken.builder()
+                .id(jti)
+                .expiryTime(expiryTime)
+                .build();
         invalidatedTokenRepository.save(invalidatedToken);
 
+        // Generate new tokens
         var username = signedJWT.getJWTClaimsSet().getSubject();
-
         var user = accountRepo.findByEmail(username)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
 
-        String newAccessToken = request.getToken();
+        String newAccessToken = generateToken(user, false);
         String newRefreshToken = generateToken(user, true);
 
         return AuthenticationResponse.builder()

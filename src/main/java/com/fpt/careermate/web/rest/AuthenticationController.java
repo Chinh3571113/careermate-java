@@ -54,7 +54,7 @@ public class AuthenticationController {
     }
 
     @Operation(summary = "Introspect Token", description = "Check the validity of an access token.")
-    @PostMapping("/introspect")
+    @PutMapping("/introspect")
     ApiResponse<IntrospectResponse> introspect(@RequestBody @Valid IntrospectRequest request)
             throws ParseException, JOSEException {
         var result = authenticationServiceImp.introspect(request);
@@ -62,7 +62,7 @@ public class AuthenticationController {
     }
 
     @Operation(summary = "Refresh Token", description = "Refresh access token using refresh token from cookie.")
-    @PostMapping("/refresh")
+    @PutMapping("/refresh")
     ApiResponse<AuthenticationResponse> refreshToken(
             HttpServletRequest request,
             HttpServletResponse response)

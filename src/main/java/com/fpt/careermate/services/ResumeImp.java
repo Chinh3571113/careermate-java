@@ -26,11 +26,26 @@ public class ResumeImp implements ResumeService {
     ResumeRepo resumeRepo;
     CandidateRepo candidateRepo;
     ResumeMapper resumeMapper;
+    CandidateProfileImp candidateProfileImp;
     AuthenticationImp authenticationService;
 
     @Override
+    @Transactional
     public ResumeResponse createResume(ResumeRequest resumeRequest) {
-        return null;
+        Candidate candidate = candidateProfileImp.generateProfile();
+
+        // Check if resume already exists for this candidate
+        if (resumeRepo.findByCandidateCandidateId(candidate.getCandidateId()).isPresent()) {
+            throw new AppException(ErrorCode.RESUME_ALREADY_EXISTS);
+        }
+
+        // Create new resume
+        Resume newResume = new Resume();
+        newResume.setCandidate(candidate);
+        newResume.setAboutMe(resumeRequest.getAboutMe());
+
+        Resume savedResume = resumeRepo.save(newResume);
+        return resumeMapper.toResumeResponse(savedResume);
     }
 
     @Override
@@ -59,9 +74,20 @@ public class ResumeImp implements ResumeService {
     @Transactional
     @Override
     public ResumeResponse updateResume(ResumeRequest resumeRequest) {
+        Resume resume = generateResume();
+        resume.setAboutMe(resumeRequest.getAboutMe());
+        return resumeMapper.toResumeResponse(resume);
+    }
 
-
-        return null;
+    public Resume generateResume(){
+        return resumeRepo.findByCandidateCandidateId(candidateProfileImp.generateProfile().getCandidateId()).orElseGet(
+                () -> {
+                    Resume newResume = new Resume();
+                    newResume.setCandidate(candidateProfileImp.generateProfile());
+                    resumeRepo.save(newResume);
+                    return newResume;
+                }
+        );
     }
 
 

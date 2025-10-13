@@ -17,11 +17,8 @@ public class CertificateRequest {
     String name;
     @NotBlank(message = "Organization is required")
     String organization;
-    @NotBlank(message = "Date is required")
+    @NotNull(message = "Date is required")
     LocalDate getDate;
-    @NotNull(message = "Description is required")
     String certificateUrl;
-    @NotNull(message = "Description is required")
     String description;
 }
-

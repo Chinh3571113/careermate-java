@@ -15,3 +15,4 @@ public class RefreshRequest {
     @NotNull(message = "Token cannot be null")
     String token;
 }
+

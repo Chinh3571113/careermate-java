@@ -76,63 +76,105 @@ public class CandidateProfileImp implements CandidateProfileService {
     @PreAuthorize("hasRole('CANDIDATE')")
     @Transactional
     @Override
-    public GeneralInfoResponse saveOrUpdateCandidateGeneralInfo(GeneralInfoRequest request) {
+    public GeneralInfoResponse saveCandidateGeneralInfo(GeneralInfoRequest request) {
         Candidate candidate = generateProfile();
 
-        // Clear existing collections (orphanRemoval will delete old records)
-        if (candidate.getIndustryExperiences() != null) {
-            candidate.getIndustryExperiences().clear();
-        } else {
-            candidate.setIndustryExperiences(new java.util.ArrayList<>());
-        }
+        // Update basic fields
+        candidate.setJobLevel(request.getJobLevel());
+        candidate.setExperience(request.getExperience());
 
-        if (candidate.getWorkModels() != null) {
-            candidate.getWorkModels().clear();
-        } else {
-            candidate.setWorkModels(new java.util.ArrayList<>());
-        }
-
-        // Create new industry experiences from request
-        if (request.getIndustryExperiences() != null && !request.getIndustryExperiences().isEmpty()) {
-            for (GeneralInfoRequest.IndustryExperienceRequest fieldName : request.getIndustryExperiences()) {
-                IndustryExperiences exp = IndustryExperiences.builder()
-                        .fieldName(fieldName.getFieldName())
-                        .candidateId(candidate.getCandidateId())
-                        .candidate(candidate)
-                        .build();
-                candidate.getIndustryExperiences().add(exp);
-            }
-        }
-
-        // Create new work models from request
-        if (request.getWorkModels() != null && !request.getWorkModels().isEmpty()) {
-            for (GeneralInfoRequest.WorkModelRequest rq : request.getWorkModels()) {
-                WorkModel wm = WorkModel.builder()
-                        .name(rq.getName())
-                        .candidateId(candidate.getCandidateId())
-                        .candidate(candidate)
-                        .build();
-                candidate.getWorkModels().add(wm);
-            }
-        }
-
+        // Save candidate first to get the ID
         Candidate savedCandidate = candidateRepo.save(candidate);
+
+        // Handle Industry Experiences
+        if (request.getIndustryExperiences() != null) {
+            for (GeneralInfoRequest.IndustryExperienceRequest ieRequest : request.getIndustryExperiences()) {
+                IndustryExperiences industryExp = IndustryExperiences.builder()
+                        .fieldName(ieRequest.getFieldName())
+                        .candidateId(savedCandidate.getCandidateId())
+                        .candidate(savedCandidate)
+                        .build();
+                industryExperienceRepo.save(industryExp);
+            }
+        }
+
+        // Handle Work Models
+        if (request.getWorkModels() != null) {
+            for (GeneralInfoRequest.WorkModelRequest wmRequest : request.getWorkModels()) {
+                WorkModel workModel = WorkModel.builder()
+                        .name(wmRequest.getName())
+                        .candidateId(savedCandidate.getCandidateId())
+                        .candidate(savedCandidate)
+                        .build();
+                workModelRepo.save(workModel);
+            }
+        }
+
         return candidateMapper.toGeneralInfoResponse(savedCandidate);
     }
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public CandidateProfileResponse getCandidateProfileById() {
-        return null;
+        return candidateMapper.toCandidateProfileResponse(generateProfile());
     }
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public GeneralInfoResponse getCandidateGeneralInfoById() {
-        return null;
+        return candidateMapper.toGeneralInfoResponse(generateProfile());
     }
 
-    private Candidate generateProfile() {
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Transactional
+    @Override
+    public GeneralInfoResponse updateCandidateGeneralInfo(GeneralInfoRequest request) {
+        Candidate candidate = generateProfile();
+
+        // Update basic fields
+        candidate.setJobLevel(request.getJobLevel());
+        candidate.setExperience(request.getExperience());
+
+        Candidate updatedCandidate = candidateRepo.save(candidate);
+        Integer candidateId = updatedCandidate.getCandidateId();
+
+        // Update Industry Experiences - delete old and insert new
+        if (request.getIndustryExperiences() != null) {
+            // Delete existing industry experiences for this candidate
+            industryExperienceRepo.deleteByCandidateId(candidateId);
+
+            // Add new industry experiences
+            for (GeneralInfoRequest.IndustryExperienceRequest ieRequest : request.getIndustryExperiences()) {
+                IndustryExperiences industryExp = IndustryExperiences.builder()
+                        .fieldName(ieRequest.getFieldName())
+                        .candidateId(candidateId)
+                        .candidate(updatedCandidate)
+                        .build();
+                industryExperienceRepo.save(industryExp);
+            }
+        }
+
+        // Update Work Models - delete old and insert new
+        if (request.getWorkModels() != null) {
+            // Delete existing work models for this candidate
+            workModelRepo.deleteByCandidateId(candidateId);
+
+            // Add new work models
+            for (GeneralInfoRequest.WorkModelRequest wmRequest : request.getWorkModels()) {
+                WorkModel workModel = WorkModel.builder()
+                        .name(wmRequest.getName())
+                        .candidateId(candidateId)
+                        .candidate(updatedCandidate)
+                        .build();
+                workModelRepo.save(workModel);
+            }
+        }
+
+        return candidateMapper.toGeneralInfoResponse(updatedCandidate);
+    }
+
+
+    public Candidate generateProfile() {
         Account account = authenticationService.findByEmail();
         return candidateRepo.findByAccount_Id(account.getId())
                 .orElseGet(() -> {
