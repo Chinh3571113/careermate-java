@@ -7,6 +7,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/comments")
+@Tag(name = "Admin Comment", description = "Endpoints for managing blog comments as an admin")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
@@ -24,6 +27,7 @@ public class AdminCommentController {
 
         @GetMapping
         @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Get All Comments", description = "Retrieve all comments with pagination, sorting, and optional filtering by blog ID or user email")
         public ApiResponse<Page<BlogCommentResponse>> getAllComments(
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
@@ -45,6 +49,7 @@ public class AdminCommentController {
 
         @GetMapping("/{commentId}")
         @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Get Comment by ID", description = "Retrieve a specific comment by its ID")
         public ApiResponse<BlogCommentResponse> getCommentById(@PathVariable Long commentId) {
                 log.info("Admin request to get comment by ID: {}", commentId);
                 return ApiResponse.<BlogCommentResponse>builder()
@@ -54,6 +59,7 @@ public class AdminCommentController {
 
         @DeleteMapping("/{commentId}")
         @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Delete Comment by ID", description = "Delete a specific comment by its ID")
         public ApiResponse<Void> deleteCommentAsAdmin(@PathVariable Long commentId) {
                 log.info("Admin request to delete comment ID: {}", commentId);
                 blogCommentImp.deleteCommentAsAdmin(commentId);
@@ -64,6 +70,7 @@ public class AdminCommentController {
 
         @PostMapping("/{commentId}/hide")
         @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Hide Comment", description = "Hide a specific comment by its ID")
         public ApiResponse<BlogCommentResponse> hideComment(@PathVariable Long commentId) {
                 log.info("Admin request to hide comment ID: {}", commentId);
                 return ApiResponse.<BlogCommentResponse>builder()
@@ -74,6 +81,7 @@ public class AdminCommentController {
 
         @PostMapping("/{commentId}/show")
         @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Show Comment", description = "Show a specific comment by its ID")
         public ApiResponse<BlogCommentResponse> showComment(@PathVariable Long commentId) {
                 log.info("Admin request to show comment ID: {}", commentId);
                 return ApiResponse.<BlogCommentResponse>builder()
@@ -84,6 +92,7 @@ public class AdminCommentController {
 
         @GetMapping("/statistics")
         @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Get Comment Statistics", description = "Retrieve statistics about comments")
         public ApiResponse<Object> getCommentStatistics() {
                 log.info("Admin request to get comment statistics");
                 return ApiResponse.builder()

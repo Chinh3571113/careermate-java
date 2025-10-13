@@ -6,6 +6,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,6 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "File Management", description = "Endpoints for managing file uploads and deletions")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
@@ -26,6 +29,7 @@ public class FileController {
 
     // ADMIN ONLY - Image Upload to Firebase Storage
     @PostMapping("/upload/image")
+    @Operation(summary = "Upload Image", description = "Upload an image file to Firebase Storage")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Map<String, Object>> uploadImage(@RequestParam("image") MultipartFile file) {
         log.info("Uploading image to Firebase Storage: {}", file.getOriginalFilename());
@@ -69,6 +73,7 @@ public class FileController {
     }
 
     @DeleteMapping("/images/{publicId:.+}")
+    @Operation(summary = "Delete Image", description = "Delete an image from Firebase Storage using its public ID")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<String> deleteImage(@PathVariable String publicId) {
         try {
@@ -104,6 +109,7 @@ public class FileController {
 
     // Alternative delete endpoint using request body instead of path variable
     @DeleteMapping("/images")
+    @Operation(summary = "Delete Image by Body", description = "Delete an image from Firebase Storage using its public ID in the request body")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<String> deleteImageByBody(@RequestBody Map<String, String> request) {
         try {
