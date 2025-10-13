@@ -62,12 +62,12 @@ public class JobPostingImp implements JobPostingService {
         jobPostingRepo.save(jobPosting);
 
         Set<JobDescription> jobDescriptions = new HashSet<>();
-        for(JdSkillRequest skillReq : request.getJdSkills()) {
-//            a) find jdSkill by id
+        for (JdSkillRequest skillReq : request.getJdSkills()) {
+            // a) find jdSkill by id
             Optional<JdSkill> exstingJdSkill = jdSkillRepo.findById(skillReq.getId());
             JdSkill jdSkill = exstingJdSkill.get();
 
-//            b) Create JobDescription link
+            // b) Create JobDescription link
             JobDescription jd = new JobDescription();
             jd.setJobPosting(jobPosting);
             jd.setJdSkill(jdSkill);
@@ -76,7 +76,7 @@ public class JobPostingImp implements JobPostingService {
             jobDescriptions.add(jd);
         }
 
-//        Save all JobDescription
+        // Save all JobDescription
         jobDescriptionRepo.saveAll(jobDescriptions);
 
         jobPosting.setJobDescriptions(jobDescriptions);
@@ -90,17 +90,18 @@ public class JobPostingImp implements JobPostingService {
     public List<JobPostingForRecruiterResponse> getAllJobPostingForRecruiter() {
         Recruiter recruiter = getMyRecruiter();
 
-        return jobPostingMapper.
-                toJobPostingForRecruiterResponseList(jobPostingRepo.findAllByRecruiter_Id(recruiter.getId()));
+        return jobPostingMapper
+                .toJobPostingForRecruiterResponseList(jobPostingRepo.findAllByRecruiter_Id(recruiter.getId()));
     }
 
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
-    public JobPostingForRecruiterResponse getJobPostingDetailForRecruiter(int id){
+    public JobPostingForRecruiterResponse getJobPostingDetailForRecruiter(int id) {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
-        JobPostingForRecruiterResponse jpResponse= jobPostingMapper.toJobPostingDetailForRecruiterResponse(jobPosting);
+        JobPostingForRecruiterResponse jpResponse = jobPostingMapper.toJobPostingDetailForRecruiterResponse(jobPosting);
 
-        Set<JobPostingSkillResponse> jobPostingSkillResponses = jobPostingMapper.toJobPostingSkillResponseSet(jobPosting.getJobDescriptions());
+        Set<JobPostingSkillResponse> jobPostingSkillResponses = jobPostingMapper
+                .toJobPostingSkillResponseSet(jobPosting.getJobDescriptions());
         jobPostingSkillResponses.forEach(jobPostingSkillResponse -> {
             jobPosting.getJobDescriptions().forEach(jd -> {
                 jobPostingSkillResponse.setName(jd.getJdSkill().getName());
@@ -119,15 +120,16 @@ public class JobPostingImp implements JobPostingService {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
 
         // Check job posting status
-        if(Set.of(
+        if (Set.of(
                 StatusJobPosting.DELETED,
                 StatusJobPosting.ACTIVE,
                 StatusJobPosting.PAUSED,
-                StatusJobPosting.EXPIRED
-        ).contains(jobPosting.getStatus())) throw new AppException(ErrorCode.CANNOT_MODIFY_JOB_POSTING);
+                StatusJobPosting.EXPIRED).contains(jobPosting.getStatus()))
+            throw new AppException(ErrorCode.CANNOT_MODIFY_JOB_POSTING);
 
         // Validate request
-        jobPostingValidator.checkDuplicateJobPostingTitleAndNotCurrentRecruiter(request.getTitle(), jobPosting.getRecruiter().getId());
+        jobPostingValidator.checkDuplicateJobPostingTitleAndNotCurrentRecruiter(request.getTitle(),
+                jobPosting.getRecruiter().getId());
         jobPostingValidator.validateExpirationDate(request.getExpirationDate());
         // Validate JdSkill exist
         jobPostingValidator.validateJdSkill(request.getJdSkills());
@@ -167,11 +169,11 @@ public class JobPostingImp implements JobPostingService {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
 
         // Check job posting status
-        if(Set.of(
+        if (Set.of(
                 StatusJobPosting.DELETED,
                 StatusJobPosting.ACTIVE,
-                StatusJobPosting.PAUSED
-        ).contains(jobPosting.getStatus())) throw new AppException(ErrorCode.CANNOT_DELETE_JOB_POSTING);
+                StatusJobPosting.PAUSED).contains(jobPosting.getStatus()))
+            throw new AppException(ErrorCode.CANNOT_DELETE_JOB_POSTING);
 
         jobPosting.setStatus(StatusJobPosting.DELETED);
         jobPostingRepo.save(jobPosting);
@@ -184,13 +186,14 @@ public class JobPostingImp implements JobPostingService {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
 
         // Check job posting status
-        if(!jobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) throw new AppException(ErrorCode.CANNOT_PAUSE_JOB_POSTING);
+        if (!jobPosting.getStatus().equals(StatusJobPosting.ACTIVE))
+            throw new AppException(ErrorCode.CANNOT_PAUSE_JOB_POSTING);
 
         jobPosting.setStatus(StatusJobPosting.PAUSED);
         jobPostingRepo.save(jobPosting);
     }
 
-    private JobPosting findJobPostingEntityForRecruiterById(int id){
+    private JobPosting findJobPostingEntityForRecruiterById(int id) {
         Recruiter recruiter = getMyRecruiter();
 
         // Check job posting exist
@@ -198,7 +201,7 @@ public class JobPostingImp implements JobPostingService {
                 .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
 
         // Check job posting belong to current recruiter
-        if(jobPosting.getRecruiter().getId() != recruiter.getId()){
+        if (jobPosting.getRecruiter().getId() != recruiter.getId()) {
             throw new AppException(ErrorCode.JOB_POSTING_FORBIDDEN);
         }
 
@@ -206,13 +209,14 @@ public class JobPostingImp implements JobPostingService {
     }
 
     // Get current recruiter
-    private Recruiter getMyRecruiter(){
+    private Recruiter getMyRecruiter() {
         Account currentAccount = authenticationImp.findByEmail();
         Optional<Recruiter> currentRecruiter = recruiterRepo.findByAccount_Id(currentAccount.getId());
         return currentRecruiter.get();
     }
 
-    // Scheduler to update job posting status to EXPIRED if expiration date is before today and status is not EXPIRED or DELETED
+    // Scheduler to update job posting status to EXPIRED if expiration date is
+    // before today and status is not EXPIRED or DELETED
     @Scheduled(cron = "0 0 3 * * *")
     @Transactional
     public void updateExpiredJobPostings() {
@@ -220,7 +224,8 @@ public class JobPostingImp implements JobPostingService {
 
         // Get all job postings that need to be expired
         List<JobPosting> expiredJobs = jobPostingRepo
-                .findByExpirationDateBeforeAndStatusNotIn(today, List.of(StatusJobPosting.EXPIRED, StatusJobPosting.DELETED));
+                .findByExpirationDateBeforeAndStatusNotIn(today,
+                        List.of(StatusJobPosting.EXPIRED, StatusJobPosting.DELETED));
 
         if (expiredJobs.isEmpty()) {
             log.info("No job postings to expire today.");
@@ -236,5 +241,143 @@ public class JobPostingImp implements JobPostingService {
         log.info("Updated {} job postings to EXPIRED status.", expiredJobs.size());
     }
 
+    // ========== ADMIN METHODS ==========
+
+    // Admin get all job postings with pagination and filtering
+    @PreAuthorize("hasRole('ADMIN')")
+    @Override
+    public org.springframework.data.domain.Page<com.fpt.careermate.services.dto.response.JobPostingForAdminResponse> getAllJobPostingsForAdmin(
+            int page, int size, String status, String sortBy, String sortDirection) {
+
+        log.info("Admin fetching job postings - Page: {}, Size: {}, Status: {}", page, size, status);
+
+        org.springframework.data.domain.Sort sort = sortDirection.equalsIgnoreCase("ASC")
+                ? org.springframework.data.domain.Sort.by(sortBy).ascending()
+                : org.springframework.data.domain.Sort.by(sortBy).descending();
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size,
+                sort);
+
+        org.springframework.data.domain.Page<JobPosting> jobPostings;
+
+        if (status == null || status.trim().isEmpty() || status.equalsIgnoreCase("ALL")) {
+            jobPostings = jobPostingRepo.findAll(pageable);
+        } else {
+            jobPostings = jobPostingRepo.findAllByStatusOrderByCreateAtDesc(status.toUpperCase(), pageable);
+        }
+
+        return jobPostings.map(this::convertToAdminResponse);
+    }
+
+    // Admin get specific job posting detail
+    @PreAuthorize("hasRole('ADMIN')")
+    @Override
+    public com.fpt.careermate.services.dto.response.JobPostingForAdminResponse getJobPostingDetailForAdmin(int id) {
+        log.info("Admin fetching job posting detail for ID: {}", id);
+
+        JobPosting jobPosting = jobPostingRepo.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+
+        return convertToAdminResponse(jobPosting);
+    }
+
+    // Admin approve or reject job posting
+    @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
+    @Override
+    public void approveOrRejectJobPosting(int id,
+            com.fpt.careermate.services.dto.request.JobPostingApprovalRequest request) {
+        log.info("Admin processing approval/rejection for job posting ID: {}", id);
+
+        // Get job posting
+        JobPosting jobPosting = jobPostingRepo.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+
+        // Only PENDING job postings can be approved/rejected
+        if (!jobPosting.getStatus().equals(StatusJobPosting.PENDING)) {
+            throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+
+        // Get current admin account
+        Account admin = authenticationImp.findByEmail();
+
+        String newStatus = request.getStatus().toUpperCase();
+
+        if (newStatus.equals("APPROVED")) {
+            // Approve: Set status to ACTIVE
+            jobPosting.setStatus(StatusJobPosting.ACTIVE);
+            jobPosting.setApprovedBy(admin);
+            jobPosting.setRejectionReason(null); // Clear any previous rejection reason
+            log.info("Job posting ID: {} APPROVED by admin: {}", id, admin.getEmail());
+
+        } else if (newStatus.equals("REJECTED")) {
+            // Reject: Require rejection reason
+            if (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty()) {
+                throw new AppException(ErrorCode.REJECTION_REASON_REQUIRED);
+            }
+            jobPosting.setStatus(StatusJobPosting.REJECTED);
+            jobPosting.setRejectionReason(request.getRejectionReason());
+            jobPosting.setApprovedBy(admin);
+            log.info("Job posting ID: {} REJECTED by admin: {}", id, admin.getEmail());
+
+        } else {
+            throw new AppException(ErrorCode.INVALID_APPROVAL_STATUS);
+        }
+
+        jobPostingRepo.save(jobPosting);
+    }
+
+    // Admin get all pending job postings (for quick review)
+    @PreAuthorize("hasRole('ADMIN')")
+    @Override
+    public List<com.fpt.careermate.services.dto.response.JobPostingForAdminResponse> getPendingJobPostings() {
+        log.info("Admin fetching all pending job postings");
+
+        List<JobPosting> pendingJobs = jobPostingRepo.findAllByStatus(StatusJobPosting.PENDING);
+
+        return pendingJobs.stream()
+                .map(this::convertToAdminResponse)
+                .toList();
+    }
+
+    // Helper method to convert JobPosting to Admin Response
+    private com.fpt.careermate.services.dto.response.JobPostingForAdminResponse convertToAdminResponse(
+            JobPosting jobPosting) {
+        // Get skills
+        List<JobDescription> descriptions = jobDescriptionRepo.findByJobPosting_Id(jobPosting.getId());
+        Set<JobPostingSkillResponse> skills = new HashSet<>();
+
+        for (JobDescription desc : descriptions) {
+            skills.add(JobPostingSkillResponse.builder()
+                    .id(desc.getJdSkill().getId())
+                    .name(desc.getJdSkill().getName())
+                    .mustToHave(desc.isMustToHave())
+                    .build());
+        }
+
+        // Build recruiter info
+        Recruiter recruiter = jobPosting.getRecruiter();
+        com.fpt.careermate.services.dto.response.RecruiterBasicInfoResponse recruiterInfo = com.fpt.careermate.services.dto.response.RecruiterBasicInfoResponse
+                .builder()
+                .id(recruiter.getId())
+                .companyName(recruiter.getCompanyName())
+                .email(recruiter.getAccount().getEmail())
+                .phoneNumber("Contact via email") // Phone not available in current schema
+                .build();
+
+        return com.fpt.careermate.services.dto.response.JobPostingForAdminResponse.builder()
+                .id(jobPosting.getId())
+                .title(jobPosting.getTitle())
+                .description(jobPosting.getDescription())
+                .address(jobPosting.getAddress())
+                .status(jobPosting.getStatus())
+                .expirationDate(jobPosting.getExpirationDate())
+                .createAt(jobPosting.getCreateAt())
+                .rejectionReason(jobPosting.getRejectionReason())
+                .recruiter(recruiterInfo)
+                .approvedByEmail(jobPosting.getApprovedBy() != null ? jobPosting.getApprovedBy().getEmail() : null)
+                .skills(skills)
+                .build();
+    }
 
 }

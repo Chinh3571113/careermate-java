@@ -32,6 +32,15 @@ public class JobPosting {
     @Column(nullable = false)
     String address;
 
+    /**
+     * Job posting status:
+     * PENDING - waiting for admin review
+     * APPROVED - approved by admin
+     * REJECTED - rejected by admin
+     * ACTIVE - visible to candidates
+     * PAUSED - temporarily hidden
+     * EXPIRED - past expiration date
+     */
     @Column(nullable = false)
     String status;
 
@@ -40,6 +49,13 @@ public class JobPosting {
 
     @Column(nullable = false)
     LocalDate createAt;
+
+    @Column(columnDefinition = "TEXT")
+    String rejectionReason;
+
+    @ManyToOne
+    @JoinColumn(name = "approved_by")
+    Account approvedBy;
 
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL)
     Set<JobDescription> jobDescriptions;
