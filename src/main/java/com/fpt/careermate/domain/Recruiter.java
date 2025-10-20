@@ -3,7 +3,6 @@ package com.fpt.careermate.domain;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -40,8 +39,24 @@ public class Recruiter {
 
     @Min(0)
     @Max(5)
-    @Column(nullable = false)
+    @Column(columnDefinition = "FLOAT DEFAULT 0.0")
     Float rating;
+
+    @Size(max = 100)
+    @Column(name = "business_license")
+    String businessLicense;
+
+    @Size(max = 100)
+    @Column(name = "contact_person")
+    String contactPerson;
+
+    @Size(max = 20)
+    @Column(name = "phone_number")
+    String phoneNumber;
+
+    @Size(max = 500)
+    @Column(name = "company_address")
+    String companyAddress;
 
     // One-to-one với Account
     @OneToOne
