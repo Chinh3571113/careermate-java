@@ -6,6 +6,7 @@ import com.fpt.careermate.domain.Module;
 import com.fpt.careermate.repository.CandidateRepo;
 import com.fpt.careermate.repository.CourseRepo;
 import com.fpt.careermate.repository.LessonRepo;
+import com.fpt.careermate.services.dto.response.CourseListResponse;
 import com.fpt.careermate.services.dto.response.CourseResponse;
 import com.fpt.careermate.services.impl.CoachService;
 import com.fpt.careermate.services.mapper.CoachMapper;
@@ -18,11 +19,13 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.http.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 
@@ -114,6 +117,44 @@ public class CoachImp implements CoachService {
         }
 
         return lessonRepo.save(lesson).getContent();
+    }
+
+    // Get my courses
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Override
+    public List<CourseListResponse> getMyCourses() {
+        Candidate candidate = getCurrentCandidate();
+        Optional<List<Course>> exstingCourses =
+                courseRepo.findByCandidate_CandidateId(candidate.getCandidateId());
+        List<Course> courses = exstingCourses.get();
+
+        // Map to response
+        List<CourseListResponse> responses = new ArrayList<>();
+        courses.forEach(exstingCourse -> {
+            CourseListResponse response = new CourseListResponse();
+            response.setTitle(exstingCourse.getTitle());
+            response.setId(exstingCourse.getId());
+            response.setModuleCount(exstingCourse.getModules().size());
+            // Count total lessons
+            int totalLessons = exstingCourse.getModules()
+                    .stream()
+                    .mapToInt(m -> m.getLessons().size())
+                    .sum();
+            response.setLessonCount(totalLessons);
+            // Count completed lessons
+            long completedLessons = exstingCourse.getModules()
+                    .stream()
+                    .flatMap(m -> m.getLessons().stream())
+                    .filter(Lesson::isMarked)
+                    .count();
+            double completion = totalLessons == 0 ? 0 : (completedLessons * 100.0 / totalLessons);
+
+            response.setCompletion(Math.round(completion) + "%");
+
+            responses.add(response);
+        });
+
+        return responses;
     }
 
     private Candidate getCurrentCandidate() {
