@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatusCode;
 public enum ErrorCode {
     UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_JSON(9998, "Invalid JSON format or missing request body", HttpStatus.BAD_REQUEST),
+    EXTERNAL_API_ERROR(9997, "Error occurred while calling external API", HttpStatus.SERVICE_UNAVAILABLE),
     INVALID_KEY(1001, "Uncategorized error", HttpStatus.BAD_REQUEST),
     USER_EXISTED(1002, "User existed", HttpStatus.BAD_REQUEST),
     USERNAME_INVALID(1003, "Username must be at least {min} characters", HttpStatus.BAD_REQUEST),

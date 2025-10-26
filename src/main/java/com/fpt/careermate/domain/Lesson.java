@@ -20,8 +20,9 @@ public class Lesson {
     @Column(nullable = false)
     String title;
 
-    @Column(nullable = false)
     String content;
+
+    boolean isMarked;
 
     @Column(nullable = false)
     int position;

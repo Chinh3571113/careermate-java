@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -30,5 +31,5 @@ public class Course {
     Candidate candidate;
 
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
-    List<Module> modules;
+    List<Module> modules = new ArrayList<>();
 }

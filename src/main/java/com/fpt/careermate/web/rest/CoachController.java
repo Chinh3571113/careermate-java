@@ -2,6 +2,7 @@ package com.fpt.careermate.web.rest;
 
 import com.fpt.careermate.services.CoachImp;
 import com.fpt.careermate.services.dto.response.ApiResponse;
+import com.fpt.careermate.services.dto.response.CourseResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -20,8 +21,8 @@ public class CoachController {
     CoachImp coachImp;
 
     @PostMapping("/course/generation")
-    public ApiResponse<String> createRecruiter(@RequestParam String topic) {
-        return ApiResponse.<String>builder()
+    public ApiResponse<CourseResponse> createRecruiter(@RequestParam String topic) {
+        return ApiResponse.<CourseResponse>builder()
                 .result(coachImp.generateCourse(topic))
                 .code(200)
                 .message("success")

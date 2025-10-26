@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -30,6 +31,6 @@ public class Module {
     Course course;
 
     @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, orphanRemoval = true)
-    List<Lesson> lessons;
+    List<Lesson> lessons = new ArrayList<>();
 
 }
