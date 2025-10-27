@@ -210,7 +210,6 @@ public class CoachImp implements CoachService {
         // Call Django API
         Map<String, Object> data = apiClient.post(url, apiClient.getToken(), body);
         List<Map<String, Object>> questions = (List<Map<String, Object>>) data.get("questions");
-        log.info("Generated question: {}", data);
 
         questions.forEach(question -> {
             Question q = new Question();
@@ -238,7 +237,6 @@ public class CoachImp implements CoachService {
         });
 
         // Return saved questions of a lesson
-        System.out.println("Saved lesson");
         Optional<Lesson> savedLesson = lessonRepo.findById(lessonId);
         return coachMapper.toQuestionResponseList(savedLesson.get().getQuestions());
     }

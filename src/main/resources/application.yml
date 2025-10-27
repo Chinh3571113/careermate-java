@@ -56,3 +56,16 @@ firebase:
   bucket-name: careermate-97d8c.firebasestorage.app
   credentials:
     path: classpath:firebase-service-account.json
+
+
+logging:
+  level:
+    org:
+      apache:
+        http: DEBUG
+    springframework:
+      web:
+        client:
+          RestTemplate: DEBUG
+        http:
+            client: DEBUG
