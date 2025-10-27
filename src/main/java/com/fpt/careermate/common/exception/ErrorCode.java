@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatusCode;
 public enum ErrorCode {
     UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_JSON(9998, "Invalid JSON format or missing request body", HttpStatus.BAD_REQUEST),
+    EXTERNAL_API_ERROR(9997, "Error occurred while calling external API", HttpStatus.SERVICE_UNAVAILABLE),
+    RESPONSE_BODY_EMPTY(9996, "Response body from external API is empty", HttpStatus.SERVICE_UNAVAILABLE),
     INVALID_KEY(1001, "Uncategorized error", HttpStatus.BAD_REQUEST),
     USER_EXISTED(1002, "User existed", HttpStatus.BAD_REQUEST),
     USERNAME_INVALID(1003, "Username must be at least {min} characters", HttpStatus.BAD_REQUEST),
@@ -56,6 +58,10 @@ public enum ErrorCode {
     REJECTION_REASON_REQUIRED(6014, "Rejection reason is required when rejecting a job posting",
             HttpStatus.BAD_REQUEST),
     INVALID_APPROVAL_STATUS(6015, "Invalid approval status. Must be APPROVED or REJECTED", HttpStatus.BAD_REQUEST),
+
+    // 70xx: Coach
+    LESSON_NOT_FOUND(7000, "Lesson not found", HttpStatus.NOT_FOUND),
+    COURSE_NOT_FOUND(7001, "Course not found", HttpStatus.NOT_FOUND),
 
     BLOG_NOT_FOUND(1010, "Blog not found", HttpStatus.NOT_FOUND),
     BLOG_INVALID_STATUS(1011, "Invalid blog status", HttpStatus.BAD_REQUEST),
