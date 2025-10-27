@@ -1,18 +1,22 @@
-package com.fpt.careermate.services.dto.response;
+package com.fpt.careermate.services.coach_services.service.dto.response;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.util.List;
 
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ModuleResponse {
+public class QuestionResponse {
+
     int id;
     String title;
-    int position;
-    List<LessonResponse> lessons;
+    String explanation;
+    List<OptionResponse> options;
+    OptionResponse correctOption;
+
 }

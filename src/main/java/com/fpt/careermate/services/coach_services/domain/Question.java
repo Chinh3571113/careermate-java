@@ -1,4 +1,4 @@
-package com.fpt.careermate.domain;
+package com.fpt.careermate.services.coach_services.domain;
 
 import jakarta.persistence.*;
 import lombok.*;

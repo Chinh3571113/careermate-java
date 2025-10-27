@@ -1,9 +1,7 @@
-package com.fpt.careermate.domain;
+package com.fpt.careermate.services.coach_services.domain;
 
+import com.fpt.careermate.services.profile_services.domain.Candidate;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 

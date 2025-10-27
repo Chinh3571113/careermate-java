@@ -1,9 +1,9 @@
-package com.fpt.careermate.util;
+package com.fpt.careermate.common.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fpt.careermate.web.exception.AppException;
-import com.fpt.careermate.web.exception.ErrorCode;
+import com.fpt.careermate.common.exception.AppException;
+import com.fpt.careermate.common.exception.ErrorCode;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;

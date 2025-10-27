@@ -1,4 +1,4 @@
-package com.fpt.careermate.domain;
+package com.fpt.careermate.services.coach_services.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -14,8 +14,8 @@ import java.util.List;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@Entity(name = "lessons")
-public class Lesson {
+@Entity(name = "modules")
+public class Module {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int id;
@@ -23,18 +23,14 @@ public class Lesson {
     @Column(nullable = false)
     String title;
 
-    @Column(columnDefinition = "TEXT")
-    String content;
-
-    boolean marked;
-
     @Column(nullable = false)
     int position;
 
     @ManyToOne
-    @JoinColumn(name = "module_id", nullable = false)
-    Module module;
+    @JoinColumn(name = "course_id", nullable = false)
+    Course course;
 
-    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
-    List<Question> questions = new ArrayList<>();
+    @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<Lesson> lessons = new ArrayList<>();
+
 }

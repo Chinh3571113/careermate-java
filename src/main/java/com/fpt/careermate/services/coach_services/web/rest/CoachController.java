@@ -1,11 +1,11 @@
-package com.fpt.careermate.web.rest;
+package com.fpt.careermate.services.coach_services.web.rest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fpt.careermate.services.CoachImp;
-import com.fpt.careermate.services.dto.response.ApiResponse;
-import com.fpt.careermate.services.dto.response.CourseListResponse;
-import com.fpt.careermate.services.dto.response.CourseResponse;
-import com.fpt.careermate.services.dto.response.QuestionResponse;
+import com.fpt.careermate.common.response.ApiResponse;
+import com.fpt.careermate.services.coach_services.service.CoachImp;
+import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;

@@ -1,20 +1,23 @@
-package com.fpt.careermate.services;
+package com.fpt.careermate.services.coach_services.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fpt.careermate.domain.*;
-import com.fpt.careermate.domain.Module;
-import com.fpt.careermate.repository.CandidateRepo;
-import com.fpt.careermate.repository.CourseRepo;
-import com.fpt.careermate.repository.LessonRepo;
-import com.fpt.careermate.repository.QuestionRepo;
-import com.fpt.careermate.services.dto.response.CourseListResponse;
-import com.fpt.careermate.services.dto.response.CourseResponse;
-import com.fpt.careermate.services.dto.response.QuestionResponse;
-import com.fpt.careermate.services.impl.CoachService;
-import com.fpt.careermate.services.mapper.CoachMapper;
-import com.fpt.careermate.util.ApiClient;
-import com.fpt.careermate.web.exception.AppException;
-import com.fpt.careermate.web.exception.ErrorCode;
+import com.fpt.careermate.common.exception.AppException;
+import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.common.util.ApiClient;
+import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
+import com.fpt.careermate.services.coach_services.domain.*;
+import com.fpt.careermate.services.coach_services.domain.Module;
+import com.fpt.careermate.services.coach_services.repository.CourseRepo;
+import com.fpt.careermate.services.coach_services.repository.LessonRepo;
+import com.fpt.careermate.services.coach_services.repository.QuestionRepo;
+import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
+import com.fpt.careermate.services.coach_services.service.impl.CoachService;
+import com.fpt.careermate.services.coach_services.service.mapper.CoachMapper;
+import com.fpt.careermate.services.profile_services.domain.Candidate;
+import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,7 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 

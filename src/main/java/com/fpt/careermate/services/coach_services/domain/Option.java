@@ -1,11 +1,8 @@
-package com.fpt.careermate.domain;
+package com.fpt.careermate.services.coach_services.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
-import java.util.ArrayList;
-import java.util.List;
 
 
 @Getter

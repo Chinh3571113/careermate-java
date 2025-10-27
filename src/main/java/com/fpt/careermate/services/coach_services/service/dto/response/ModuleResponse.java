@@ -1,4 +1,4 @@
-package com.fpt.careermate.services.dto.response;
+package com.fpt.careermate.services.coach_services.service.dto.response;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -10,8 +10,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CourseResponse {
-    String id;
+public class ModuleResponse {
+    int id;
     String title;
-    List<ModuleResponse> modules;
+    int position;
+    List<LessonResponse> lessons;
 }

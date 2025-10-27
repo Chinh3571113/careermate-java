@@ -1,10 +1,10 @@
-package com.fpt.careermate.services.impl;
+package com.fpt.careermate.services.coach_services.service.impl;
 
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fpt.careermate.services.dto.response.CourseListResponse;
-import com.fpt.careermate.services.dto.response.CourseResponse;
-import com.fpt.careermate.services.dto.response.QuestionResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
 
 import java.util.List;
 

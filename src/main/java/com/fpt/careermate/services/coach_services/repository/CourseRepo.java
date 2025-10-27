@@ -1,6 +1,6 @@
-package com.fpt.careermate.repository;
+package com.fpt.careermate.services.coach_services.repository;
 
-import com.fpt.careermate.domain.Course;
+import com.fpt.careermate.services.coach_services.domain.Course;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
