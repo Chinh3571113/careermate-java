@@ -3,6 +3,7 @@ package com.fpt.careermate.services.account_services.web.rest;
 import com.fpt.careermate.services.account_services.service.AccountImp;
 import com.fpt.careermate.services.email_services.service.EmailImp;
 import com.fpt.careermate.services.account_services.service.dto.request.AccountCreationRequest;
+import com.fpt.careermate.services.account_services.service.dto.request.AccountUpdateRequest;
 import com.fpt.careermate.services.account_services.service.dto.response.AccountResponse;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.common.response.PageResponse;
@@ -88,6 +89,16 @@ public class AccountController {
                 .code(200)
                 .message("Password changed successfully")
                 .result(result)
+                .build();
+    }
+
+    @PutMapping("/account")
+    @Operation(summary = "Update Account", description = "Update account username")
+    ApiResponse<AccountResponse> updateAccount(@RequestBody @Valid AccountUpdateRequest request) {
+        return ApiResponse.<AccountResponse>builder()
+                .code(200)
+                .message("Account updated successfully")
+                .result(accountImp.updateAccount(request))
                 .build();
     }
 

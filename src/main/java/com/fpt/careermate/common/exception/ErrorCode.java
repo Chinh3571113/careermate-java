@@ -89,6 +89,7 @@ public enum ErrorCode {
     SKILL_NOT_FOUND(1023,"Your Skill not found" ,HttpStatus.BAD_REQUEST ),
     AWARD_NOT_FOUND(1024,"Your Award not found" ,HttpStatus.BAD_REQUEST ),
     WORK_EXPERIENCE_NOT_FOUND(1025,"Work exp not found" ,HttpStatus.BAD_REQUEST ),
+    HIGHLIGHT_PROJECT_NOT_FOUND(1027,"Highlight Project not found" ,HttpStatus.BAD_REQUEST ),
     TOKEN_REUSE_DETECTED(1025,"Detected reuse of refresh token (possible attack)" ,HttpStatus.FORBIDDEN ),
     CANDIDATE_PROFILE_ALREADY_EXISTS(1026,"Your Profile is already created" ,HttpStatus.BAD_REQUEST );
 
