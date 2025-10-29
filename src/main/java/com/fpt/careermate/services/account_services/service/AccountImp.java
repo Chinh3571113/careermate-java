@@ -82,15 +82,5 @@ public class AccountImp implements AccountService {
         accountRepo.save(account);
     }
 
-    @PreAuthorize("hasAnyRole('CANDIDATE')")
-    @Override
-    public AccountResponse updateAccount(AccountUpdateRequest request) {
-        Account account = authenticationImp.findByEmail();
-        accountMapper.updateAccount(request, account);
-
-        account = accountRepo.save(account);
-
-        return accountMapper.toAccountResponse(account);
-    }
 
 }

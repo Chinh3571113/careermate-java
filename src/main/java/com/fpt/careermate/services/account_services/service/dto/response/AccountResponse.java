@@ -13,7 +13,6 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AccountResponse {
     String email;
-    String username;
     String status;
     Set<RoleResponse> roles;
 

@@ -92,14 +92,4 @@ public class AccountController {
                 .build();
     }
 
-    @PutMapping("/account")
-    @Operation(summary = "Update Account", description = "Update account username")
-    ApiResponse<AccountResponse> updateAccount(@RequestBody @Valid AccountUpdateRequest request) {
-        return ApiResponse.<AccountResponse>builder()
-                .code(200)
-                .message("Account updated successfully")
-                .result(accountImp.updateAccount(request))
-                .build();
-    }
-
 }

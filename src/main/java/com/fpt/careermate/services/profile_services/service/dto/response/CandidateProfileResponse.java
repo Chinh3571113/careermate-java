@@ -17,6 +17,7 @@ public class CandidateProfileResponse {
     int id;
     LocalDate dob;
     String title;
+    String fullName;
     String phone;
     String address;
     String image;
