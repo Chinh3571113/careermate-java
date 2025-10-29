@@ -8,11 +8,13 @@ import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.authentication_services.repository.RoleRepo;
 import com.fpt.careermate.services.account_services.service.impl.AccountService;
 import com.fpt.careermate.services.account_services.service.dto.request.AccountCreationRequest;
+import com.fpt.careermate.services.account_services.service.dto.request.AccountUpdateRequest;
 import com.fpt.careermate.services.account_services.service.dto.response.AccountResponse;
 import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.account_services.service.mapper.AccountMapper;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -34,6 +36,7 @@ public class AccountImp implements AccountService {
     RoleRepo roleRepo;
     AccountMapper accountMapper;
     PasswordEncoder passwordEncoder;
+    AuthenticationImp authenticationImp;
 
     @Override
     public AccountResponse createAccount(AccountCreationRequest request) {
@@ -77,6 +80,17 @@ public class AccountImp implements AccountService {
         Account account = accountRepo.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         account.setStatus(StatusAccount.INACTIVE);
         accountRepo.save(account);
+    }
+
+    @PreAuthorize("hasAnyRole('CANDIDATE')")
+    @Override
+    public AccountResponse updateAccount(AccountUpdateRequest request) {
+        Account account = authenticationImp.findByEmail();
+        accountMapper.updateAccount(request, account);
+
+        account = accountRepo.save(account);
+
+        return accountMapper.toAccountResponse(account);
     }
 
 }

@@ -18,9 +18,11 @@ public class WorkExperienceRequest {
 
     @NotBlank(message = "Job title is required")
     String jobTitle;
-
+    @NotBlank(message = "Company name is required")
     String company;
+    @NotBlank(message = "Start Date is required")
     LocalDate startDate;
+    @NotBlank(message = "End Date is required")
     LocalDate endDate;
     String description;
     String project;
