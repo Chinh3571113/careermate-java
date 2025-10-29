@@ -34,7 +34,6 @@ build/
 .env
 compose.yaml
 Dockerfile
-compose.yaml
 
 ### firebase ###
 firebase-service-account.json

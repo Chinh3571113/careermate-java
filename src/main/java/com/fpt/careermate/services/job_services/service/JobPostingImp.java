@@ -66,7 +66,7 @@ public class JobPostingImp implements JobPostingService {
 
         // Get work model and check exist
         Optional<WorkModel> exstingWorkModel = workModelRepo.findByName(request.getWorkModel());
-        if(exstingWorkModel.isEmpty()) throw new AppException(ErrorCode.WORK_MODEL_NOT_FOUND);
+        if (exstingWorkModel.isEmpty()) throw new AppException(ErrorCode.WORK_MODEL_NOT_FOUND);
 
         Recruiter recruiter = getMyRecruiter();
 
@@ -121,16 +121,19 @@ public class JobPostingImp implements JobPostingService {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
         JobPostingForRecruiterResponse jpResponse = jobPostingMapper.toJobPostingDetailForRecruiterResponse(jobPosting);
 
-        Set<JobPostingSkillResponse> jobPostingSkillResponses = jobPostingMapper
-                .toJobPostingSkillResponseSet(jobPosting.getJobDescriptions());
-        jobPostingSkillResponses.forEach(jobPostingSkillResponse -> {
-            jobPosting.getJobDescriptions().forEach(jd -> {
-                jobPostingSkillResponse.setName(jd.getJdSkill().getName());
-            });
+        // Get skills
+        Set<JobPostingSkillResponse> skills = new HashSet<>();
+        jobPosting.getJobDescriptions().forEach(jd -> {
+            skills.add(
+                    JobPostingSkillResponse.builder()
+                            .id(jd.getJdSkill().getId())
+                            .name(jd.getJdSkill().getName())
+                            .mustToHave(jd.isMustToHave())
+                            .build()
+            );
         });
 
-        jpResponse.setSkills(jobPostingSkillResponses);
-        jpResponse.setWorkModel(jobPosting.getWorkModel());
+        jpResponse.setSkills(skills);
 
         return jpResponse;
     }
@@ -308,7 +311,7 @@ public class JobPostingImp implements JobPostingService {
     @Transactional
     @Override
     public void approveOrRejectJobPosting(int id,
-            JobPostingApprovalRequest request) {
+                                          JobPostingApprovalRequest request) {
         log.info("Admin processing approval/rejection for job posting ID: {}", id);
 
         // Get job posting
