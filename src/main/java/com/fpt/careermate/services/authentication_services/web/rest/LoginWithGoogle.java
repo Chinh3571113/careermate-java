@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -17,39 +18,52 @@ import java.io.IOException;
 @CrossOrigin
 @RestController
 public class LoginWithGoogle {
+    public static final String ACCOUNT_TYPE_SESSION_KEY = "OAUTH_ACCOUNT_TYPE";
+
     @GetMapping("/google/login")
-    public void  loginWithGoogle(HttpServletResponse response) throws IOException {
+    public void loginWithGoogle(
+            @RequestParam(value = "account_type", required = false) String accountType,
+            HttpSession session,
+            HttpServletResponse response) throws IOException {
+
+        // Remember the intended account type so the success handler and recruiter completion step can use it
+        if ("recruiter".equalsIgnoreCase(accountType)) {
+            session.setAttribute(ACCOUNT_TYPE_SESSION_KEY, "recruiter");
+        } else {
+            session.removeAttribute(ACCOUNT_TYPE_SESSION_KEY);
+        }
+
         response.sendRedirect("/oauth2/authorization/google");
     }
-
 
     @GetMapping("/google/success")
     public ApiResponse<GoogleResponse> googleLoginSuccess(HttpSession session) {
         String accessToken = (String) session.getAttribute("accessToken");
         String refreshToken = (String) session.getAttribute("refreshToken");
         String email = (String) session.getAttribute("email");
-
-        if (accessToken == null) {
-            return ApiResponse.<GoogleResponse>builder()
-                    .code(400)
-                    .message("No token found. Please login again.")
-                    .build();
-        }
+        Boolean isRecruiter = (Boolean) session.getAttribute("isRecruiter");
+        Boolean profileCompleted = (Boolean) session.getAttribute("profileCompleted");
 
         GoogleResponse tokenResponse = GoogleResponse.builder()
                 .email(email)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
+                .recruiter(Boolean.TRUE.equals(isRecruiter))
+                .profileCompleted(Boolean.TRUE.equals(profileCompleted))
                 .build();
 
-        // Clear session (optional)
+        // Clear temporary tokens from the session; keep email and recruiter flag for registration completion
         session.removeAttribute("accessToken");
         session.removeAttribute("refreshToken");
-        session.removeAttribute("email");
+
+        int code = (accessToken != null) ? 200 : 202;
+        String message = (accessToken != null)
+                ? "Login with Google successful"
+                : "Recruiter profile required before accessing the system.";
 
         return ApiResponse.<GoogleResponse>builder()
-                .code(200)
-                .message("Login with Google successful")
+                .code(code)
+                .message(message)
                 .result(tokenResponse)
                 .build();
     }

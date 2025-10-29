@@ -18,7 +18,8 @@ import java.util.List;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@Entity(name = "recruiters")
+@Entity
+@Table(name = "recruiters")
 public class Recruiter {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,6 +60,13 @@ public class Recruiter {
     @Size(max = 500)
     @Column(name = "company_address")
     String companyAddress;
+
+    @Column(name = "verification_status", nullable = false)
+    @Builder.Default
+    String verificationStatus = "PENDING"; // PENDING, APPROVED, REJECTED
+
+    @Column(name = "rejection_reason")
+    String rejectionReason;
 
     // One-to-one với Account
     @OneToOne
