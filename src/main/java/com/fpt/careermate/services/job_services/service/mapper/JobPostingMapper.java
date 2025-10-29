@@ -6,15 +6,19 @@ import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCr
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingSkillResponse;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 import java.util.List;
 import java.util.Set;
 
 @Mapper(componentModel = "spring")
 public interface JobPostingMapper {
+    @Mapping(target = "workModel", ignore = true)
     JobPosting toJobPosting(JobPostingCreationRequest request);
 
     List<JobPostingForRecruiterResponse> toJobPostingForRecruiterResponseList(List<JobPosting> jobPostings);
+
+    @Mapping(target = "postTime", source = "createAt")
     JobPostingForRecruiterResponse toJobPostingDetailForRecruiterResponse(JobPosting jobPosting);
 
     Set<JobPostingSkillResponse> toJobPostingSkillResponseSet(Set<JobDescription> jobDescriptions);

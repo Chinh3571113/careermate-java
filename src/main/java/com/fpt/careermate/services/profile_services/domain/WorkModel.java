@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.profile_services.domain;
 
+import com.fpt.careermate.services.job_services.domain.JobPosting;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -24,4 +25,8 @@ public class WorkModel {
     @ManyToOne
     @JoinColumn(name = "candidate_id", nullable = false, insertable = false, updatable = false)
     Candidate candidate;
+
+    @OneToOne
+    @JoinColumn(name = "job_posting_id", referencedColumnName = "id")
+    JobPosting jobPosting;
 }

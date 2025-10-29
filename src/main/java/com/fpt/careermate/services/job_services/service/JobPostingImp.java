@@ -5,6 +5,8 @@ import com.fpt.careermate.services.authentication_services.service.Authenticatio
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.profile_services.domain.WorkModel;
+import com.fpt.careermate.services.profile_services.repository.WorkModelRepo;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.job_services.service.dto.request.JdSkillRequest;
@@ -48,6 +50,7 @@ public class JobPostingImp implements JobPostingService {
     RecruiterRepo recruiterRepo;
     JdSkillRepo jdSkillRepo;
     JobDescriptionRepo jobDescriptionRepo;
+    WorkModelRepo workModelRepo;
     JobPostingMapper jobPostingMapper;
     AuthenticationImp authenticationImp;
     WeaviateImp weaviateImp;
@@ -61,10 +64,15 @@ public class JobPostingImp implements JobPostingService {
         jobPostingValidator.checkDuplicateJobPostingTitle(request.getTitle());
         jobPostingValidator.validateExpirationDate(request.getExpirationDate());
 
+        // Get work model and check exist
+        Optional<WorkModel> exstingWorkModel = workModelRepo.findByName(request.getWorkModel());
+        if(exstingWorkModel.isEmpty()) throw new AppException(ErrorCode.WORK_MODEL_NOT_FOUND);
+
         Recruiter recruiter = getMyRecruiter();
 
         JobPosting jobPosting = jobPostingMapper.toJobPosting(request);
         jobPosting.setCreateAt(LocalDate.now());
+        jobPosting.setWorkModel(exstingWorkModel.get().getName());
         jobPosting.setRecruiter(recruiter);
         jobPosting.setStatus(StatusJobPosting.PENDING);
 
@@ -122,6 +130,7 @@ public class JobPostingImp implements JobPostingService {
         });
 
         jpResponse.setSkills(jobPostingSkillResponses);
+        jpResponse.setWorkModel(jobPosting.getWorkModel());
 
         return jpResponse;
     }

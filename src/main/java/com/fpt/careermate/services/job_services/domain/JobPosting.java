@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.job_services.domain;
 
+import com.fpt.careermate.services.profile_services.domain.WorkModel;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import com.fpt.careermate.services.account_services.domain.Account;
 import jakarta.persistence.*;
@@ -71,4 +72,12 @@ public class JobPosting {
 
     @Column(nullable = false)
     int yearsOfExperience;
+
+    String reason;
+    String jobPackage;
+
+    @Column(name = "salary_range")
+    String salaryRange;
+
+    String workModel;
 }

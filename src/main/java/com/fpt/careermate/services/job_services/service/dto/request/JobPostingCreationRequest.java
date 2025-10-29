@@ -36,4 +36,15 @@ public class JobPostingCreationRequest {
     @Max(100)
     int yearsOfExperience;
 
+    @NotBlank
+    String workModel;
+
+    @NotBlank
+    String salaryRange;
+
+    @NotBlank
+    String reason;
+
+    @NotBlank
+    String jobPackage;
 }

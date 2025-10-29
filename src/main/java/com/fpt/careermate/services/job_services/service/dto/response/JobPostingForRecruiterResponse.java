@@ -19,8 +19,10 @@ public class JobPostingForRecruiterResponse {
     String address;
     String status;
     LocalDate expirationDate;
-    LocalDate createAt;
+    LocalDate postTime;
     Set<JobPostingSkillResponse> skills;
     int yearsOfExperience;
-
+    String workModel;
+    String salaryRange;
+    String jobPackage;
 }
