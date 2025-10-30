@@ -42,11 +42,10 @@ public class WorkExpController {
                 .build();
     }
 
-    @DeleteMapping("/{resumeId}/{workExpId}")
+    @DeleteMapping("/{workExpId}")
     @Operation(summary = "Remove Work Experience", description = "Remove work experience from resume")
-    public ApiResponse<Void> removeWorkExperience(@PathVariable int resumeId,
-                                                @PathVariable int workExpId) {
-        workExperienceImp.removeWorkExperienceFromResume(resumeId, workExpId);
+    public ApiResponse<Void> removeWorkExperience(@PathVariable int workExpId) {
+        workExperienceImp.removeWorkExperienceFromResume(workExpId);
         return ApiResponse.<Void>builder()
                 .message("Remove work experience successfully")
                 .build();

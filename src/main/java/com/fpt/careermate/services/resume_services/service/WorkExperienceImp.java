@@ -44,7 +44,7 @@ public class WorkExperienceImp implements WorkExperienceService {
     }
 
     @Override
-    public void removeWorkExperienceFromResume(int resumeId, int workExperienceId) {
+    public void removeWorkExperienceFromResume(int workExperienceId) {
         workExperienceRepo.findById(workExperienceId)
                 .orElseThrow(() -> new AppException(ErrorCode.WORK_EXPERIENCE_NOT_FOUND));
         workExperienceRepo.deleteById(workExperienceId);

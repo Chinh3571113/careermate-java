@@ -5,7 +5,7 @@ import com.fpt.careermate.services.resume_services.service.dto.response.WorkExpe
 
 public interface WorkExperienceService {
     WorkExperienceResponse addWorkExperienceToResume(WorkExperienceRequest workExperience);
-    void removeWorkExperienceFromResume(int resumeId, int workExperienceId);
+    void removeWorkExperienceFromResume(int workExperienceId);
     WorkExperienceResponse updateWorkExperienceInResume(int resumeId,int workExp, WorkExperienceRequest workExperience);
 
 }
