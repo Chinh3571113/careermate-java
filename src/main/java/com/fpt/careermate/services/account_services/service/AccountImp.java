@@ -82,5 +82,27 @@ public class AccountImp implements AccountService {
         accountRepo.save(account);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
+    @Override
+    public PageResponse<AccountResponse> searchAccounts(java.util.List<String> roles, java.util.List<String> statuses, String keyword, Pageable pageable) {
+        // Convert empty lists to null for query
+        java.util.List<String> roleList = (roles != null && !roles.isEmpty()) ? roles : null;
+        java.util.List<String> statusList = (statuses != null && !statuses.isEmpty()) ? statuses : null;
+        String searchKeyword = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
+
+        Page<Account> accountPage = accountRepo.searchAccounts(roleList, statusList, searchKeyword, pageable);
+
+        return new PageResponse<>(
+                accountPage.getContent()
+                        .stream()
+                        .map(accountMapper::toAccountResponse)
+                        .toList(),
+                accountPage.getNumber(),
+                accountPage.getSize(),
+                accountPage.getTotalElements(),
+                accountPage.getTotalPages()
+        );
+    }
+
 
 }

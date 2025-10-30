@@ -6,9 +6,12 @@ import com.fpt.careermate.services.account_services.service.dto.response.Account
 import com.fpt.careermate.common.response.PageResponse;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 
 public interface AccountService {
     AccountResponse createAccount(AccountCreationRequest request) ;
     PageResponse<AccountResponse> getAccounts(Pageable pageable);
+    PageResponse<AccountResponse> searchAccounts(List<String> roles, List<String> statuses, String keyword, Pageable pageable);
     void deleteAccount(int id);
 }
