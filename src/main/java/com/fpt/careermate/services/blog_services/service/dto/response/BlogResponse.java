@@ -24,16 +24,17 @@ public class BlogResponse {
     LocalDateTime publishedAt;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
-    AuthorInfo author;
+    AdminInfo admin;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class AuthorInfo {
-        int id;
-        String username;
+    public static class AdminInfo {
+        int adminId;
+        String name;
+        String phone;
         String email;
     }
 }

@@ -1,8 +1,8 @@
 package com.fpt.careermate.services.blog_services.service;
 
-import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.admin_services.domain.Admin;
+import com.fpt.careermate.services.admin_services.repository.AdminRepo;
 import com.fpt.careermate.services.blog_services.domain.Blog;
-import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.blog_services.repository.BlogRepo;
 import com.fpt.careermate.services.blog_services.service.impl.BlogService;
 import com.fpt.careermate.services.blog_services.service.dto.request.BlogCreationRequest;
@@ -29,19 +29,19 @@ import java.util.List;
 @Slf4j
 public class BlogImp implements BlogService {
     BlogRepo blogRepo;
-    AccountRepo accountRepo;
+    AdminRepo adminRepo;
     BlogMapper blogMapper;
 
     @Override
     @Transactional
     public BlogResponse createBlog(BlogCreationRequest request, String email) {
-        log.info("Creating blog for author email: {}", email);
+        log.info("Creating blog for admin email: {}", email);
 
-        Account author = accountRepo.findByEmail(email)
+        Admin admin = adminRepo.findByAccount_Email(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         Blog blog = blogMapper.toBlog(request);
-        blog.setAuthor(author);
+        blog.setAdmin(admin);
 
         if (request.getStatus() != null) {
             try {
@@ -125,9 +125,9 @@ public class BlogImp implements BlogService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<BlogResponse> getBlogsByAuthor(int authorId, Pageable pageable) {
-        log.info("Fetching blogs by author ID: {}", authorId);
-        return blogRepo.findByAuthor_Id(authorId, pageable)
+    public Page<BlogResponse> getBlogsByAuthor(int adminId, Pageable pageable) {
+        log.info("Fetching blogs by admin ID: {}", adminId);
+        return blogRepo.findByAdmin_AdminId(adminId, pageable)
                 .map(blogMapper::toBlogResponse);
     }
 

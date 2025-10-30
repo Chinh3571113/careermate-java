@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = org.mapstruct.ReportingPolicy.IGNORE)
 public interface BlogMapper {
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "author", ignore = true)
+    @Mapping(target = "admin", ignore = true)
     @Mapping(target = "viewCount", ignore = true)
     @Mapping(target = "averageRating", ignore = true)
     @Mapping(target = "ratingCount", ignore = true)
@@ -29,7 +29,7 @@ public interface BlogMapper {
     Blog toBlog(BlogCreationRequest request);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "author", ignore = true)
+    @Mapping(target = "admin", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "viewCount", ignore = true)
     @Mapping(target = "averageRating", ignore = true)
@@ -41,9 +41,10 @@ public interface BlogMapper {
     @Mapping(target = "tags", source = "tags", qualifiedByName = "listToString")
     void updateBlog(@MappingTarget Blog blog, BlogUpdateRequest request);
 
-    @Mapping(target = "author.id", source = "author.id")
-    @Mapping(target = "author.username", source = "author.username")
-    @Mapping(target = "author.email", source = "author.email")
+    @Mapping(target = "admin.adminId", source = "admin.adminId")
+    @Mapping(target = "admin.name", source = "admin.name")
+    @Mapping(target = "admin.phone", source = "admin.phone")
+    @Mapping(target = "admin.email", source = "admin.account.email")
     @Mapping(target = "tags", source = "tags", qualifiedByName = "stringToList")
     BlogResponse toBlogResponse(Blog blog);
 

@@ -2,6 +2,7 @@ package com.fpt.careermate.services.profile_services.service.dto.request;
 
 import com.fpt.careermate.common.validator.CandidateProfile.DobConstraint;
 import com.fpt.careermate.common.validator.CandidateProfile.PhoneConstraint;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +20,8 @@ public class CandidateProfileRequest {
     LocalDate dob;
     @NotNull(message = "title is required")
     String title;
+    @NotBlank(message = "full name is required")
+    String fullName;
     @NotNull(message = "phone number is required")
     @PhoneConstraint(message = "Phone number is not valid")
     String phone;

@@ -11,5 +11,4 @@ public interface AccountService {
     AccountResponse createAccount(AccountCreationRequest request) ;
     PageResponse<AccountResponse> getAccounts(Pageable pageable);
     void deleteAccount(int id);
-    AccountResponse updateAccount(AccountUpdateRequest request);
 }

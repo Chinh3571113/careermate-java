@@ -2,6 +2,8 @@ package com.fpt.careermate.config;
 
 import com.fpt.careermate.common.constant.PredefineRole;
 import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.admin_services.domain.Admin;
+import com.fpt.careermate.services.admin_services.repository.AdminRepo;
 import com.fpt.careermate.services.authentication_services.domain.Role;
 import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.authentication_services.repository.RoleRepo;
@@ -36,7 +38,7 @@ public class ApplicationInitConfig {
             prefix = "spring",
             value = "datasource.driver-class-name",
             havingValue = "org.postgresql.Driver")
-    ApplicationRunner applicationRunner(AccountRepo userRepository, RoleRepo roleRepository) {
+    ApplicationRunner applicationRunner(AccountRepo userRepository, RoleRepo roleRepository, AdminRepo adminRepo) {
         log.info("Initializing application.....");
         return args -> {
             if (userRepository.findByEmail(ADMIN_USER_EMAIL).isEmpty()) {
@@ -53,7 +55,7 @@ public class ApplicationInitConfig {
                 var roles = new HashSet<Role>();
                 roles.add(adminRole);
 
-                Account user = Account.builder()
+                Account adminAccount = Account.builder()
                         .email(ADMIN_USER_EMAIL)
                         .username(ADMIN_USER_NAME)
                         .status("ACTIVE")
@@ -61,7 +63,17 @@ public class ApplicationInitConfig {
                         .roles(roles)
                         .build();
 
-                userRepository.save(user);
+                adminAccount = userRepository.save(adminAccount);
+
+                // Create Admin profile
+                Admin admin = Admin.builder()
+                        .name(ADMIN_USER_NAME)
+                        .phone("0000000000")
+                        .account(adminAccount)
+                        .build();
+
+                adminRepo.save(admin);
+
                 log.warn("admin user has been created with default password: admin, please change it");
             }
             log.info("Application initialization completed .....");

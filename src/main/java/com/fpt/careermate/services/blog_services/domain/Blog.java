@@ -1,6 +1,6 @@
 package com.fpt.careermate.services.blog_services.domain;
 
-import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.admin_services.domain.Admin;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -63,8 +63,8 @@ public class Blog {
     LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
-    Account author;
+    @JoinColumn(name = "adminid", nullable = false)
+    Admin admin;
 
     @PrePersist
     protected void onCreate() {
