@@ -63,7 +63,6 @@ public class CoachImp implements CoachService {
         course.setTitle((String) data.get("title"));
         course.setDescription((String) data.get("description"));
         course.setCreatedAt(LocalDate.now());
-        course.setCategory((String) data.get("category"));
 
         // Populate modules and lessons
         List<Map<String, Object>> modulesData = (List<Map<String, Object>>) data.get("modules");

@@ -22,17 +22,14 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int id;
 
-    @Column(nullable = false)
     String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     String description;
 
-    @Column(nullable = false)
     LocalDate createdAt;
 
-    @Column(nullable = false)
-    String category;
+    String tags;
 
     @ManyToOne
     @JoinColumn(name = "candidate_id", nullable = false)
