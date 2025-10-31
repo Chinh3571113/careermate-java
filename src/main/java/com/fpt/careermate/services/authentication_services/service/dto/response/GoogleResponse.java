@@ -12,4 +12,6 @@ public class GoogleResponse {
     String email;
     String accessToken;
     String refreshToken;
+    Boolean recruiter;
+    Boolean profileCompleted;
 }

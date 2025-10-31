@@ -99,9 +99,12 @@ public class AuthenticationImp implements AuthenticationService {
 
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPassword());
 
-        if (user.getStatus().equalsIgnoreCase(StatusAccount.INACTIVE) || user.getStatus().equalsIgnoreCase(StatusAccount.DELETED))
-            throw new AppException(ErrorCode.USER_INACTIVE);
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
+
+        String status = user.getStatus();
+        if (!StatusAccount.ACTIVE.equalsIgnoreCase(status)) {
+            throw new AppException(ErrorCode.USER_INACTIVE);
+        }
 
         String accessToken = generateToken(user, false);
         String refreshToken = generateToken(user, true);

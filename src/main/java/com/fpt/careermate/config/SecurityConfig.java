@@ -20,6 +20,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
+import java.util.Arrays;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -32,8 +34,12 @@ public class SecurityConfig {
             "/api/users/verify-email/**",
             "/api/users/verify-otp",
             "/api/users/change-password/**",
-            "/api" +
-            "/v1/auth/**",
+            "/api/oauth2/google/login",
+            "/api/oauth2/google/success",
+            "/api/oauth2/google/status",
+            "/api/oauth2/recruiter/complete-registration",
+            "/api/registration/recruiter",
+            "/api/v1/auth/**",
 
             "/v3/api-docs/**",
             "/v3/api-docs.yaml",
@@ -74,7 +80,17 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        corsConfiguration.addAllowedOrigin("http://localhost:3000");
+        // Allow localhost, 127.0.0.1, file:// protocol, and Next.js frontend
+        corsConfiguration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://localhost:*",
+                "https://127.0.0.1:*",
+                "file://*"  // Allow direct HTML file access for testing
+        ));
+        // Also allow null origin (for file:// protocol)
+        corsConfiguration.addAllowedOrigin("null");
+
         corsConfiguration.addAllowedMethod("*");
         corsConfiguration.addAllowedHeader("*");
         corsConfiguration.setAllowCredentials(true);
