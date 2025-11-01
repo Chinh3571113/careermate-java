@@ -26,4 +26,22 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Integer> {
 
     @Query("SELECT COUNT(jp) FROM job_posting jp WHERE jp.status = :status")
     Long countByStatus(@Param("status") String status);
+
+    // Candidate methods - only see APPROVED job postings
+    Page<JobPosting> findAllByStatusAndExpirationDateAfterOrderByCreateAtDesc(
+            String status, LocalDate currentDate, Pageable pageable);
+
+    @Query("SELECT jp FROM job_posting jp WHERE jp.status = :status " +
+           "AND jp.expirationDate > :currentDate " +
+           "AND (LOWER(jp.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(jp.description) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(jp.address) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "ORDER BY jp.createAt DESC")
+    Page<JobPosting> searchApprovedJobPostings(
+            @Param("status") String status,
+            @Param("currentDate") LocalDate currentDate,
+            @Param("keyword") String keyword,
+            Pageable pageable);
+
+    Optional<JobPosting> findByIdAndStatus(int id, String status);
 }

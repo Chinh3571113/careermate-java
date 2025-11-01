@@ -3,7 +3,6 @@ package com.fpt.careermate.services.account_services.web.rest;
 import com.fpt.careermate.services.account_services.service.AccountImp;
 import com.fpt.careermate.services.email_services.service.EmailImp;
 import com.fpt.careermate.services.account_services.service.dto.request.AccountCreationRequest;
-import com.fpt.careermate.services.account_services.service.dto.request.AccountUpdateRequest;
 import com.fpt.careermate.services.account_services.service.dto.response.AccountResponse;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.common.response.PageResponse;
@@ -37,14 +36,85 @@ public class AccountController {
                 .build();
     }
     @GetMapping("/all")
-    @Operation(summary = "Get All Accounts", description = "return all accounts with pagination")
-    ApiResponse<PageResponse<AccountResponse>> getAllUsers(@RequestParam(defaultValue = "0") int page,
-                                                           @RequestParam(defaultValue = "10") int size) {
+    @Operation(
+        summary = "Search Accounts with Dynamic Filters",
+        description = """
+            Search and filter accounts with multiple criteria:
+            - roles: Comma-separated role names (e.g., 'RECRUITER,CANDIDATE')
+            - statuses: Comma-separated statuses (e.g., 'ACTIVE,PENDING')
+            - keyword: Search in username and email
+            - Supports pagination with page and size parameters
+            
+            Examples:
+            - /api/users/all?roles=ROLE_RECRUITER,ROLE_CANDIDATE&page=0&size=10
+            - /api/users/all?statuses=ACTIVE,PENDING&keyword=john
+            - /api/users/all?roles=ROLE_RECRUITER&statuses=ACTIVE&keyword=tech
+            """
+    )
+    ApiResponse<PageResponse<AccountResponse>> getAllUsers(
+            @RequestParam(required = false) String roles,
+            @RequestParam(required = false) String statuses,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
         Pageable pageable = PageRequest.of(page, size);
-        PageResponse<AccountResponse> result = accountImp.getAccounts(pageable);
+
+        // Parse comma-separated values into lists
+        java.util.List<String> roleList = roles != null && !roles.trim().isEmpty()
+            ? java.util.Arrays.asList(roles.split("[,;]"))
+            : null;
+
+        java.util.List<String> statusList = statuses != null && !statuses.trim().isEmpty()
+            ? java.util.Arrays.asList(statuses.split("[,;]"))
+            : null;
+
+        // Trim whitespace from parsed values
+        if (roleList != null) {
+            roleList = roleList.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        }
+
+        if (statusList != null) {
+            statusList = statusList.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        }
+
+        PageResponse<AccountResponse> result = accountImp.searchAccounts(roleList, statusList, keyword, pageable);
+
         return ApiResponse.<PageResponse<AccountResponse>>builder()
                 .code(200)
                 .result(result)
+                .build();
+    }
+
+    @GetMapping("/{id}")
+    @Operation(
+        summary = "Get Account by ID",
+        description = "Get account details by ID. Users can view their own account, admins can view any account."
+    )
+    ApiResponse<AccountResponse> getUserById(@PathVariable int id) {
+        AccountResponse account = accountImp.getAccountById(id);
+        return ApiResponse.<AccountResponse>builder()
+                .code(200)
+                .result(account)
+                .build();
+    }
+
+    @GetMapping("/current")
+    @Operation(
+        summary = "Get Current User Profile",
+        description = "Get the currently authenticated user's account details"
+    )
+    ApiResponse<AccountResponse> getCurrentUser() {
+        AccountResponse account = accountImp.getCurrentUser();
+        return ApiResponse.<AccountResponse>builder()
+                .code(200)
+                .result(account)
                 .build();
     }
 

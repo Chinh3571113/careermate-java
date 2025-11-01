@@ -3,6 +3,7 @@ package com.fpt.careermate.services.coach_services.web.rest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.coach_services.service.CoachImp;
+import com.fpt.careermate.services.coach_services.service.dto.request.CourseCreationRequest;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
@@ -28,9 +29,9 @@ public class CoachController {
 
     @PostMapping("/course/generation")
     @Operation(description = "Generate course by topic")
-    public ApiResponse<CourseResponse> generateCourse(@RequestParam String topic) {
+    public ApiResponse<CourseResponse> generateCourse(@RequestBody CourseCreationRequest request) {
         return ApiResponse.<CourseResponse>builder()
-                .result(coachImp.generateCourse(topic))
+                .result(coachImp.generateCourse(request))
                 .code(200)
                 .message("success")
                 .build();

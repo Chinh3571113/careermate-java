@@ -37,3 +37,5 @@ Dockerfile
 
 ### firebase ###
 firebase-service-account.json
+
+src/main/resources/application.yml

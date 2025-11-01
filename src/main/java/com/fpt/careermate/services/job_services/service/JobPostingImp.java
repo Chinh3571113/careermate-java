@@ -13,6 +13,7 @@ import com.fpt.careermate.services.job_services.service.dto.request.JdSkillReque
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForAdminResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingSkillResponse;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingApprovalRequest;
 import com.fpt.careermate.services.job_services.service.impl.JobPostingService;
@@ -53,7 +54,7 @@ public class JobPostingImp implements JobPostingService {
     WorkModelRepo workModelRepo;
     JobPostingMapper jobPostingMapper;
     AuthenticationImp authenticationImp;
-    WeaviateImp weaviateImp;
+    DjangoImp djangoImp;
     JobPostingValidator jobPostingValidator;
 
     // Recruiter create job posting
@@ -102,7 +103,7 @@ public class JobPostingImp implements JobPostingService {
         JobPosting saved = jobPostingRepo.save(jobPosting);
 
         // Add to weaviate
-        weaviateImp.addJobPosting(saved);
+        djangoImp.addJobPosting(saved);
     }
 
     // Get all job postings of the current recruiter with all status
@@ -402,6 +403,105 @@ public class JobPostingImp implements JobPostingService {
                 .recruiter(recruiterInfo)
                 .approvedByEmail(jobPosting.getApprovedBy() != null ? jobPosting.getApprovedBy().getEmail() : null)
                 .skills(skills)
+                .build();
+    }
+
+    // ======================== CANDIDATE METHODS ========================
+
+    // Candidate get all approved and active job postings with search
+    @Override
+    public com.fpt.careermate.common.response.PageResponse<JobPostingForCandidateResponse> getAllApprovedJobPostings(
+            String keyword, org.springframework.data.domain.Pageable pageable) {
+        log.info("Fetching approved job postings - keyword: {}, page: {}", keyword, pageable.getPageNumber());
+
+        org.springframework.data.domain.Page<JobPosting> jobPostingPage;
+        LocalDate currentDate = LocalDate.now();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            // Search with keyword
+            jobPostingPage = jobPostingRepo.searchApprovedJobPostings(
+                    StatusJobPosting.ACTIVE,
+                    currentDate,
+                    keyword.trim(),
+                    pageable
+            );
+        } else {
+            // Get all approved job postings that haven't expired
+            jobPostingPage = jobPostingRepo.findAllByStatusAndExpirationDateAfterOrderByCreateAtDesc(
+                    StatusJobPosting.ACTIVE,
+                    currentDate,
+                    pageable
+            );
+        }
+
+        List<JobPostingForCandidateResponse> responses = jobPostingPage.getContent()
+                .stream()
+                .map(this::convertToCandidateResponse)
+                .toList();
+
+        return new com.fpt.careermate.common.response.PageResponse<>(
+                responses,
+                jobPostingPage.getNumber(),
+                jobPostingPage.getSize(),
+                jobPostingPage.getTotalElements(),
+                jobPostingPage.getTotalPages()
+        );
+    }
+
+    // Candidate get job posting detail by ID (only approved ones)
+    @Override
+    public JobPostingForCandidateResponse getJobPostingDetailForCandidate(int id) {
+        log.info("Fetching approved job posting detail for ID: {}", id);
+
+        JobPosting jobPosting = jobPostingRepo.findByIdAndStatus(id, StatusJobPosting.ACTIVE)
+                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+
+        // Check if job posting has expired
+        if (jobPosting.getExpirationDate().isBefore(LocalDate.now())) {
+            throw new AppException(ErrorCode.JOB_POSTING_EXPIRED);
+        }
+
+        return convertToCandidateResponse(jobPosting);
+    }
+
+    // Helper method to convert JobPosting entity to candidate response DTO
+    private JobPostingForCandidateResponse convertToCandidateResponse(JobPosting jobPosting) {
+        // Get skills
+        Set<JobPostingSkillResponse> skills = new HashSet<>();
+        if (jobPosting.getJobDescriptions() != null) {
+            jobPosting.getJobDescriptions().forEach(jd -> {
+                skills.add(JobPostingSkillResponse.builder()
+                        .id(jd.getJdSkill().getId())
+                        .name(jd.getJdSkill().getName())
+                        .mustToHave(jd.isMustToHave())
+                        .build());
+            });
+        }
+
+        // Build recruiter company info
+        Recruiter recruiter = jobPosting.getRecruiter();
+        JobPostingForCandidateResponse.RecruiterCompanyInfo recruiterInfo =
+                JobPostingForCandidateResponse.RecruiterCompanyInfo.builder()
+                        .recruiterId(recruiter.getId())
+                        .companyName(recruiter.getCompanyName())
+                        .website(recruiter.getWebsite())
+                        .logoUrl(recruiter.getLogoUrl())
+                        .about(recruiter.getAbout())
+                        .build();
+
+        return JobPostingForCandidateResponse.builder()
+                .id(jobPosting.getId())
+                .title(jobPosting.getTitle())
+                .description(jobPosting.getDescription())
+                .address(jobPosting.getAddress())
+                .expirationDate(jobPosting.getExpirationDate())
+                .postTime(jobPosting.getCreateAt())
+                .yearsOfExperience(jobPosting.getYearsOfExperience())
+                .workModel(jobPosting.getWorkModel())
+                .salaryRange(jobPosting.getSalaryRange())
+                .jobPackage(jobPosting.getJobPackage())
+                .skills(skills)
+                .recruiterInfo(recruiterInfo)
                 .build();
     }
 

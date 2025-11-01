@@ -70,7 +70,3 @@ logging:
           RestTemplate: DEBUG
         http:
             client: DEBUG
-
-weaviate:
-  url: ${WEAVIATE_URL:default}
-  api-key: ${WEAVIATE_API_KEY:default}

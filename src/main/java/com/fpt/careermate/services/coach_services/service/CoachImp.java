@@ -11,6 +11,7 @@ import com.fpt.careermate.services.coach_services.domain.Module;
 import com.fpt.careermate.services.coach_services.repository.CourseRepo;
 import com.fpt.careermate.services.coach_services.repository.LessonRepo;
 import com.fpt.careermate.services.coach_services.repository.QuestionRepo;
+import com.fpt.careermate.services.coach_services.service.dto.request.CourseCreationRequest;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
@@ -51,9 +52,12 @@ public class CoachImp implements CoachService {
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public CourseResponse generateCourse(String topic) {
+    public CourseResponse generateCourse(CourseCreationRequest request) {
         String url = BASE_URL + "generate-course/";
-        Map<String, String> body = Map.of("topic", topic);
+        Map<String, String> body = Map.of(
+                "title", request.getTitle(),
+                "description", request.getDescription()
+        );
 
         // Call Django API
         Map<String, Object> data = apiClient.post(url, apiClient.getToken(), body);
@@ -62,8 +66,8 @@ public class CoachImp implements CoachService {
         Course course = new Course();
         course.setTitle((String) data.get("title"));
         course.setDescription((String) data.get("description"));
+        course.setTags((String) data.get("tags"));
         course.setCreatedAt(LocalDate.now());
-        course.setCategory((String) data.get("category"));
 
         // Populate modules and lessons
         List<Map<String, Object>> modulesData = (List<Map<String, Object>>) data.get("modules");

@@ -94,8 +94,8 @@ public class CandidateController {
                 .build();
     }
 
-    @GetMapping("/profiles/me")
-    @Operation(summary = "Get candidate profile by ID", description = "Retrieve candidate profile by ID")
+    @GetMapping("/profiles/current")
+    @Operation(summary = "Get current candidate profile", description = "Retrieve the currently authenticated candidate's profile")
     public ApiResponse<CandidateProfileResponse> getCandidateProfileById() {
         CandidateProfileResponse response = candidateProfileImp.getCandidateProfileById();
         return ApiResponse.<CandidateProfileResponse>builder()

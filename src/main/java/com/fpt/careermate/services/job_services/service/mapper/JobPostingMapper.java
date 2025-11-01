@@ -3,6 +3,7 @@ package com.fpt.careermate.services.job_services.service.mapper;
 import com.fpt.careermate.services.job_services.domain.JobDescription;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
+import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingSkillResponse;
 import org.mapstruct.Mapper;
@@ -22,4 +23,12 @@ public interface JobPostingMapper {
     JobPostingForRecruiterResponse toJobPostingDetailForRecruiterResponse(JobPosting jobPosting);
 
     Set<JobPostingSkillResponse> toJobPostingSkillResponseSet(Set<JobDescription> jobDescriptions);
+
+    // For candidate views
+    @Mapping(target = "postTime", source = "createAt")
+    @Mapping(target = "skills", ignore = true)
+    @Mapping(target = "recruiterInfo", ignore = true)
+    JobPostingForCandidateResponse toJobPostingForCandidateResponse(JobPosting jobPosting);
+
+    List<JobPostingForCandidateResponse> toJobPostingForCandidateResponseList(List<JobPosting> jobPostings);
 }

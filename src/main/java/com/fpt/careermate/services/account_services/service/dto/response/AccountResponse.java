@@ -12,6 +12,8 @@ import java.util.Set;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AccountResponse {
+    int id;
+    String username;
     String email;
     String status;
     Set<RoleResponse> roles;
