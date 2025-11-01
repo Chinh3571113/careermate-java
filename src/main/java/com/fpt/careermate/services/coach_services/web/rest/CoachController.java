@@ -7,8 +7,10 @@ import com.fpt.careermate.services.coach_services.service.dto.request.CourseCrea
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.RecommendedCourseResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.weaviate.client.v1.auth.exception.AuthException;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -85,6 +87,21 @@ public class CoachController {
     public ApiResponse<List<QuestionResponse>> generateQuestionList(@PathVariable int lessonId) {
         return ApiResponse.<List<QuestionResponse>>builder()
                 .result(coachImp.generateQuestionList(lessonId))
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @GetMapping("/course/recommendation")
+    @Operation(description = """
+                Recommend courses based on user's role
+                input: role (e.g., 'data science', 'backend developer', 'frontend developer', etc.)
+                output: list of recommended courses including course title and similarity score
+                Do not need login to access this API
+            """)
+    public ApiResponse<List<RecommendedCourseResponse>> recommendCourses(@RequestParam String role) {
+        return ApiResponse.<List<RecommendedCourseResponse>>builder()
+                .result(coachImp.recommendCourse(role))
                 .code(200)
                 .message("success")
                 .build();

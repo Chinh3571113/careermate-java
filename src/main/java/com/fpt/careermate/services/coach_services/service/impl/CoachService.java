@@ -6,6 +6,8 @@ import com.fpt.careermate.services.coach_services.service.dto.request.CourseCrea
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
+import com.fpt.careermate.services.coach_services.service.dto.response.RecommendedCourseResponse;
+import io.weaviate.client.v1.auth.exception.AuthException;
 
 import java.util.List;
 
@@ -16,4 +18,5 @@ public interface CoachService {
     void markLesson(int lessonId, boolean marked);
     CourseResponse getCourseById(int courseId);
     List<QuestionResponse> generateQuestionList(int lessonId);
+    List<RecommendedCourseResponse> recommendCourse(String role);
 }

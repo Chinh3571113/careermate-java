@@ -42,7 +42,8 @@ public class SecurityConfig {
             "api/payment/**",
             // Public blog endpoints - no authentication required
             "/blogs",
-            "/blogs/**"
+            "/blogs/**",
+            "api/coach/course/recommendation"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;
