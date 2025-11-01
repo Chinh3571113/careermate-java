@@ -58,6 +58,9 @@ public enum ErrorCode {
     REJECTION_REASON_REQUIRED(6014, "Rejection reason is required when rejecting a job posting",
             HttpStatus.BAD_REQUEST),
     INVALID_APPROVAL_STATUS(6015, "Invalid approval status. Must be APPROVED or REJECTED", HttpStatus.BAD_REQUEST),
+    JOB_FEEDBACK_ALREADY_EXISTS(6016, "You have already provided this type of feedback for this job posting", HttpStatus.BAD_REQUEST),
+    JOB_FEEDBACK_NOT_FOUND(6017, "Job feedback not found", HttpStatus.NOT_FOUND),
+    INVALID_FEEDBACK_TYPE(6018, "Invalid feedback type. Must be one of: like, dislike, save, view", HttpStatus.BAD_REQUEST),
 
     // 70xx: Coach
     LESSON_NOT_FOUND(7000, "Lesson not found", HttpStatus.NOT_FOUND),
