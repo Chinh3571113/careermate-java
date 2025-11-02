@@ -32,5 +32,4 @@ public class Module {
 
     @OneToMany(mappedBy = "module", cascade = CascadeType.ALL, orphanRemoval = true)
     List<Lesson> lessons = new ArrayList<>();
-
 }

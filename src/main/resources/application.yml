@@ -38,6 +38,15 @@ spring:
           starttls:
             enable: true
 
+  ai:
+    openai:
+      api-key: ${GOOGLE_API_KEY:default}
+      chat:
+        base-url: https://generativelanguage.googleapis.com
+        completions-path: /v1beta/openai/chat/completions
+        options:
+          model: gemini-2.0-flash
+
 jwt:
   signerKey: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"
   valid-duration: 900 # in second

@@ -3,14 +3,12 @@ package com.fpt.careermate.services.coach_services.web.rest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.coach_services.service.CoachImp;
-import com.fpt.careermate.services.coach_services.service.dto.request.CourseCreationRequest;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.RecommendedCourseResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import io.weaviate.client.v1.auth.exception.AuthException;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +28,17 @@ public class CoachController {
     CoachImp coachImp;
 
     @PostMapping("/course/generation")
-    @Operation(description = "Generate course by topic")
-    public ApiResponse<CourseResponse> generateCourse(@RequestBody CourseCreationRequest request) {
+    @Operation(description = """
+            Generate course metadata by title
+            if course already exists, return existing course metadata
+            if not, generate new course including modules and lessons
+            First time generating course may take longer time so using Redis cache to store the result temporarily
+            input: title (e.g., 'Data Science', 'Backend Developer', 'Frontend Developer', etc.)
+            output: generated course including course title, module, lesson and position structure
+            """)
+    public ApiResponse<CourseResponse> generateCourse(@RequestParam String title) throws JsonProcessingException {
         return ApiResponse.<CourseResponse>builder()
-                .result(coachImp.generateCourse(request))
+                .result(coachImp.generateCourse(title))
                 .code(200)
                 .message("success")
                 .build();

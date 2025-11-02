@@ -21,8 +21,20 @@
         <spotless.version>2.43.0</spotless.version>
         <mail.version>3.1.5</mail.version>
         <swagger.version>2.8.4</swagger.version>
+        <spring-ai.version>1.0.3</spring-ai.version>
     </properties>
-	<url/>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+    <url/>
 	<licenses>
 		<license/>
 	</licenses>
@@ -117,6 +129,19 @@
             <groupId>io.weaviate</groupId>
             <artifactId>client</artifactId>
             <version>4.7.0</version>  <!-- Check latest version -->
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/redis.clients/jedis -->
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>5.2.0-beta5</version>
         </dependency>
     </dependencies>
 

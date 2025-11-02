@@ -1,6 +1,8 @@
 package com.fpt.careermate.services.coach_services.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.common.util.ApiClient;
@@ -11,7 +13,6 @@ import com.fpt.careermate.services.coach_services.domain.Module;
 import com.fpt.careermate.services.coach_services.repository.CourseRepo;
 import com.fpt.careermate.services.coach_services.repository.LessonRepo;
 import com.fpt.careermate.services.coach_services.repository.QuestionRepo;
-import com.fpt.careermate.services.coach_services.service.dto.request.CourseCreationRequest;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseListResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.CourseResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.QuestionResponse;
@@ -22,7 +23,6 @@ import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
-import io.weaviate.client.v1.auth.exception.AuthException;
 import io.weaviate.client.v1.graphql.model.GraphQLResponse;
 import io.weaviate.client.v1.graphql.query.argument.NearTextArgument;
 import io.weaviate.client.v1.graphql.query.builder.GetBuilder;
@@ -32,18 +32,20 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import javax.management.monitor.StringMonitor;
+import redis.clients.jedis.UnifiedJedis;
 
 
 @Service
@@ -52,6 +54,7 @@ import javax.management.monitor.StringMonitor;
 @Slf4j
 public class CoachImp implements CoachService {
     String BASE_URL = "http://localhost:8000/api/v1/coach/";
+    String REDIS_URL = "redis://localhost:6379";
 
     ApiClient apiClient;
     CourseRepo courseRepo;
@@ -61,51 +64,142 @@ public class CoachImp implements CoachService {
     AuthenticationImp authenticationImp;
     CoachMapper coachMapper;
     WeaviateClient client;
-
+    ChatClient chatClient;
+    ObjectMapper objectMapper;
+    UnifiedJedis jedis = new UnifiedJedis(REDIS_URL); // Sử dụng Jedis làm client để kết nối Redis
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public CourseResponse generateCourse(CourseCreationRequest request) {
-        String url = BASE_URL + "generate-course/";
-        Map<String, String> body = Map.of(
-                "title", request.getTitle(),
-                "description", request.getDescription()
-        );
-
-        // Call Django API
-        Map<String, Object> data = apiClient.post(url, apiClient.getToken(), body);
-
-        // Save to database
-        Course course = new Course();
-        course.setTitle((String) data.get("title"));
-        course.setDescription((String) data.get("description"));
-        course.setTags((String) data.get("tags"));
-        course.setCreatedAt(LocalDate.now());
-
-        // Populate modules and lessons
-        List<Map<String, Object>> modulesData = (List<Map<String, Object>>) data.get("modules");
-        for (Map<String, Object> moduleData : modulesData) {
-            Module module = new Module();
-            module.setTitle((String) moduleData.get("title"));
-            module.setPosition((Integer) moduleData.get("position"));
-            module.setCourse(course);
-
-            List<Map<String, Object>> lessonsData = (List<Map<String, Object>>) moduleData.get("lessons");
-            for (Map<String, Object> lessonData : lessonsData) {
-                Lesson lesson = new Lesson();
-                lesson.setTitle((String) lessonData.get("title"));
-                lesson.setPosition((Integer) lessonData.get("position"));
-                lesson.setModule(module);
-                module.getLessons().add(lesson);
-            }
-
-            course.getModules().add(module);
+    public CourseResponse generateCourse(String title) throws JsonProcessingException {
+        // Kiểm tra nếu khóa học đã tồn tại trong postgres
+        Candidate candidate = getCurrentCandidate();
+        Optional<Course> exstingCourse =
+                courseRepo.findByTitleAndCandidate_CandidateId(title, candidate.getCandidateId());
+        if (exstingCourse.isPresent()) {
+            jedis.close();
+            log.info("Course already exists in Postgres for title: {}", title);
+            return coachMapper.toCourseResponse(exstingCourse.get());
         }
 
-        // Set Candidate
+        // Kiểm tra nếu khóa học chung đã có trong Redis cache
+        boolean existsedRedisCourse = jedis.exists(title);
+        if (existsedRedisCourse) {
+            // Lưu khóa học vào postgres từ Redis
+            Course savedPostgres = saveCourseFromJson(title, jedis.hget(title, "content"));
+            log.info("Course found in Redis cache for title: {}", title);
+            jedis.close();
+            return coachMapper.toCourseResponse(savedPostgres);
+        }
+
+        // Nếu chưa tồn tại khóa học chung, tạo khóa học mới bằng cách gọi mô hình ngôn ngữ lớn (LLM)
+        // Thiết lập vai trò, phong cách, quy tắc
+        SystemMessage systemMessage = new SystemMessage("""
+                You are an expert course generation assistant.
+                """
+        );
+
+        // Đưa yêu cầu cụ thể
+        UserMessage userMessage = new UserMessage(String.format("""
+                Generate a comprehensive learning course for: "%s".
+                The course should cover essential skills, tools, and knowledge areas needed to master the topic.
+                Structure the course in the following JSON format:
+                {{
+                    "modules": [
+                      {{
+                        "position": <module position number, starting from 1>,
+                        "title": "<module topic area, e.g., 'Asynchronous Programming'>",
+                        "lessons": [
+                          {{
+                            "position": <lesson position number within the module, starting from 1>,
+                            "title": "<lesson name>"
+                          }},
+                        ]
+                      }}
+                    ]
+                }}
+                
+                Guide:
+                - The course should be structured into 4-6 modules.
+                - Each module should contain 3-5 lessons.
+                - Do not change the course title.
+                """, title)
+        );
+
+        // tạo prompt từ các message
+        // "đóng gói” lời dặn + câu hỏi → thành 1 gói hoàn chỉnh
+        Prompt prompt = new Prompt(systemMessage, userMessage);
+
+        // gửi prompt đến model
+        // chat client: Là đối tượng đại diện cho client kết nối đến mô hình ngôn ngữ. Mục đích:
+        ChatResponse response = chatClient
+                .prompt(prompt)
+                .call() // Bước thực thi
+                .chatResponse(); // Lấy về đối tượng phản hồi dạng chat
+
+        // lấy content và token usage
+        String content = response.getResult().getOutput().getText();
+        long totalTokens = response.getMetadata().getUsage().getTotalTokens();
+        long completionTokens = response.getMetadata().getUsage().getCompletionTokens();
+        long promptTokens = response.getMetadata().getUsage().getPromptTokens();
+        log.info("Generated course with {} totalTokens", totalTokens);
+        log.info("Generated course with {} completionTokens", completionTokens);
+        log.info("Generated course with {} promptTokens", promptTokens);
+
+        // Loại bỏ các ký tự không cần thiết để có được chuỗi JSON hợp lệ
+        String jsonString = content.trim();
+        jsonString = jsonString.replace("```json", "");
+        jsonString = jsonString.replace("```", "").trim();
+
+        // Save to Redis cache
+        Map<String, String> courseMap = new HashMap<>();
+        courseMap.put("content", jsonString);
+        jedis.hset(title, courseMap);
+        jedis.expire(title, 86400); // set expiration time to 24 hours
+        jedis.close();
+
+        // Lưu khóa học vào database
+        Course savedPostgres = saveCourseFromJson(title, jsonString);
+
+        // Map to response
+        return coachMapper.toCourseResponse(savedPostgres);
+    }
+
+    private Course saveCourseFromJson(String title, String jsonString) throws JsonProcessingException {
+        // Chuyển chuỗi JSON thành đối tượng Course
+        // ObjectMapper là cây cầu giữa JSON và Java object.
+        JsonNode root = objectMapper.readTree(jsonString);
+        // readTree chuyển chuỗi JSON thành JsonNode (cây JSON)
+        // Tạo đối tượng Course từ JsonNode
+        Course course = new Course();
+        course.setTitle(title);
+        course.setCreatedAt(LocalDate.now());
+        // Gán candidate hiện tại cho course
         course.setCandidate(getCurrentCandidate());
 
-        return coachMapper.toCourseResponse(courseRepo.save(course));
+        // Thêm modules và lessons vào course
+        for (JsonNode moduleNode : root.get("modules")) {
+            Module module = new Module();
+            module.setTitle(moduleNode.get("title").asText());
+            module.setPosition(moduleNode.get("position").asInt());
+            // tạo liên kết ngược để Hibernate biết rằng module này nằm trong course nào
+            module.setCourse(course);
+
+            // Thêm lessons vào module
+            for (JsonNode lessonNode : moduleNode.get("lessons")) {
+                Lesson lesson = new Lesson();
+                lesson.setTitle(lessonNode.get("title").asText());
+                lesson.setPosition(lessonNode.get("position").asInt());
+                // tạo liên kết ngược để Hibernate biết rằng lesson này nằm trong module nào
+                lesson.setModule(module);
+                // Thêm lesson vào module
+                module.getLessons().add(lesson);
+            }
+            // Thêm module vào course
+            course.getModules().add(module);
+        }
+        // Save to database
+        Course saved = courseRepo.save(course);
+        return saved;
     }
 
     // Generate lesson for course
@@ -122,8 +216,8 @@ public class CoachImp implements CoachService {
 
         // Check if lesson content already exists
         Lesson lesson = exstingLesson.get();
-        if(lesson.getContent() != null && !lesson.getContent().isEmpty()) {
-            return  lesson.getContent();
+        if (lesson.getContent() != null && !lesson.getContent().isEmpty()) {
+            return lesson.getContent();
         }
 
         // If lesson content is empty, call API to generate content
@@ -224,7 +318,7 @@ public class CoachImp implements CoachService {
         Lesson lesson = exstingLesson.get();
 
         // Check if question already exists
-        if(!lesson.getQuestions().isEmpty() || lesson.getQuestions().size() > 0) {
+        if (!lesson.getQuestions().isEmpty() || lesson.getQuestions().size() > 0) {
             return coachMapper.toQuestionResponseList(lesson.getQuestions());
         }
 
@@ -236,7 +330,7 @@ public class CoachImp implements CoachService {
 
         questions.forEach(question -> {
             Question q = new Question();
-            q.setTitle((String)  question.get("question"));
+            q.setTitle((String) question.get("question"));
             q.setLesson(lesson);
             q.setExplanation((String) question.get("explanation"));
             lesson.getQuestions().add(q);
@@ -279,7 +373,7 @@ public class CoachImp implements CoachService {
         // "certainty" là ngưỡng độ tin cậy tối thiểu của kết quả (0.7f = 70%)
         NearTextArgument nearText = NearTextArgument.builder()
                 // vì SDK được sinh máy móc từ định nghĩa GraphQL, nên nó phản ánh y nguyên kiểu danh sách.
-                .concepts(new String[]{ role })
+                .concepts(new String[]{role})
                 .certainty(0.7f)
                 .build();
 
