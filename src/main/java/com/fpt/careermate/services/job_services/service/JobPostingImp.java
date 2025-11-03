@@ -408,11 +408,11 @@ public class JobPostingImp implements JobPostingService {
 
     // ======================== CANDIDATE METHODS ========================
 
-    // Candidate get all approved and active job postings with search
+    // Public API: Get all approved and active job postings with search
     @Override
     public com.fpt.careermate.common.response.PageResponse<JobPostingForCandidateResponse> getAllApprovedJobPostings(
             String keyword, org.springframework.data.domain.Pageable pageable) {
-        log.info("Fetching approved job postings - keyword: {}, page: {}", keyword, pageable.getPageNumber());
+        log.info("Public API: Fetching approved job postings - keyword: {}, page: {}", keyword, pageable.getPageNumber());
 
         org.springframework.data.domain.Page<JobPosting> jobPostingPage;
         LocalDate currentDate = LocalDate.now();
@@ -448,10 +448,10 @@ public class JobPostingImp implements JobPostingService {
         );
     }
 
-    // Candidate get job posting detail by ID (only approved ones)
+    // Public API: Get job posting detail by ID (only approved ones)
     @Override
     public JobPostingForCandidateResponse getJobPostingDetailForCandidate(int id) {
-        log.info("Fetching approved job posting detail for ID: {}", id);
+        log.info("Public API: Fetching approved job posting detail for ID: {}", id);
 
         JobPosting jobPosting = jobPostingRepo.findByIdAndStatus(id, StatusJobPosting.ACTIVE)
                 .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
