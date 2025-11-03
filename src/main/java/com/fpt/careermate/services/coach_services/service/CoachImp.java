@@ -1,11 +1,9 @@
 package com.fpt.careermate.services.coach_services.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
-import com.fpt.careermate.common.util.ApiClient;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.coach_services.domain.*;
@@ -35,7 +33,6 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -51,10 +48,8 @@ import redis.clients.jedis.UnifiedJedis;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class CoachImp implements CoachService {
-    String BASE_URL = "http://localhost:8000/api/v1/coach/";
     String REDIS_URL = "redis://localhost:6379";
 
-    ApiClient apiClient;
     CourseRepo courseRepo;
     CandidateRepo candidateRepo;
     LessonRepo lessonRepo;

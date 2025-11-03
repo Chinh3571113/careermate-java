@@ -25,6 +25,9 @@ import com.fpt.careermate.services.recruiter_services.service.dto.response.Recru
 import com.fpt.careermate.common.util.JobPostingValidator;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
+import io.weaviate.client.WeaviateClient;
+import io.weaviate.client.base.Result;
+import io.weaviate.client.v1.data.model.WeaviateObject;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -53,8 +56,8 @@ public class JobPostingImp implements JobPostingService {
     WorkModelRepo workModelRepo;
     JobPostingMapper jobPostingMapper;
     AuthenticationImp authenticationImp;
-    DjangoImp djangoImp;
     JobPostingValidator jobPostingValidator;
+    WeaviateImp weaviateImp;
 
     // Recruiter create job posting
     @PreAuthorize("hasRole('RECRUITER')")
@@ -99,10 +102,10 @@ public class JobPostingImp implements JobPostingService {
         jobPosting.setJobDescriptions(jobDescriptions);
 
         // Save to postgres
-        JobPosting saved = jobPostingRepo.save(jobPosting);
+        JobPosting savedPostgres = jobPostingRepo.save(jobPosting);
 
         // Add to weaviate
-        djangoImp.addJobPosting(saved);
+        weaviateImp.addJobPostingToWeaviate(savedPostgres);
     }
 
     // Get all job postings of the current recruiter with all status
