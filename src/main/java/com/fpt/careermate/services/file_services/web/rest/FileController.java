@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -32,19 +33,46 @@ public class FileController {
     @Operation(summary = "Upload Image", description = "Upload an image file to Firebase Storage")
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<Map<String, Object>> uploadImage(@RequestParam("image") MultipartFile file) {
-        log.info("Uploading image to Firebase Storage: {}", file.getOriginalFilename());
+        log.info("Starting image upload to Firebase Storage: {}", file.getOriginalFilename());
+
+        // Validate file is not empty
+        if (file.isEmpty()) {
+            log.warn("Upload rejected: Empty file");
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1004)
+                    .message("File cannot be empty")
+                    .build();
+        }
 
         // Validate file type
         if (!isImageFile(file)) {
+            log.warn("Upload rejected: Invalid file type for {}", file.getOriginalFilename());
             return ApiResponse.<Map<String, Object>>builder()
                     .code(1004)
                     .message("Only image files are allowed")
                     .build();
         }
 
+        // Validate file size (max 10MB)
+        if (file.getSize() > 10 * 1024 * 1024) {
+            log.warn("Upload rejected: File too large - {} bytes", file.getSize());
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1004)
+                    .message("File size cannot exceed 10MB")
+                    .build();
+        }
+
         try {
-            // Upload to Firebase Storage
+            log.info("Uploading file {} ({} bytes) to Firebase Storage...",
+                    file.getOriginalFilename(), file.getSize());
+
+            // Upload to Firebase Storage - this is now synchronous and blocking
             Map<String, Object> uploadResult = firebaseStorageService.uploadFile(file, "careermate/blogs");
+
+            // Verify upload was successful
+            if (uploadResult == null || uploadResult.get("secure_url") == null) {
+                throw new IOException("Upload completed but no URL returned");
+            }
 
             // Prepare response (same format as before)
             Map<String, Object> result = new HashMap<>();
@@ -55,7 +83,8 @@ public class FileController {
             result.put("width", uploadResult.get("width"));
             result.put("height", uploadResult.get("height"));
 
-            log.info("Image uploaded successfully to Firebase: {}", uploadResult.get("public_id"));
+            log.info("✅ Image uploaded successfully to Firebase: {} -> {}",
+                    file.getOriginalFilename(), uploadResult.get("secure_url"));
 
             return ApiResponse.<Map<String, Object>>builder()
                     .code(1000)
@@ -63,11 +92,17 @@ public class FileController {
                     .result(result)
                     .build();
 
-        } catch (Exception e) {
-            log.error("Firebase upload failed: {}", e.getMessage());
+        } catch (IOException e) {
+            log.error("❌ Firebase upload failed for {}: {}", file.getOriginalFilename(), e.getMessage(), e);
             return ApiResponse.<Map<String, Object>>builder()
                     .code(1005)
                     .message("Upload failed: " + e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            log.error("❌ Unexpected error during upload: {}", e.getMessage(), e);
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1005)
+                    .message("Upload failed: Unexpected error - " + e.getMessage())
                     .build();
         }
     }

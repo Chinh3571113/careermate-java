@@ -36,9 +36,24 @@ public class BlogImp implements BlogService {
     @Transactional
     public BlogResponse createBlog(BlogCreationRequest request, String email) {
         log.info("Creating blog for admin email: {}", email);
+        log.info("Blog details - Title: {}, ThumbnailUrl: {}", request.getTitle(), request.getThumbnailUrl());
+
+        // Validate required fields
+        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
+            log.error("Blog creation failed: Title is required");
+            throw new AppException(ErrorCode.BLOG_INVALID_STATUS);
+        }
+
+        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
+            log.error("Blog creation failed: Content is required");
+            throw new AppException(ErrorCode.BLOG_INVALID_STATUS);
+        }
 
         Admin admin = adminRepo.findByAccount_Email(email)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+                .orElseThrow(() -> {
+                    log.error("Admin not found with email: {}", email);
+                    return new AppException(ErrorCode.USER_NOT_EXISTED);
+                });
 
         Blog blog = blogMapper.toBlog(request);
         blog.setAdmin(admin);
@@ -47,12 +62,19 @@ public class BlogImp implements BlogService {
             try {
                 blog.setStatus(Blog.BlogStatus.valueOf(request.getStatus().toUpperCase()));
             } catch (IllegalArgumentException e) {
+                log.error("Invalid blog status: {}", request.getStatus());
                 throw new AppException(ErrorCode.BLOG_INVALID_STATUS);
             }
         }
 
-        blog = blogRepo.save(blog);
-        return blogMapper.toBlogResponse(blog);
+        try {
+            blog = blogRepo.save(blog);
+            log.info("✅ Blog created successfully with ID: {}", blog.getId());
+            return blogMapper.toBlogResponse(blog);
+        } catch (Exception e) {
+            log.error("❌ Failed to save blog to database: {}", e.getMessage(), e);
+            throw new AppException(ErrorCode.BLOG_INVALID_STATUS);
+        }
     }
 
     @Override

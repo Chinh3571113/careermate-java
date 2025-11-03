@@ -37,21 +37,33 @@ public class FirebaseStorageService {
             // Get Firebase Storage bucket
             Storage storage = StorageClient.getInstance().bucket().getStorage();
 
-            // Create blob info
+            // Create blob info with public read access
             BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, fileName)
                     .setContentType(file.getContentType())
                     .build();
 
-            // Upload file
-            Blob blob = storage.create(blobInfo, file.getBytes());
+            // Upload file with options to ensure immediate availability
+            Blob blob = storage.create(blobInfo, file.getBytes(),
+                    Storage.BlobTargetOption.predefinedAcl(Storage.PredefinedAcl.PUBLIC_READ));
 
-            // Make the file publicly accessible
-            blob.createAcl(Acl.of(Acl.User.ofAllUsers(), Acl.Role.READER));
+            // Verify blob was created successfully
+            if (blob == null || !blob.exists()) {
+                throw new IOException("Failed to create blob in Firebase Storage");
+            }
+
+            // Double-check the blob is publicly accessible by setting ACL explicitly
+            try {
+                blob.createAcl(Acl.of(Acl.User.ofAllUsers(), Acl.Role.READER));
+            } catch (Exception aclException) {
+                log.warn("ACL already set or cannot be modified: {}", aclException.getMessage());
+                // Continue anyway as the file was uploaded with PUBLIC_READ
+            }
 
             // Get public URL
             String publicUrl = String.format("https://storage.googleapis.com/%s/%s", bucketName, fileName);
 
             log.info("File uploaded successfully to Firebase: {} -> {}", originalName, fileName);
+            log.info("File is publicly accessible at: {}", publicUrl);
 
             // Return Cloudinary-compatible response format
             Map<String, Object> result = new HashMap<>();
@@ -69,7 +81,7 @@ public class FirebaseStorageService {
 
         } catch (Exception e) {
             log.error("Failed to upload file to Firebase: {}", e.getMessage(), e);
-            throw new IOException("Failed to upload file to Firebase Storage", e);
+            throw new IOException("Failed to upload file to Firebase Storage: " + e.getMessage(), e);
         }
     }
 
