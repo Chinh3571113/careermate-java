@@ -72,8 +72,11 @@ public class RecruiterImp implements RecruiterService {
     @Override
     public List<RecruiterApprovalResponse> getPendingRecruiters() {
         // Get all recruiters with PENDING status (waiting for admin approval)
-        return recruiterRepo.findAll().stream()
-                .filter(recruiter -> "PENDING".equals(recruiter.getAccount().getStatus()))
+        // Use paginated query to avoid loading all data - fetch first 1000 records max
+        Pageable pageable = PageRequest.of(0, 1000, Sort.by("id").descending());
+        Page<Recruiter> recruiterPage = recruiterRepo.findByAccount_Status("PENDING", pageable);
+
+        return recruiterPage.getContent().stream()
                 .map(this::mapToApprovalResponse)
                 .collect(Collectors.toList());
     }
@@ -81,8 +84,11 @@ public class RecruiterImp implements RecruiterService {
     @Override
     public List<RecruiterApprovalResponse> getAllRecruiters() {
         // Get all recruiters with ACTIVE status (approved by admin)
-        return recruiterRepo.findAll().stream()
-                .filter(recruiter -> "ACTIVE".equals(recruiter.getAccount().getStatus()))
+        // Use paginated query to avoid loading all data - fetch first 1000 records max
+        Pageable pageable = PageRequest.of(0, 1000, Sort.by("id").descending());
+        Page<Recruiter> recruiterPage = recruiterRepo.findByAccount_Status("ACTIVE", pageable);
+
+        return recruiterPage.getContent().stream()
                 .map(this::mapToApprovalResponse)
                 .collect(Collectors.toList());
     }
