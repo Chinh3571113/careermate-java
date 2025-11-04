@@ -1,6 +1,5 @@
 package com.fpt.careermate.services.coach_services.web.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.coach_services.service.CoachImp;
 import com.fpt.careermate.services.coach_services.service.dto.response.*;
@@ -23,70 +22,6 @@ import java.util.List;
 public class CoachController {
 
     CoachImp coachImp;
-
-    @PostMapping("/course/generation")
-    @Operation(description = """
-            Generate course metadata by title
-            if course already exists, return existing course metadata
-            if not, generate new course including modules and lessons
-            First time generating course may take longer time so using Redis cache to store the result temporarily
-            input: title (e.g., 'Data Science', 'Backend Developer', 'Frontend Developer', etc.)
-            output: generated course including course title, module, lesson and position structure
-            """)
-    public ApiResponse<CourseResponse> generateCourse(@RequestParam String title) throws JsonProcessingException {
-        return ApiResponse.<CourseResponse>builder()
-                .result(coachImp.generateCourse(title))
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @PostMapping("/course/lesson/generation/{lessonId}")
-    @Operation(description = """
-            Generate lesson content by lesson ID if not exists, return existing lesson content otherwise
-            if exists in Redis cache, return from cache
-            else generate new lesson content by LLM and store in Redis cache and Postgres
-            input: lesson ID
-            output: generated lesson content including lesson overview, core content, exercises and conclusion.
-            """)
-    public ApiResponse<LessonContentResponse> generateLessonContent(@PathVariable int lessonId) throws JsonProcessingException {
-        return ApiResponse.<LessonContentResponse>builder()
-                .result(coachImp.generateLesson(lessonId))
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @GetMapping("/course")
-    @Operation(description = "Get my courses")
-    public ApiResponse<List<CourseListResponse>> getMyCourses() {
-        return ApiResponse.<List<CourseListResponse>>builder()
-                .result(coachImp.getMyCourses())
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @PatchMapping("/course/lesson/mark/{lessonId}")
-    @Operation(description = "Mark or unmark lesson as completed")
-    public ApiResponse<Void> markLesson(@PathVariable int lessonId, @RequestParam boolean marked) {
-        coachImp.markLesson(lessonId, marked);
-
-        return ApiResponse.<Void>builder()
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @PostMapping("/course/lesson/question/generation/{lessonId}")
-    @Operation(description = "if question not exists, generate question for lesson by lesson ID, return existing question otherwise")
-    public ApiResponse<List<QuestionResponse>> generateQuestionList(@PathVariable int lessonId) throws JsonProcessingException {
-        return ApiResponse.<List<QuestionResponse>>builder()
-                .result(coachImp.generateQuestionList(lessonId))
-                .code(200)
-                .message("success")
-                .build();
-    }
 
     @GetMapping("/course/recommendation")
     @Operation(description = """
