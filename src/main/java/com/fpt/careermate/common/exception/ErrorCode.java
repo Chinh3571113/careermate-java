@@ -102,7 +102,8 @@ public enum ErrorCode {
     HIGHLIGHT_PROJECT_NOT_FOUND(1027,"Highlight Project not found" ,HttpStatus.BAD_REQUEST ),
     TOKEN_REUSE_DETECTED(1025,"Detected reuse of refresh token (possible attack)" ,HttpStatus.FORBIDDEN ),
     CANDIDATE_PROFILE_ALREADY_EXISTS(1026,"Your Profile is already created" ,HttpStatus.BAD_REQUEST ),
-    WORK_MODEL_NOT_FOUND(1027,"Work model not found" ,HttpStatus.BAD_REQUEST );
+    WORK_MODEL_NOT_FOUND(1027,"Work model not found" ,HttpStatus.BAD_REQUEST ),
+    JOB_APPLICATION_NOT_FOUND(1028, "Job not fount", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;

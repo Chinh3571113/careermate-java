@@ -112,6 +112,7 @@ public class JobApplyImp implements JobApplyService {
     }
 
     @Override
+    @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
     public PageResponse<JobApplyResponse> getJobAppliesByCandidateWithFilter(
             int candidateId,
             StatusJobApply status,
@@ -125,11 +126,12 @@ public class JobApplyImp implements JobApplyService {
         // Create pageable with sorting by createAt descending (newest first)
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createAt"));
 
-        // Query with filter
-        Page<JobApply> jobApplyPage = jobApplyRepo.findByCandidateIdAndStatus(
-                candidateId,
-                status,
-                pageable);
+        // Query with or without status filter
+        Page<JobApply> jobApplyPage=jobApplyRepo.findByCandidateIdAndStatus(candidateId, status, pageable);
+        if(jobApplyPage.getTotalElements() == 0){
+            throw new AppException(ErrorCode.JOB_APPLICATION_NOT_FOUND);
+        }
+
 
         // Map to response
         List<JobApplyResponse> content = jobApplyPage.getContent().stream()
@@ -147,7 +149,7 @@ public class JobApplyImp implements JobApplyService {
 
     @Override
     @Transactional
-    @PreAuthorize("hasRole('CANDIDATE')")
+    @PreAuthorize("hasRole('RECRUITER')")
     public JobApplyResponse updateJobApply(int id, StatusJobApply status) {
         JobApply jobApply = jobApplyRepo.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
