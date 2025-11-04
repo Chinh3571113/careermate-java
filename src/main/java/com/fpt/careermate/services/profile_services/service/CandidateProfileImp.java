@@ -27,6 +27,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -187,8 +189,8 @@ public class CandidateProfileImp implements CandidateProfileService {
         // Create new candidate with builder pattern
         Candidate candidate = Candidate.builder()
                 .account(account)
-                .industryExperiences(new java.util.ArrayList<>())
-                .workModels(new java.util.ArrayList<>())
+                .industryExperiences(new ArrayList<>())
+                .workModels(new ArrayList<>())
                 .build();
 
         // Map request fields to candidate
