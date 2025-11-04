@@ -219,7 +219,7 @@ public class RegistrationService {
                 .logoUrl(orgInfo.getLogoUrl() != null ? orgInfo.getLogoUrl() : "https://via.placeholder.com/150")
                 .about(orgInfo.getAbout())
                 .rating(0.0f)
-                .businessLicense(orgInfo.getBusinessLicense())
+                .companyEmail(orgInfo.getCompanyEmail())
                 .contactPerson(orgInfo.getContactPerson())
                 .phoneNumber(orgInfo.getPhoneNumber())
                 .companyAddress(orgInfo.getCompanyAddress())

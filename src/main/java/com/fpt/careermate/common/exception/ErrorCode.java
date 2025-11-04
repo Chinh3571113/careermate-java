@@ -34,6 +34,9 @@ public enum ErrorCode {
     RECRUITER_NOT_FOUND(4003, "Recruiter profile not found", HttpStatus.NOT_FOUND),
     RECRUITER_ALREADY_APPROVED(4004, "Recruiter profile is already approved", HttpStatus.BAD_REQUEST),
     ROLE_NOT_FOUND(4005, "Role not found in system", HttpStatus.INTERNAL_SERVER_ERROR),
+    PENDING_UPDATE_REQUEST_EXISTS(4006, "You already have a pending profile update request. Please wait for admin review or cancel the existing request.", HttpStatus.BAD_REQUEST),
+    UPDATE_REQUEST_NOT_FOUND(4007, "Profile update request not found", HttpStatus.NOT_FOUND),
+    UPDATE_REQUEST_ALREADY_PROCESSED(4008, "This update request has already been processed", HttpStatus.BAD_REQUEST),
 
     // 50xx: JdSkill
     SKILL_EXISTED(5000, "JdSkill existed", HttpStatus.BAD_REQUEST),

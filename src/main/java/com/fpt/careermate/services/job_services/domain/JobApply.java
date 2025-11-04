@@ -1,6 +1,5 @@
 package com.fpt.careermate.services.job_services.domain;
 
-import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import jakarta.persistence.*;
 import lombok.*;
@@ -45,9 +44,7 @@ public class JobApply {
     @JoinColumn(name = "candidate_id", nullable = false)
     private Candidate candidate;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private StatusJobApply status;
-
+    private String status;
     private LocalDateTime createAt;
 }

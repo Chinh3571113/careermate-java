@@ -14,6 +14,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AccountCreationRequest {
     @NotNull(message = "Username cannot be null")
+    @NotBlank(message = "Username cannot be blank")
     String username;
     @Email(message = "Email should be valid")
     @NotBlank(message = "Email cannot be blank")
