@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.job_services.service;
 
 import com.fpt.careermate.common.constant.StatusJobApply;
+import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
@@ -17,6 +18,10 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -150,7 +155,7 @@ public class JobApplyImp implements JobApplyService {
                 .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
 
         // Update status if provided
-       jobApply.setStatus(request);
+       jobApply.setStatus(status);
 
         JobApply updatedJobApply = jobApplyRepo.save(jobApply);
         return jobApplyMapper.toJobApplyResponse(updatedJobApply);
