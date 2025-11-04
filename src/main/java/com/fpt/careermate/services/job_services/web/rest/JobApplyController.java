@@ -1,6 +1,8 @@
 package com.fpt.careermate.services.job_services.web.rest;
 
 
+import com.fpt.careermate.common.constant.StatusJobApply;
+import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.job_services.service.JobApplyImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobApplyRequest;
 import com.fpt.careermate.common.response.ApiResponse;
@@ -8,7 +10,6 @@ import com.fpt.careermate.services.job_services.service.dto.response.JobApplyRes
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -72,9 +73,46 @@ public class JobApplyController {
                 .build();
     }
 
+    @GetMapping("/candidate/{candidateId}/filter")
+    @Operation(
+        summary = "Get Job Applications by Candidate with Filter and Pagination",
+        description = """
+            Retrieve job applications for a specific candidate with optional status filter and pagination.
+            
+            Parameters:
+            - candidateId: ID of the candidate (required, path variable)
+            - status: Filter by application status (optional). Valid values: SUBMITTED, REVIEWING, APPROVED, REJECTED
+            - page: Page number, starts from 0 (default: 0)
+            - size: Number of items per page (default: 10)
+            
+            The results are sorted by creation date (newest first).
+            
+            Examples:
+            - GET /api/job-apply/candidate/1/filter?page=0&size=10 (get all applications)
+            - GET /api/job-apply/candidate/1/filter?status=SUBMITTED&page=0&size=10 (filter by SUBMITTED)
+            - GET /api/job-apply/candidate/1/filter?status=REVIEWING&page=0&size=10 (filter by REVIEWING)
+            """
+    )
+    public ApiResponse<PageResponse<JobApplyResponse>> getJobAppliesByCandidateWithFilter(
+            @PathVariable int candidateId,
+            @RequestParam(required = false) StatusJobApply status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        return ApiResponse.<PageResponse<JobApplyResponse>>builder()
+                .result(jobApplyImp.getJobAppliesByCandidateWithFilter(candidateId, status, page, size))
+                .message("Job applications retrieved successfully")
+                .build();
+    }
+
     @PutMapping("/{id}")
-    @Operation(summary = "Update Job Application", description = "Update an existing job application (e.g., change status)")
-    public ApiResponse<JobApplyResponse> updateJobApply(@PathVariable int id, @RequestBody @NotBlank String status) {
+    @Operation(
+        summary = "Update Job Application Status",
+        description = "Update job application status. Valid values: SUBMITTED, REVIEWING, APPROVED, REJECTED"
+    )
+    public ApiResponse<JobApplyResponse> updateJobApply(
+            @PathVariable int id,
+            @RequestParam StatusJobApply status) {
         return ApiResponse.<JobApplyResponse>builder()
                 .result(jobApplyImp.updateJobApply(id, status))
                 .message("Job application updated successfully")

@@ -23,6 +23,4 @@ public class JobApplyRequest {
     @NotBlank(message = "Preferred work location is required")
     String preferredWorkLocation;
     String coverLetter;
-    @NotBlank(message = "Status is required")
-    String status;
 }
