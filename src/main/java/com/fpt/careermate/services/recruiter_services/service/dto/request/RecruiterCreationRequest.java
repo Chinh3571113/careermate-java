@@ -36,8 +36,9 @@ public class RecruiterCreationRequest {
 
     // ===== ORGANIZATION VERIFICATION FIELDS (Only 4 fields) =====
 
-    @Size(max = 100, message = "Business license number cannot exceed 100 characters")
-    String businessLicense; // Business registration number / Tax ID (optional initially, can be added later)
+    @Email(message = "Invalid company email format")
+    @Size(max = 100, message = "Company email cannot exceed 100 characters")
+    String companyEmail; // Official company email for verification
 
     @Size(max = 100, message = "Contact person name cannot exceed 100 characters")
     String contactPerson; // Contact person name
