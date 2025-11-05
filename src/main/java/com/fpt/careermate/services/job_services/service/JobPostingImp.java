@@ -391,7 +391,8 @@ public class JobPostingImp implements JobPostingService {
                 .id(recruiter.getId())
                 .companyName(recruiter.getCompanyName())
                 .email(recruiter.getAccount().getEmail())
-                .phoneNumber("Contact via email") // Phone not available in current schema
+                .companyEmail(recruiter.getCompanyEmail())
+                .phoneNumber(recruiter.getPhoneNumber())
                 .build();
 
         return JobPostingForAdminResponse.builder()

@@ -34,6 +34,9 @@ public enum ErrorCode {
     RECRUITER_NOT_FOUND(4003, "Recruiter profile not found", HttpStatus.NOT_FOUND),
     RECRUITER_ALREADY_APPROVED(4004, "Recruiter profile is already approved", HttpStatus.BAD_REQUEST),
     ROLE_NOT_FOUND(4005, "Role not found in system", HttpStatus.INTERNAL_SERVER_ERROR),
+    PENDING_UPDATE_REQUEST_EXISTS(4006, "You already have a pending profile update request. Please wait for admin review or cancel the existing request.", HttpStatus.BAD_REQUEST),
+    UPDATE_REQUEST_NOT_FOUND(4007, "Profile update request not found", HttpStatus.NOT_FOUND),
+    UPDATE_REQUEST_ALREADY_PROCESSED(4008, "This update request has already been processed", HttpStatus.BAD_REQUEST),
 
     // 50xx: JdSkill
     SKILL_EXISTED(5000, "JdSkill existed", HttpStatus.BAD_REQUEST),
@@ -102,7 +105,8 @@ public enum ErrorCode {
     HIGHLIGHT_PROJECT_NOT_FOUND(1027,"Highlight Project not found" ,HttpStatus.BAD_REQUEST ),
     TOKEN_REUSE_DETECTED(1025,"Detected reuse of refresh token (possible attack)" ,HttpStatus.FORBIDDEN ),
     CANDIDATE_PROFILE_ALREADY_EXISTS(1026,"Your Profile is already created" ,HttpStatus.BAD_REQUEST ),
-    WORK_MODEL_NOT_FOUND(1027,"Work model not found" ,HttpStatus.BAD_REQUEST );
+    WORK_MODEL_NOT_FOUND(1027,"Work model not found" ,HttpStatus.BAD_REQUEST ),
+    JOB_APPLICATION_NOT_FOUND(1028, "Job not fount", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;

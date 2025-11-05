@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.job_services.service;
 
 import com.fpt.careermate.common.constant.StatusJobApply;
+import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
@@ -17,6 +18,10 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -107,14 +112,50 @@ public class JobApplyImp implements JobApplyService {
     }
 
     @Override
+    @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
+    public PageResponse<JobApplyResponse> getJobAppliesByCandidateWithFilter(
+            int candidateId,
+            StatusJobApply status,
+            int page,
+            int size) {
+
+        // Validate candidate exists
+        candidateRepo.findById(candidateId)
+                .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
+
+        // Create pageable with sorting by createAt descending (newest first)
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createAt"));
+
+        // Query with or without status filter
+        Page<JobApply> jobApplyPage=jobApplyRepo.findByCandidateIdAndStatus(candidateId, status, pageable);
+        if(jobApplyPage.getTotalElements() == 0){
+            throw new AppException(ErrorCode.JOB_APPLICATION_NOT_FOUND);
+        }
+
+
+        // Map to response
+        List<JobApplyResponse> content = jobApplyPage.getContent().stream()
+                .map(jobApplyMapper::toJobApplyResponse)
+                .collect(Collectors.toList());
+
+        return new PageResponse<>(
+                content,
+                jobApplyPage.getNumber(),
+                jobApplyPage.getSize(),
+                jobApplyPage.getTotalElements(),
+                jobApplyPage.getTotalPages()
+        );
+    }
+
+    @Override
     @Transactional
     @PreAuthorize("hasRole('RECRUITER')")
-    public JobApplyResponse updateJobApply(int id, String  request) {
+    public JobApplyResponse updateJobApply(int id, StatusJobApply status) {
         JobApply jobApply = jobApplyRepo.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
 
         // Update status if provided
-       jobApply.setStatus(request);
+       jobApply.setStatus(status);
 
         JobApply updatedJobApply = jobApplyRepo.save(jobApply);
         return jobApplyMapper.toJobApplyResponse(updatedJobApply);

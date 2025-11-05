@@ -37,4 +37,7 @@ public interface AccountRepo extends JpaRepository<Account,Integer> {
             @Param("keyword") String keyword,
             Pageable pageable
     );
+
+    @Query("SELECT a FROM account a JOIN a.roles r WHERE r.name = 'ADMIN' AND a.status = 'ACTIVE'")
+    List<Account> findAdminAccounts();
 }

@@ -15,6 +15,8 @@ import java.util.Optional;
 public interface RecruiterRepo extends JpaRepository<Recruiter,Integer> {
     Optional<Recruiter> findByAccount_Id(int id);
 
+    Optional<Recruiter> findByAccount_Email(String email);
+
     // Find recruiters by account status with pagination
     Page<Recruiter> findByAccount_Status(String status, Pageable pageable);
 
