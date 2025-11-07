@@ -13,7 +13,6 @@ public interface CandidateMapper {
 
     @Mapping(target = "account", ignore = true)
     Candidate toCandidate(CandidateProfileRequest candidate);
-
     CandidateProfileResponse toCandidateProfileResponse(Candidate candidate);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

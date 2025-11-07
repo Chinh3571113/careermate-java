@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 
 public class CandidateProfileResponse {
-    int id;
+    int candidateId;
     LocalDate dob;
     String title;
     String fullName;
