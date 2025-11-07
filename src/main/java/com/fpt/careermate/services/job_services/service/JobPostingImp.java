@@ -270,8 +270,15 @@ public class JobPostingImp implements JobPostingService {
     // Get current recruiter
     private Recruiter getMyRecruiter() {
         Account currentAccount = authenticationImp.findByEmail();
-        Optional<Recruiter> currentRecruiter = recruiterRepo.findByAccount_Id(currentAccount.getId());
-        return currentRecruiter.get();
+        Recruiter recruiter = recruiterRepo.findByAccount_Id(currentAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+
+        // Check if recruiter is verified (APPROVED status)
+        if (!"APPROVED".equals(recruiter.getVerificationStatus())) {
+            throw new AppException(ErrorCode.RECRUITER_NOT_VERIFIED);
+        }
+
+        return recruiter;
     }
 
     // Scheduler to update job posting status to EXPIRED if expiration date is

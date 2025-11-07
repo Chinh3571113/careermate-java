@@ -40,6 +40,9 @@ public enum ErrorCode {
         UPDATE_REQUEST_NOT_FOUND(4007, "Profile update request not found", HttpStatus.NOT_FOUND),
         UPDATE_REQUEST_ALREADY_PROCESSED(4008, "This update request has already been processed",
                         HttpStatus.BAD_REQUEST),
+        RECRUITER_NOT_VERIFIED(4009,
+                        "Your recruiter profile is not yet approved by admin. Please wait for verification.",
+                        HttpStatus.FORBIDDEN),
 
         // 50xx: JdSkill
         SKILL_EXISTED(5000, "JdSkill existed", HttpStatus.BAD_REQUEST),

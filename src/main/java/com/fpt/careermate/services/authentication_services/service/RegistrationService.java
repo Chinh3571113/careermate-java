@@ -88,8 +88,10 @@ public class RegistrationService {
      * This method only creates the Recruiter entity with organization info
      */
     @Transactional
-    public Recruiter completeRecruiterProfileForOAuth(String email, RecruiterRegistrationRequest.OrganizationInfo orgInfo) {
-        // Find existing account (already has RECRUITER role and PENDING status from OAuth)
+    public Recruiter completeRecruiterProfileForOAuth(String email,
+            RecruiterRegistrationRequest.OrganizationInfo orgInfo) {
+        // Find existing account (already has RECRUITER role and PENDING status from
+        // OAuth)
         Account account = accountRepo.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
@@ -120,7 +122,7 @@ public class RegistrationService {
 
     /**
      * Approve recruiter account (admin action)
-     * Changes account status from PENDING to ACTIVE
+     * Changes both account status and recruiter verification status
      */
     @Transactional
     public void approveRecruiterAccount(int recruiterId) {
@@ -129,24 +131,27 @@ public class RegistrationService {
 
         Account account = recruiter.getAccount();
 
-        // Check if already active
-        if ("ACTIVE".equals(account.getStatus())) {
+        // Check if already approved (both account status and verification status must
+        // be checked)
+        if ("ACTIVE".equals(account.getStatus()) && "APPROVED".equals(recruiter.getVerificationStatus())) {
             throw new AppException(ErrorCode.RECRUITER_ALREADY_APPROVED);
         }
 
-        // Change status to ACTIVE
+        // Change both statuses to ACTIVE/APPROVED
         account.setStatus("ACTIVE");
         recruiter.setVerificationStatus("APPROVED");
+        recruiter.setRejectionReason(null); // Clear any previous rejection reason
 
         accountRepo.save(account);
         recruiterRepo.save(recruiter);
 
-        log.info("Recruiter account approved. Account ID: {}, Status: PENDING → ACTIVE", account.getId());
+        log.info("Recruiter approved. Account ID: {}, Account Status: {} → ACTIVE, Verification Status: {} → APPROVED",
+                account.getId(), account.getStatus(), recruiter.getVerificationStatus());
     }
 
     /**
      * Reject recruiter account (admin action)
-     * Deletes both account and recruiter profile
+     * Sets both account and recruiter to rejected status with reason
      */
     @Transactional
     public void rejectRecruiterAccount(int recruiterId, String reason) {
@@ -154,26 +159,35 @@ public class RegistrationService {
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
 
         Account account = recruiter.getAccount();
-        int accountId = account.getId();
-        String email = account.getEmail();
 
-        // Delete recruiter profile first (due to foreign key)
-        recruiterRepo.delete(recruiter);
+        // Set both statuses to REJECTED
+        account.setStatus("REJECTED");
+        recruiter.setVerificationStatus("REJECTED");
+        recruiter.setRejectionReason(reason != null ? reason : "No reason provided");
 
-        // Delete account
-        accountRepo.delete(account);
+        accountRepo.save(account);
+        recruiterRepo.save(recruiter);
 
-        log.info("Recruiter account rejected and deleted. Account ID: {}, Email: {}, Reason: {}",
-                accountId, email, reason);
+        log.info("Recruiter rejected. Account ID: {}, Email: {}, Reason: {}",
+                account.getId(), account.getEmail(), reason);
     }
 
     /**
      * Ban a recruiter account (admin action)
+     * Changes both account status and recruiter verification status to
+     * BANNED/REJECTED
      */
     @Transactional
     public void banRecruiterAccount(int accountId, String reason) {
         Account account = accountRepo.findById(accountId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        // Find recruiter profile if exists
+        recruiterRepo.findByAccount_Id(accountId).ifPresent(recruiter -> {
+            recruiter.setVerificationStatus("REJECTED");
+            recruiter.setRejectionReason(reason != null ? reason : "Account banned by admin");
+            recruiterRepo.save(recruiter);
+        });
 
         account.setStatus("BANNED");
         accountRepo.save(account);
@@ -183,11 +197,20 @@ public class RegistrationService {
 
     /**
      * Unban a recruiter account (admin action)
+     * Changes both account status and recruiter verification status back to
+     * ACTIVE/APPROVED
      */
     @Transactional
     public void unbanRecruiterAccount(int accountId) {
         Account account = accountRepo.findById(accountId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        // Find recruiter profile if exists
+        recruiterRepo.findByAccount_Id(accountId).ifPresent(recruiter -> {
+            recruiter.setVerificationStatus("APPROVED");
+            recruiter.setRejectionReason(null); // Clear rejection reason
+            recruiterRepo.save(recruiter);
+        });
 
         account.setStatus("ACTIVE");
         accountRepo.save(account);
@@ -227,4 +250,3 @@ public class RegistrationService {
                 .build();
     }
 }
-
