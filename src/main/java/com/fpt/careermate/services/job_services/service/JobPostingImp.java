@@ -532,6 +532,7 @@ public class JobPostingImp implements JobPostingService {
                 .workModel(jobPosting.getWorkModel())
                 .salaryRange(jobPosting.getSalaryRange())
                 .jobPackage(jobPosting.getJobPackage())
+                .reason(jobPosting.getReason())
                 .skills(skills)
                 .recruiterInfo(recruiterInfo)
                 .build();
