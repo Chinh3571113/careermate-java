@@ -10,6 +10,8 @@ public enum ErrorCode {
     INVALID_JSON(9998, "Invalid JSON format or missing request body", HttpStatus.BAD_REQUEST),
     EXTERNAL_API_ERROR(9997, "Error occurred while calling external API", HttpStatus.SERVICE_UNAVAILABLE),
     RESPONSE_BODY_EMPTY(9996, "Response body from external API is empty", HttpStatus.SERVICE_UNAVAILABLE),
+    FILE_NOT_FOUND(9995, "File not found", HttpStatus.INTERNAL_SERVER_ERROR),
+    IO_EXCEPTION(9994, "I/O exception occurred", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_KEY(1001, "Uncategorized error", HttpStatus.BAD_REQUEST),
     USER_EXISTED(1002, "User existed", HttpStatus.BAD_REQUEST),
     USERNAME_INVALID(1003, "Username must be at least {min} characters", HttpStatus.BAD_REQUEST),
