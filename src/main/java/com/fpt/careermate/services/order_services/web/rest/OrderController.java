@@ -68,4 +68,18 @@ public class OrderController {
                 .build();
     }
 
+    @Operation(summary = """
+            Call this API before call POST /api/payment
+            to check if candidate has an active package.
+            input: none
+            output: true if candidate has active package, false if not
+            """)
+    @GetMapping("/active-package")
+    public ApiResponse<Boolean> hasActivePackage() {
+        return ApiResponse.<Boolean>builder()
+                .result(orderImp.hasActivePackage())
+                .code(200)
+                .message("success")
+                .build();
+    }
 }

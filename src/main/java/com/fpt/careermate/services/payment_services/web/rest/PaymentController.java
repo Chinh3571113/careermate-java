@@ -22,7 +22,12 @@ public class PaymentController {
 
     private final PaymentImp paymentImp;
 
-    @Operation(summary = "Create payment")
+    @Operation(summary = """
+            Call GET /order/active API to check if candidate has an active order.
+            If not, create a payment URL for the specified package and return it.
+            input: packageName
+            output: paymentUrl
+            """)
     @PostMapping
     public ApiResponse<String> createPayment(
             @RequestParam String packageName,

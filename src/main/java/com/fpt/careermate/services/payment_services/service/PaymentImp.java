@@ -54,7 +54,11 @@ public class PaymentImp implements PaymentService {
         String email = coachUtil.getCurrentCandidate().getAccount().getEmail();
         String upperPackageName = packageName.toUpperCase();
 
+        // Kiểm tra nếu là FREE package thì không được phép thanh toán
         if(upperPackageName.equals("FREE")) throw new AppException(ErrorCode.CAN_NOT_PAY_FOR_FREE_PACKAGE);
+
+        // Kiểm tra xem candidate đã có đơn hàng active chưa
+        if(orderImp.hasActivePackage()) throw new AppException(ErrorCode.HAS_ACTIVE_PACKAGE);
 
         CandidatePackage candidatePackage = orderImp.getPackageByName(upperPackageName);
 

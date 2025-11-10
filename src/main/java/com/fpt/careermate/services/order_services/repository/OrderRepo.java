@@ -11,4 +11,5 @@ import java.util.Optional;
 @Repository
 public interface OrderRepo extends JpaRepository<CandidateOrder,Integer> {
     List<CandidateOrder> findByCandidate_CandidateId(int candidateId);
+    Optional<CandidateOrder> findByCandidate_CandidateIdAndIsActiveTrue(int candidateId);
 }

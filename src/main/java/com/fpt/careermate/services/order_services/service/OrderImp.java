@@ -120,4 +120,11 @@ public class OrderImp implements OrderService {
     public CandidatePackage getPackageByName(String packageName){
         return packageRepo.findByName(packageName);
     }
+
+    // Check if candidate has an active order
+    public boolean hasActivePackage() {
+        Candidate currentCandidate = getCurrentCandidate();
+        Optional<CandidateOrder> activeOrder = orderRepo.findByCandidate_CandidateIdAndIsActiveTrue(currentCandidate.getCandidateId());
+        return activeOrder.isPresent();
+    }
 }
