@@ -37,4 +37,20 @@ public class EntitlementController {
                 .message("success")
                 .build();
     }
+
+    @GetMapping("/job-recommendation-checker")
+    @Operation(summary = """
+            Check if candidate can use Job Recommendation feature
+            input: none
+            output: boolean
+            Need login as candidate to access this API
+            Use this API before calling Job Recommendation API
+            """)
+    public ApiResponse<Boolean> canUseJobRecommendation() {
+        return ApiResponse.<Boolean>builder()
+                .result(checkerService.canUseJobRecommendation())
+                .code(200)
+                .message("success")
+                .build();
+    }
 }

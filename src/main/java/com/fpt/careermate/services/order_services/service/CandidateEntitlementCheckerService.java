@@ -29,28 +29,24 @@ public class CandidateEntitlementCheckerService {
     CoachUtil coachUtil;
     PackageRepo packageRepo;
 
-    String AI_ROADMAP = "AI_ROADMAP";
 
-    /**
-     * Kiểm tra candidate có quyền dùng tính năng Roadmap Recommendation không?
-     */
-    public boolean canUseRoadmapRecommendation() {
+    public boolean core(String entitlementCode) {
         // Kiểm tra gói Free
         if (checkFreePackage()) {
             // Nếu là Free package
             log.info("Candidate is on Free CandidatePackage");
             CandidatePackage freeCandidatePackage = packageRepo.findByName("Free");
             EntitlementPackage entitlement = entitlementPackageRepo
-                    .findByCandidatePackage_NameAndEntitlement_Code(freeCandidatePackage.getName(), AI_ROADMAP);
+                    .findByCandidatePackage_NameAndEntitlement_Code(freeCandidatePackage.getName(), entitlementCode);
             return entitlement != null && entitlement.isEnabled();
         }
 
         CandidatePackage currentCandidatePackage = coachUtil.getCurrentCandidate().getCandidateOrder().getCandidatePackage();
         log.info("Current CandidatePackage Name: " + currentCandidatePackage.getName());
 
-        // Lấy entitlement "AI_ROADMAP"
+        // Lấy entitlement "entitlementCode"
         EntitlementPackage entitlement = entitlementPackageRepo
-                .findByCandidatePackage_NameAndEntitlement_Code(currentCandidatePackage.getName(), AI_ROADMAP);
+                .findByCandidatePackage_NameAndEntitlement_Code(currentCandidatePackage.getName(), entitlementCode);
 
         // Trả kết quả
         return entitlement != null && entitlement.isEnabled();
@@ -66,5 +62,21 @@ public class CandidateEntitlementCheckerService {
         }
 
         return false;
+    }
+
+    /**
+     * Kiểm tra candidate có quyền dùng tính năng Job Recommendation không?
+     */
+    public boolean canUseJobRecommendation() {
+        String JOB_RECOMMENDATION = "JOB_RECOMMENDATION";
+        return core(JOB_RECOMMENDATION);
+    }
+
+    /**
+     * Kiểm tra candidate có quyền dùng tính năng Roadmap Recommendation không?
+     */
+    public boolean canUseRoadmapRecommendation() {
+        String AI_ROADMAP = "AI_ROADMAP";
+        return core(AI_ROADMAP);
     }
 }
