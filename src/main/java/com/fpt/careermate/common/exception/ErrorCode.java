@@ -32,6 +32,7 @@ public enum ErrorCode {
 
         // 30xx: CandidatePackage
         PACKAGE_NOT_FOUND(3000, "CandidatePackage not found", HttpStatus.NOT_FOUND),
+    USING_FREE_PACAKGE(3001, "You are using FREE package", HttpStatus.BAD_REQUEST),
 
         // 40xx: Recruiter
         INVALID_WEBSITE(4000, "Website is not reachable", HttpStatus.BAD_REQUEST),

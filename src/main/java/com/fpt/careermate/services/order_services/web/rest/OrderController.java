@@ -2,10 +2,10 @@ package com.fpt.careermate.services.order_services.web.rest;
 
 import com.fpt.careermate.services.order_services.service.OrderImp;
 import com.fpt.careermate.common.response.ApiResponse;
-import com.fpt.careermate.services.order_services.service.dto.response.OrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.CandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.MyCandidateOrderResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -41,20 +41,10 @@ public class OrderController {
                 .build();
     }
 
-    @Operation(summary = "Check candidateOrder status")
-    @GetMapping("/status/{id}")
-    public ApiResponse<String> checkOrderStatus(@Positive @PathVariable int id) {
-        return ApiResponse.<String>builder()
-                .result(orderImp.checkOrderStatus(id))
-                .code(200)
-                .message("success")
-                .build();
-    }
-
     @Operation(summary = "Get candidateOrder list for admin")
     @GetMapping
-    public ApiResponse<List<OrderResponse>> getOrderList() {
-        return ApiResponse.<List<OrderResponse>>builder()
+    public ApiResponse<List<CandidateOrderResponse>> getOrderList() {
+        return ApiResponse.<List<CandidateOrderResponse>>builder()
                 .result(orderImp.getOrderList())
                 .code(200)
                 .message("success")
@@ -62,10 +52,10 @@ public class OrderController {
     }
 
     @Operation(summary = "Get candidateOrder list for candidate")
-    @GetMapping("/my-order")
-    public ApiResponse<List<OrderResponse>> myOrderList() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderImp.myOrderList())
+    @GetMapping("/my-pacakge")
+    public ApiResponse<MyCandidateOrderResponse> myOrderList() {
+        return ApiResponse.<MyCandidateOrderResponse>builder()
+                .result(orderImp.myCandidatePackage())
                 .code(200)
                 .message("success")
                 .build();

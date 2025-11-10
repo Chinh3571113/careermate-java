@@ -3,13 +3,14 @@ package com.fpt.careermate.services.order_services.service;
 import com.fpt.careermate.common.constant.StatusOrder;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
+import com.fpt.careermate.services.order_services.service.dto.response.CandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.MyCandidateOrderResponse;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.order_services.domain.CandidateOrder;
 import com.fpt.careermate.services.order_services.domain.CandidatePackage;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.order_services.repository.OrderRepo;
 import com.fpt.careermate.services.order_services.repository.PackageRepo;
-import com.fpt.careermate.services.order_services.service.dto.response.OrderResponse;
 import com.fpt.careermate.services.order_services.service.impl.OrderService;
 import com.fpt.careermate.services.order_services.service.mapper.OrderMapper;
 import com.fpt.careermate.common.util.PaymentUtil;
@@ -74,28 +75,22 @@ public class OrderImp implements OrderService {
         }
     }
 
-    @PreAuthorize("hasRole('CANDIDATE')")
-    @Override
-    public String checkOrderStatus(int id) {
-        CandidateOrder candidateOrder = orderRepo.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-
-        return candidateOrder.getStatus();
-    }
-
     @PreAuthorize("hasRole('ADMIN')")
     @Override
-    public List<OrderResponse> getOrderList() {
-        return orderMapper.toOrderResponseList(orderRepo.findAll());
+    public List<CandidateOrderResponse> getOrderList() {
+        return orderMapper.toCandidateOrderResponseResponseList(orderRepo.findAll());
     }
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public List<OrderResponse> myOrderList() {
+    public MyCandidateOrderResponse myCandidatePackage() {
         Candidate currentCandidate = getCurrentCandidate();
 
-        List<CandidateOrder> candidateOrders = orderRepo.findByCandidate_CandidateId(currentCandidate.getCandidateId());
-        return orderMapper.toOrderResponseList(candidateOrders);
+        Optional<CandidateOrder> candidateOrder = orderRepo.findByCandidate_CandidateIdAndIsActiveTrue(currentCandidate.getCandidateId());
+
+        if(candidateOrder.isEmpty()) throw new AppException(ErrorCode.USING_FREE_PACAKGE);
+
+        return orderMapper.toOrderResponse(candidateOrder.get());
     }
     
     private Candidate getCurrentCandidate(){
