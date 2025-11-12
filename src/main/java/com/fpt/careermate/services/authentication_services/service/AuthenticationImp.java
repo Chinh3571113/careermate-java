@@ -216,6 +216,7 @@ public class AuthenticationImp implements AuthenticationService {
                 .expirationTime(new Date(
                         Instant.now().plus(validDuration, ChronoUnit.SECONDS).toEpochMilli()))
                 .jwtID(UUID.randomUUID().toString())
+                .claim("fullname", account.getUsername())
                 .claim("scope", buildScope(account))
                 .build();
 
