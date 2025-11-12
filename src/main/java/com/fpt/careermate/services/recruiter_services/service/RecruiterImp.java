@@ -19,6 +19,8 @@ import com.fpt.careermate.common.util.MailBody;
 import com.fpt.careermate.common.util.UrlValidator;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.services.kafka.dto.NotificationEvent;
+import com.fpt.careermate.services.kafka.producer.NotificationProducer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -46,6 +48,7 @@ public class RecruiterImp implements RecruiterService {
     UrlValidator urlValidator;
     AuthenticationImp authenticationImp;
     EmailService emailService;
+    NotificationProducer notificationProducer;
 
     // Method for authenticated users to add their recruiter/company profile
     // Used by existing accounts that want to add organization information
@@ -220,10 +223,13 @@ public class RecruiterImp implements RecruiterService {
                 .status("PENDING")
                 .build();
 
-        updateRequestRepo.save(updateRequest);
+        RecruiterProfileUpdateRequest savedRequest = updateRequestRepo.save(updateRequest);
         log.info("Profile update request created for recruiter ID: {}", recruiter.getId());
 
-        return mapToUpdateRequestResponse(updateRequest);
+        // Send notification to admin
+        sendProfileUpdateRequestNotificationToAdmin(recruiter, savedRequest);
+
+        return mapToUpdateRequestResponse(savedRequest);
     }
 
     @Override
@@ -339,8 +345,8 @@ public class RecruiterImp implements RecruiterService {
 
         log.info("Profile update request {} approved for recruiter {}", requestId, recruiter.getId());
 
-        // Send notification to recruiter
-        sendProfileUpdateApprovedEmail(recruiter, updateRequest, adminNote);
+        // Send notification to recruiter via Kafka
+        sendProfileUpdateApprovedNotification(recruiter, updateRequest, adminNote);
     }
 
     @Override
@@ -361,8 +367,8 @@ public class RecruiterImp implements RecruiterService {
         Recruiter recruiter = updateRequest.getRecruiter();
         log.info("Profile update request {} rejected for recruiter {}", requestId, recruiter.getId());
 
-        // Send notification to recruiter
-        sendProfileUpdateRejectedEmail(recruiter, updateRequest, rejectionReason);
+        // Send notification to recruiter via Kafka
+        sendProfileUpdateRejectedNotification(recruiter, updateRequest, rejectionReason);
     }
 
     // Helper methods
@@ -415,65 +421,167 @@ public class RecruiterImp implements RecruiterService {
                 .build();
     }
 
-    private void sendProfileUpdateApprovedEmail(Recruiter recruiter, RecruiterProfileUpdateRequest request, String adminNote) {
+    // ========== KAFKA NOTIFICATION METHODS ==========
+
+    /**
+     * Send notification to admin when recruiter creates profile update request
+     */
+    private void sendProfileUpdateRequestNotificationToAdmin(Recruiter recruiter, RecruiterProfileUpdateRequest updateRequest) {
         try {
-            String email = recruiter.getAccount().getEmail();
-            String companyName = recruiter.getCompanyName();
+            java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+            metadata.put("requestId", updateRequest.getId());
+            metadata.put("recruiterId", recruiter.getId());
+            metadata.put("companyName", recruiter.getCompanyName());
+            metadata.put("email", recruiter.getAccount().getEmail());
+            metadata.put("actionType", "PROFILE_UPDATE_REQUEST");
+            metadata.put("actionUrl", "/api/admin/recruiter-update-requests/" + updateRequest.getId());
 
-            StringBuilder emailBody = new StringBuilder();
-            emailBody.append("Dear ").append(companyName).append(",\n\n");
-            emailBody.append("Good news! Your profile update request has been approved by our admin team.\n\n");
-            emailBody.append("Your profile has been updated with the new information.\n\n");
-
-            if (adminNote != null && !adminNote.trim().isEmpty()) {
-                emailBody.append("Admin Note: ").append(adminNote).append("\n\n");
-            }
-
-            emailBody.append("Thank you for keeping your profile up to date.\n\n");
-            emailBody.append("Best regards,\n");
-            emailBody.append("CareerMate Team");
-
-            MailBody mailBody = MailBody.builder()
-                    .to(email)
-                    .subject("Profile Update Request Approved - CareerMate")
-                    .text(emailBody.toString())
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.PROFILE_UPDATE_REQUEST.name())
+                    .recipientId("ADMIN")
+                    .recipientEmail("admin@careermate.com")
+                    .title("Profile Update Request")
+                    .subject("Recruiter Profile Update Pending Review")
+                    .message(String.format(
+                            "Recruiter %s has requested to update their profile.\n\n" +
+                            "Company: %s\n" +
+                            "Email: %s\n\n" +
+                            "Please review and approve/reject this request.",
+                            recruiter.getAccount().getUsername(),
+                            recruiter.getCompanyName(),
+                            recruiter.getAccount().getEmail()
+                    ))
+                    .category("ADMIN_ACTION_REQUIRED")
+                    .metadata(metadata)
+                    .priority(2) // MEDIUM priority
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("Approval email sent to recruiter {} at {}", recruiter.getId(), email);
+            notificationProducer.sendAdminNotification(event);
+            log.info("✅ Profile update request notification sent to admin for recruiter ID: {}", recruiter.getId());
         } catch (Exception e) {
-            log.error("Failed to send approval email to recruiter {}: {}", recruiter.getId(), e.getMessage());
-            // Don't throw exception - email failure shouldn't break the approval process
+            log.error("❌ Failed to send profile update request notification to admin for recruiter ID: {}",
+                    recruiter.getId(), e);
         }
     }
 
-    private void sendProfileUpdateRejectedEmail(Recruiter recruiter, RecruiterProfileUpdateRequest request, String rejectionReason) {
+    /**
+     * Send notification to recruiter when profile update is approved
+     */
+    private void sendProfileUpdateApprovedNotification(Recruiter recruiter, RecruiterProfileUpdateRequest request, String adminNote) {
+        String emailMessage = String.format(
+                "Good news! Your profile update request has been approved.\n\n" +
+                "Your profile has been updated with the new information.\n\n" +
+                "%s" +
+                "Thank you for keeping your profile up to date.\n\n" +
+                "Best regards,\n" +
+                "CareerMate Team",
+                (adminNote != null && !adminNote.trim().isEmpty())
+                        ? "Admin Note: " + adminNote + "\n\n"
+                        : ""
+        );
+
         try {
-            String email = recruiter.getAccount().getEmail();
-            String companyName = recruiter.getCompanyName();
+            // Send Kafka notification for in-app notification
+            java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+            metadata.put("requestId", request.getId());
+            metadata.put("recruiterId", recruiter.getId());
+            metadata.put("companyName", recruiter.getCompanyName());
+            metadata.put("adminNote", adminNote != null ? adminNote : "");
+            metadata.put("status", "APPROVED");
 
-            StringBuilder emailBody = new StringBuilder();
-            emailBody.append("Dear ").append(companyName).append(",\n\n");
-            emailBody.append("We regret to inform you that your profile update request has been reviewed and could not be approved.\n\n");
-            emailBody.append("Reason for Rejection:\n");
-            emailBody.append(rejectionReason != null ? rejectionReason : "No specific reason provided").append("\n\n");
-            emailBody.append("You can submit a new update request after addressing the issues mentioned above.\n\n");
-            emailBody.append("If you have any questions, please contact our support team.\n\n");
-            emailBody.append("Best regards,\n");
-            emailBody.append("CareerMate Team");
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.PROFILE_UPDATE_APPROVED.name())
+                    .recipientId(String.valueOf(recruiter.getId()))
+                    .recipientEmail(recruiter.getAccount().getEmail())
+                    .title("Profile Update Approved")
+                    .subject("Your Profile Update Request Has Been Approved")
+                    .message(emailMessage)
+                    .category("PROFILE_UPDATE")
+                    .metadata(metadata)
+                    .priority(2) // MEDIUM priority
+                    .build();
 
+            notificationProducer.sendRecruiterNotification(event);
+            log.info("✅ Profile update approval notification sent to recruiter ID: {}", recruiter.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send profile update approval notification to recruiter ID: {}",
+                    recruiter.getId(), e);
+        }
+
+        // Send email notification
+        try {
             MailBody mailBody = MailBody.builder()
-                    .to(email)
-                    .subject("Profile Update Request Rejected - CareerMate")
-                    .text(emailBody.toString())
+                    .to(recruiter.getAccount().getEmail())
+                    .subject("Your Profile Update Request Has Been Approved")
+                    .text(emailMessage)
                     .build();
 
             emailService.sendSimpleEmail(mailBody);
-            log.info("Rejection email sent to recruiter {} at {}", recruiter.getId(), email);
+            log.info("✅ Profile update approval email sent to recruiter ID: {}", recruiter.getId());
         } catch (Exception e) {
-            log.error("Failed to send rejection email to recruiter {}: {}", recruiter.getId(), e.getMessage());
-            // Don't throw exception - email failure shouldn't break the rejection process
+            log.error("❌ Failed to send profile update approval email to recruiter ID: {}",
+                    recruiter.getId(), e);
+        }
+    }
+
+    /**
+     * Send notification to recruiter when profile update is rejected
+     */
+    private void sendProfileUpdateRejectedNotification(Recruiter recruiter, RecruiterProfileUpdateRequest request, String rejectionReason) {
+        String emailMessage = String.format(
+                "We regret to inform you that your profile update request could not be approved.\n\n" +
+                "Reason: %s\n\n" +
+                "You can submit a new update request after addressing the issues mentioned above.\n\n" +
+                "If you have any questions, please contact our support team.\n\n" +
+                "Best regards,\n" +
+                "CareerMate Team",
+                rejectionReason != null ? rejectionReason : "No specific reason provided"
+        );
+
+        try {
+            // Send Kafka notification for in-app notification
+            java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+            metadata.put("requestId", request.getId());
+            metadata.put("recruiterId", recruiter.getId());
+            metadata.put("companyName", recruiter.getCompanyName());
+            metadata.put("rejectionReason", rejectionReason != null ? rejectionReason : "No specific reason provided");
+            metadata.put("status", "REJECTED");
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.PROFILE_UPDATE_REJECTED.name())
+                    .recipientId(String.valueOf(recruiter.getId()))
+                    .recipientEmail(recruiter.getAccount().getEmail())
+                    .title("Profile Update Rejected")
+                    .subject("Your Profile Update Request Requires Changes")
+                    .message(emailMessage)
+                    .category("PROFILE_UPDATE")
+                    .metadata(metadata)
+                    .priority(2) // MEDIUM priority
+                    .build();
+
+            notificationProducer.sendRecruiterNotification(event);
+            log.info("✅ Profile update rejection notification sent to recruiter ID: {}", recruiter.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send profile update rejection notification to recruiter ID: {}",
+                    recruiter.getId(), e);
+        }
+
+        // Send email notification
+        try {
+            MailBody mailBody = MailBody.builder()
+                    .to(recruiter.getAccount().getEmail())
+                    .subject("Your Profile Update Request Requires Changes")
+                    .text(emailMessage)
+                    .build();
+
+            emailService.sendSimpleEmail(mailBody);
+            log.info("✅ Profile update rejection email sent to recruiter ID: {}", recruiter.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send profile update rejection email to recruiter ID: {}",
+                    recruiter.getId(), e);
         }
     }
 
 }
+
+

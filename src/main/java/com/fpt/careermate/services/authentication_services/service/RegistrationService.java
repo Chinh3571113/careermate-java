@@ -11,6 +11,9 @@ import com.fpt.careermate.services.authentication_services.repository.RoleRepo;
 import com.fpt.careermate.services.authentication_services.service.dto.request.RecruiterRegistrationRequest;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
+import com.fpt.careermate.services.kafka.dto.NotificationEvent;
+
+import com.fpt.careermate.services.kafka.producer.NotificationProducer;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -19,7 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -33,6 +38,7 @@ public class RegistrationService {
     RoleRepo roleRepo;
     PasswordEncoder passwordEncoder;
     UrlValidator urlValidator;
+    NotificationProducer notificationProducer;
 
     /**
      * Register a new recruiter account with organization info
@@ -79,6 +85,9 @@ public class RegistrationService {
 
         log.info("Recruiter account created with PENDING status: {}", savedAccount.getEmail());
 
+        // Send notification to admin about new recruiter registration
+        sendRecruiterRegistrationNotificationToAdmin(savedAccount, recruiter);
+
         return savedAccount;
     }
 
@@ -115,6 +124,9 @@ public class RegistrationService {
 
         log.info("Recruiter profile completed for OAuth user: {}", email);
 
+        // Send notification to admin about new recruiter registration
+        sendRecruiterRegistrationNotificationToAdmin(account, savedRecruiter);
+
         return savedRecruiter;
     }
 
@@ -142,6 +154,9 @@ public class RegistrationService {
         recruiterRepo.save(recruiter);
 
         log.info("Recruiter account approved. Account ID: {}, Status: PENDING → ACTIVE", account.getId());
+
+        // Send approval notification to recruiter
+        sendRecruiterApprovalNotification(account, recruiter);
     }
 
     /**
@@ -156,6 +171,9 @@ public class RegistrationService {
         Account account = recruiter.getAccount();
         int accountId = account.getId();
         String email = account.getEmail();
+
+        // Send rejection notification BEFORE deletion
+        sendRecruiterRejectionNotification(account, recruiter, reason);
 
         // Delete recruiter profile first (due to foreign key)
         recruiterRepo.delete(recruiter);
@@ -226,5 +244,131 @@ public class RegistrationService {
                 .verificationStatus("PENDING")
                 .build();
     }
+
+    /**
+     * Send notification to admin when a new recruiter registers
+     */
+    private void sendRecruiterRegistrationNotificationToAdmin(Account account, Recruiter recruiter) {
+        try {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("accountId", account.getId());
+            metadata.put("recruiterId", recruiter.getId());
+            metadata.put("companyName", recruiter.getCompanyName());
+            metadata.put("email", account.getEmail());
+            metadata.put("username", account.getUsername());
+            metadata.put("actionType", "RECRUITER_REGISTRATION");
+            metadata.put("actionUrl", "/api/admin/recruiters/" + recruiter.getId());
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.PROFILE_VERIFICATION.name())
+                    .recipientId("ADMIN")
+                    .recipientEmail("admin@careermate.com")
+                    .title("New Recruiter Registration")
+                    .subject("New Recruiter Pending Approval")
+                    .message(String.format(
+                            "A new recruiter has registered and needs verification.\n\n" +
+                            "Company: %s\n" +
+                            "Email: %s\n" +
+                            "Username: %s\n" +
+                            "Contact: %s\n\n" +
+                            "Please review and approve/reject this registration.",
+                            recruiter.getCompanyName(),
+                            account.getEmail(),
+                            account.getUsername(),
+                            recruiter.getContactPerson()
+                    ))
+                    .category("ADMIN_ACTION_REQUIRED")
+                    .metadata(metadata)
+                    .priority(1) // High priority
+                    .build();
+
+            notificationProducer.sendAdminNotification(event);
+            log.info("✅ Admin notification sent for new recruiter registration: {}", account.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Failed to send admin notification for recruiter registration: {}", account.getEmail(), e);
+            // Don't throw exception - notification failure should not break registration
+        }
+    }
+
+    /**
+     * Send notification to recruiter when their account is approved
+     */
+    private void sendRecruiterApprovalNotification(Account account, Recruiter recruiter) {
+        try {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("accountId", account.getId());
+            metadata.put("recruiterId", recruiter.getId());
+            metadata.put("companyName", recruiter.getCompanyName());
+            metadata.put("status", "APPROVED");
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.ACCOUNT_APPROVED.name())
+                    .recipientId(String.valueOf(account.getId()))
+                    .recipientEmail(account.getEmail())
+                    .title("Account Approved")
+                    .subject("Your Recruiter Account Has Been Approved")
+                    .message(String.format(
+                            "Congratulations! Your recruiter account for %s has been approved.\n\n" +
+                            "You can now access all recruiter features:\n" +
+                            "- Post job openings\n" +
+                            "- Manage applications\n" +
+                            "- Search for candidates\n\n" +
+                            "Welcome to CareerMate!",
+                            recruiter.getCompanyName()
+                    ))
+                    .category("ACCOUNT_STATUS")
+                    .metadata(metadata)
+                    .priority(1) // High priority
+                    .build();
+
+            notificationProducer.sendRecruiterNotification(event);
+            log.info("✅ Approval notification sent to recruiter: {}", account.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Failed to send approval notification to recruiter: {}", account.getEmail(), e);
+        }
+    }
+
+    /**
+     * Send notification to recruiter when their account is rejected
+     */
+    private void sendRecruiterRejectionNotification(Account account, Recruiter recruiter, String reason) {
+        try {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("accountId", account.getId());
+            metadata.put("recruiterId", recruiter.getId());
+            metadata.put("companyName", recruiter.getCompanyName());
+            metadata.put("rejectionReason", reason != null ? reason : "No reason provided");
+            metadata.put("status", "REJECTED");
+
+            String reasonText = reason != null && !reason.isEmpty()
+                    ? reason
+                    : "Your application did not meet our verification requirements.";
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.ACCOUNT_REJECTED.name())
+                    .recipientId(String.valueOf(account.getId()))
+                    .recipientEmail(account.getEmail())
+                    .title("Account Registration Rejected")
+                    .subject("Your Recruiter Account Application")
+                    .message(String.format(
+                            "We regret to inform you that your recruiter account application for %s has been rejected.\n\n" +
+                            "Reason: %s\n\n" +
+                            "You can create a new account with updated information if you wish to reapply.\n\n" +
+                            "If you have questions, please contact our support team.",
+                            recruiter.getCompanyName(),
+                            reasonText
+                    ))
+                    .category("ACCOUNT_STATUS")
+                    .metadata(metadata)
+                    .priority(1) // High priority
+                    .build();
+
+            notificationProducer.sendRecruiterNotification(event);
+            log.info("✅ Rejection notification sent to recruiter: {}", account.getEmail());
+        } catch (Exception e) {
+            log.error("❌ Failed to send rejection notification to recruiter: {}", account.getEmail(), e);
+        }
+    }
 }
+
 
