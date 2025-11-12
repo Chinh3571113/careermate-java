@@ -98,13 +98,9 @@ public class PaymentUtil {
         return query.toString();
     }
 
-    public String generateOrderCodeUuid() {
-        return "ORD-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
-    }
-
-    public String parseOrderCodeFromOrderInfo(String orderInfo) {
+    public String parsePackageNameFromOrderInfo(String orderInfo) {
         if (orderInfo == null) return null;
-        String marker = "orderCode=";
+        String marker = "packageName=";
         int idx = orderInfo.indexOf(marker);
         if (idx >= 0) {
             String sub = orderInfo.substring(idx + marker.length());
@@ -115,4 +111,18 @@ public class PaymentUtil {
         }
         return null;
     }
+
+    public String parseEmailFromOrderInfo(String orderInfo) {
+        if (orderInfo == null) return null;
+        String marker = "email=";
+        int idx = orderInfo.indexOf(marker);
+        if (idx >= 0) {
+            String sub = orderInfo.substring(idx + marker.length());
+            int end = sub.indexOf('&');
+            if (end > 0) sub = sub.substring(0, end);
+            return sub.trim();
+        }
+        return null;
+    }
+
 }

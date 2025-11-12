@@ -1,9 +1,7 @@
 package com.fpt.careermate.services.payment_services.web.rest;
 
-import com.fpt.careermate.config.PaymentConfig;
 import com.fpt.careermate.services.payment_services.service.PaymentImp;
 import com.fpt.careermate.common.response.ApiResponse;
-import com.fpt.careermate.common.util.PaymentUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,16 +21,18 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
 
     private final PaymentImp paymentImp;
-    private final PaymentConfig paymentConfig;
-    private final PaymentUtil paymentUtil;
 
-    @Operation(summary = "Create payment after creating order")
+    @Operation(summary = """
+            Call GET /order/active API to check if candidate has an active order.
+            If not, create a payment URL for the specified package and return it.
+            input: packageName
+            output: paymentUrl
+            """)
     @PostMapping
     public ApiResponse<String> createPayment(
-            @RequestParam long amount,
-            @RequestParam String orderCode,
+            @RequestParam String packageName,
             HttpServletRequest httpServletRequest) {
-        String paymentUrl = paymentImp.createPaymentUrl(httpServletRequest, amount, orderCode);
+        String paymentUrl = paymentImp.createPaymentUrl(httpServletRequest, packageName);
 
         return ApiResponse.<String>builder()
                 .result(paymentUrl)

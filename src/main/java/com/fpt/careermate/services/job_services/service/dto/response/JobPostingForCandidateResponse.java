@@ -23,6 +23,7 @@ public class JobPostingForCandidateResponse {
     int yearsOfExperience;
     String workModel;
     String salaryRange;
+    String reason;
     String jobPackage;
 
     // Recruiter company info
@@ -41,4 +42,3 @@ public class JobPostingForCandidateResponse {
         String about;
     }
 }
-

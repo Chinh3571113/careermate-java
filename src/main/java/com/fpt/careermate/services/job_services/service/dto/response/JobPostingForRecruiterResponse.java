@@ -6,7 +6,6 @@ import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 import java.util.Set;
 
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,6 +15,7 @@ public class JobPostingForRecruiterResponse {
 
     int id;
     String title;
+    String description;
     String address;
     String status;
     LocalDate expirationDate;
@@ -24,5 +24,6 @@ public class JobPostingForRecruiterResponse {
     int yearsOfExperience;
     String workModel;
     String salaryRange;
+    String reason;
     String jobPackage;
 }

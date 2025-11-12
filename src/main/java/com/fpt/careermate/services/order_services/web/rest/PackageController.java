@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "Package", description = "Manage package")
+@Tag(name = "CandidatePackage", description = "Manage package")
 @RestController
 @RequestMapping("/api/package")
 @RequiredArgsConstructor

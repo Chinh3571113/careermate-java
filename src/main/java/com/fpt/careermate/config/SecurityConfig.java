@@ -45,12 +45,16 @@ public class SecurityConfig {
             "/v3/api-docs.yaml",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "api/payment/**",
+            "/api/payment/return",
             // Public blog endpoints - no authentication required
             "/blogs",
-            "/blogs/**",
             // Public file upload for recruiter logos during registration
             "/api/upload/recruiter-logo-public"
+            "api/coach/course/recommendation",
+            "/blogs/**",
+            // Public job postings endpoints - no authentication required
+            "/api/job-postings",
+            "/api/job-postings/**"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;

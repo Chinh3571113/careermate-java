@@ -20,7 +20,7 @@ public class RecruiterApprovalResponse {
     Float rating;
 
     // Organization verification fields for admin review (Only 4 fields)
-    String businessLicense;
+    String companyEmail;
     String contactPerson;
     String phoneNumber;
     String companyAddress;

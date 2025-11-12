@@ -32,10 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 .env
-compose.yaml
 Dockerfile
 
 ### firebase ###
 firebase-service-account.json
-
+postgre_data/
 src/main/resources/application.yml
+/careermate_docker/

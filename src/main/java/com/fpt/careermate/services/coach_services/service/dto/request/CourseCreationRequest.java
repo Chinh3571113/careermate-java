@@ -10,8 +10,11 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CourseCreationRequest {
+
     @NotBlank
     String title;
+
     @NotBlank
-    String description;
+    String url;
+
 }

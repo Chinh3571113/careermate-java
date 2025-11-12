@@ -12,6 +12,7 @@ public class RecruiterBasicInfoResponse {
 
     int id;
     String companyName;
-    String email;
+    String email; // Account email
+    String companyEmail; // Company/Work email
     String phoneNumber;
 }

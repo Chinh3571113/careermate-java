@@ -46,8 +46,8 @@ public class Recruiter {
     Float rating;
 
     @Size(max = 100)
-    @Column(name = "business_license")
-    String businessLicense;
+    @Column(name = "company_email")
+    String companyEmail;
 
     @Size(max = 100)
     @Column(name = "contact_person")

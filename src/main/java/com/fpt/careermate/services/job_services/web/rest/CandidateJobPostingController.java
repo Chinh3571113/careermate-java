@@ -16,8 +16,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/candidate/job-postings")
-@Tag(name = "Candidate Job Postings", description = "Candidates view and search approved job postings")
+@RequestMapping("/api/job-postings")
+@Tag(name = "Job Postings", description = "Public API for viewing and searching approved job postings")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
@@ -41,9 +41,9 @@ public class CandidateJobPostingController {
             - sortDir: Sort direction - asc or desc (default: desc)
             
             Examples:
-            - /api/candidate/job-postings?page=0&size=10
-            - /api/candidate/job-postings?keyword=developer&page=0&size=20
-            - /api/candidate/job-postings?keyword=java&sortBy=expirationDate&sortDir=asc
+            - /api/job-postings?page=0&size=10
+            - /api/job-postings?keyword=developer&page=0&size=20
+            - /api/job-postings?keyword=java&sortBy=expirationDate&sortDir=asc
             """
     )
     public ApiResponse<PageResponse<JobPostingForCandidateResponse>> getAllJobPostings(
@@ -53,7 +53,7 @@ public class CandidateJobPostingController {
             @RequestParam(defaultValue = "createAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        log.info("Candidate fetching job postings - keyword: {}, page: {}, size: {}", keyword, page, size);
+        log.info("Public API: Fetching job postings - keyword: {}, page: {}, size: {}", keyword, page, size);
 
         // Create sort object
         Sort sort = sortDir.equalsIgnoreCase("asc")
@@ -89,7 +89,7 @@ public class CandidateJobPostingController {
             """
     )
     public ApiResponse<JobPostingForCandidateResponse> getJobPostingDetail(@PathVariable int id) {
-        log.info("Candidate fetching job posting detail for ID: {}", id);
+        log.info("Public API: Fetching job posting detail for ID: {}", id);
 
         JobPostingForCandidateResponse response = jobPostingImp.getJobPostingDetailForCandidate(id);
 
@@ -100,24 +100,5 @@ public class CandidateJobPostingController {
                 .build();
     }
 
-    @GetMapping("/search")
-    @Operation(
-        summary = "Search Job Postings (Alias)",
-        description = """
-            Alternative endpoint for searching job postings.
-            Same functionality as GET /api/candidate/job-postings with keyword parameter.
-            
-            This endpoint is provided for better API discoverability.
-            """
-    )
-    public ApiResponse<PageResponse<JobPostingForCandidateResponse>> searchJobPostings(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
-    ) {
-        return getAllJobPostings(keyword, page, size, sortBy, sortDir);
-    }
 }
 

@@ -1,14 +1,14 @@
 package com.fpt.careermate.services.order_services.service.impl;
 
 
-import com.fpt.careermate.services.order_services.service.dto.response.OrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.CandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.MyCandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.PageCandidateOrderResponse;
 
 import java.util.List;
 
 public interface OrderService {
-    String createOrder(int packageId);
-    void deleteOrder(int id);
-    String checkOrderStatus(int id);
-    List<OrderResponse> getOrderList();
-    List<OrderResponse> myOrderList();
+    void cancelOrder(int id);
+    PageCandidateOrderResponse getOrderList(int page, int size);
+    MyCandidateOrderResponse myCandidatePackage();
 }

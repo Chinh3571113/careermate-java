@@ -59,7 +59,7 @@ public class JobPostingController {
     }
 
     @PutMapping("/recruiter/{id}")
-    @Operation(summary = "Recruiter can update job postings detail of the current recruiter with PENDING or REJECTED status")
+    @Operation(summary = "Recruiter can update job postings detail of the current recruiter with PENDING or REJECTED status, EXPIRED and ACTIVE can only extend expiration date or shorten expiration date")
     ApiResponse<JobPostingForRecruiterResponse> updateJobPostingDetailForRecruiter(
             @NotNull @PathVariable int id,
             @RequestBody JobPostingCreationRequest request

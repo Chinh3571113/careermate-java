@@ -53,8 +53,9 @@ public class RecruiterRegistrationRequest {
         @Size(max = 2000, message = "Description cannot exceed 2000 characters")
         String about;
 
-        @Size(max = 100, message = "Business license cannot exceed 100 characters")
-        String businessLicense;
+        @Email(message = "Invalid company email format")
+        @Size(max = 100, message = "Company email cannot exceed 100 characters")
+        String companyEmail;
 
         @Size(max = 100, message = "Contact person name cannot exceed 100 characters")
         String contactPerson;

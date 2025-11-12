@@ -6,8 +6,6 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 
 @Getter
@@ -22,19 +20,19 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int id;
 
+    @Column(nullable = false)
     String title;
 
-    @Column(columnDefinition = "TEXT")
-    String description;
+    @Column(nullable = false)
+    String url;
 
+    @Column(nullable = false)
     LocalDate createdAt;
 
-    String tags;
+    boolean marked;
 
     @ManyToOne
     @JoinColumn(name = "candidate_id", nullable = false)
     Candidate candidate;
 
-    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
-    List<Module> modules = new ArrayList<>();
 }

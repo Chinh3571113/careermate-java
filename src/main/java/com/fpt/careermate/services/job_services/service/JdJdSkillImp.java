@@ -38,7 +38,7 @@ public class JdJdSkillImp implements JdSkillService {
         jdSkillRepo.save(jdSkill);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
     @Override
     public List<JdSkillResponse> getAllSkill() {
         return jdSkillMapper.toSetSkillResponse(jdSkillRepo.findAll());
