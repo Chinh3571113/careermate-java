@@ -40,4 +40,10 @@ public interface JobPostingService {
     PageResponse<JobPostingForCandidateResponse> getAllApprovedJobPostings(String keyword, Pageable pageable);
 
     JobPostingForCandidateResponse getJobPostingDetailForCandidate(int id);
+
+    PageJobPostingForRecruiterResponse getAllJobPostingsPublic(
+            int page, int size, String keyword, int recruiterId
+    );
+
+    JobPostingForCandidateResponse.RecruiterCompanyInfo getCompanyDetail(int recruiterId);
 }

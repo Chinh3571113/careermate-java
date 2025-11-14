@@ -114,29 +114,7 @@ public class JobPostingImp implements JobPostingService {
     @Override
     public PageJobPostingForRecruiterResponse getAllJobPostingForRecruiter(
             int page, int size, String keyword) {
-        Recruiter recruiter = getMyRecruiter();
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").ascending());
-
-        Page<JobPosting> pageJobPosting;
-        if (keyword == null || keyword.isEmpty()) {
-            // Lấy tất cả
-            pageJobPosting = jobPostingRepo.findAllByRecruiterId(recruiter.getId(), pageable);
-        } else {
-            // Lọc theo keyword (ví dụ search trong title)
-            pageJobPosting = jobPostingRepo
-                    .findByRecruiterIdAndTitleContainingIgnoreCase(recruiter.getId(), keyword, pageable);
-        }
-
-        List<JobPostingForRecruiterResponse> jobPostingForRecruiterResponses = pageJobPosting
-                .stream()
-                .map(jobPostingMapper::toJobPostingDetailForRecruiterResponse)
-                .collect(Collectors.toList());
-
-        PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
-                .toPageJobPostingForRecruiterResponse(pageJobPosting);
-        pageResponse.setContent(jobPostingForRecruiterResponses);
-
-        return pageResponse;
+        return gellAllJobPostings(page, size, keyword, 0);
     }
 
 
@@ -565,4 +543,52 @@ public class JobPostingImp implements JobPostingService {
                 .build();
     }
 
+    private PageJobPostingForRecruiterResponse gellAllJobPostings(
+            int page, int size, String keyword, int recruiterId
+    ){
+        if(recruiterId == 0) {
+            Recruiter recruiter = getMyRecruiter();
+            recruiterId = recruiter.getId();
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").ascending());
+
+        Page<JobPosting> pageJobPosting;
+        if (keyword == null || keyword.isEmpty()) {
+            // Lấy tất cả
+            pageJobPosting = jobPostingRepo.findAllByRecruiterId(recruiterId, pageable);
+        } else {
+            // Lọc theo keyword (ví dụ search trong title)
+            pageJobPosting = jobPostingRepo
+                    .findByRecruiterIdAndTitleContainingIgnoreCase(recruiterId, keyword, pageable);
+        }
+
+        List<JobPostingForRecruiterResponse> jobPostingForRecruiterResponses = pageJobPosting
+                .stream()
+                .map(jobPostingMapper::toJobPostingDetailForRecruiterResponse)
+                .collect(Collectors.toList());
+
+        PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
+                .toPageJobPostingForRecruiterResponse(pageJobPosting);
+        pageResponse.setContent(jobPostingForRecruiterResponses);
+
+        return pageResponse;
+    }
+
+    @Override
+    public PageJobPostingForRecruiterResponse getAllJobPostingsPublic(
+            int page, int size, String keyword, int recruiterId
+    ) {
+        return gellAllJobPostings(
+                page, size, keyword, recruiterId
+        );
+    }
+
+    @Override
+    public JobPostingForCandidateResponse.RecruiterCompanyInfo getCompanyDetail(int recruiterId) {
+        Recruiter recruiter = recruiterRepo.findById(recruiterId)
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+
+        return jobPostingMapper.toRecruiterCompanyInfo(recruiter);
+    }
 }
