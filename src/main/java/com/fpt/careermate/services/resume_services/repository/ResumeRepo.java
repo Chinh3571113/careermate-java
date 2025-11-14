@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface ResumeRepo extends JpaRepository<Resume, Integer> {
     List<Resume> findByCandidateCandidateId(int candidateId);
     Optional<Resume> findByResumeIdAndCandidateCandidateId(int resumeId, int candidateId);
+    Optional<Resume> findByCandidate_CandidateId(int candidateId);
 }

@@ -27,4 +27,6 @@ public class RecruiterApprovalResponse {
 
     String accountStatus;
     String accountRole; // CANDIDATE (pending) or RECRUITER (approved)
+    String verificationStatus; // PENDING, APPROVED, REJECTED
+    String rejectionReason; // Reason provided by admin when rejecting
 }

@@ -4,6 +4,7 @@ import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.profile_services.service.CandidateProfileImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
+import com.fpt.careermate.services.recommendation.service.CandidateWeaviateService;
 import com.fpt.careermate.services.resume_services.repository.ResumeRepo;
 import com.fpt.careermate.services.resume_services.service.dto.response.ResumeResponse;
 import com.fpt.careermate.services.resume_services.service.impl.ResumeService;
@@ -32,6 +33,7 @@ public class ResumeImp implements ResumeService {
     ResumeMapper resumeMapper;
     CandidateProfileImp candidateProfileImp;
     AuthenticationImp authenticationService;
+    CandidateWeaviateService candidateWeaviateService;
 
     @Override
     @Transactional
@@ -43,7 +45,12 @@ public class ResumeImp implements ResumeService {
         newResume.setCandidate(candidate);
         newResume.setAboutMe(resumeRequest.getAboutMe());
 
+        // Save to PostgreSQL
         Resume savedResume = resumeRepo.save(newResume);
+
+        // Automatically store in Weaviate (dual-storage pattern)
+        candidateWeaviateService.storeCandidateProfile(savedResume);
+
         return resumeMapper.toResumeResponse(savedResume);
     }
 
@@ -75,7 +82,13 @@ public class ResumeImp implements ResumeService {
     @Transactional
     @Override
     public void deleteResume(int resumeId) {
-        resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
+        Resume resume = resumeRepo.findById(resumeId)
+                .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
+
+        // Delete from Weaviate first
+        candidateWeaviateService.deleteCandidateProfile(resume.getCandidate().getCandidateId());
+
+        // Then delete from PostgreSQL
         resumeRepo.deleteById(resumeId);
     }
 
@@ -91,7 +104,12 @@ public class ResumeImp implements ResumeService {
 
         // Update resume
         resume.setAboutMe(resumeRequest.getAboutMe());
+
+        // Save to PostgreSQL
         Resume updatedResume = resumeRepo.save(resume);
+
+        // Automatically update in Weaviate (dual-storage pattern)
+        candidateWeaviateService.storeCandidateProfile(updatedResume);
 
         return resumeMapper.toResumeResponse(updatedResume);
     }

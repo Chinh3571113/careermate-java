@@ -19,7 +19,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
 @Entity
-@Table(name = "recruiters")
+@Table(name = "recruiter")
 public class Recruiter {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -5,6 +5,8 @@ import com.fpt.careermate.services.recruiter_services.service.RecruiterImp;
 import com.fpt.careermate.services.recruiter_services.service.dto.request.RecruiterCreationRequest;
 import com.fpt.careermate.services.recruiter_services.service.dto.request.RecruiterUpdateRequest;
 import com.fpt.careermate.services.recruiter_services.service.dto.response.NewRecruiterResponse;
+import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterApprovalResponse;
+import com.fpt.careermate.services.authentication_services.service.dto.request.RecruiterRegistrationRequest;
 import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterProfileResponse;
 import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterUpdateRequestResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -93,6 +95,24 @@ public class RecruiterController {
                 .result(recruiterImp.getMyUpdateRequests())
                 .code(200)
                 .message("Update requests retrieved successfully")
+                .build();
+    }
+
+    @PutMapping("/update-organization")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(
+        summary = "Update organization information (only for rejected recruiters)",
+        description = "Rejected recruiters can update their organization information and resubmit for admin review. " +
+                      "This endpoint is only available for accounts with REJECTED status. " +
+                      "After update, the status will change back to PENDING for admin review. " +
+                      "**BANNED accounts cannot use this endpoint.**"
+    )
+    public ApiResponse<String> updateOrganizationInfo(@Valid @RequestBody RecruiterRegistrationRequest.OrganizationInfo orgInfo) {
+        log.info("Recruiter attempting to update organization info");
+        recruiterImp.updateOrganizationInfo(orgInfo);
+        return ApiResponse.<String>builder()
+                .code(200)
+                .message("Organization information updated successfully. Your profile is now pending admin review again.")
                 .build();
     }
 

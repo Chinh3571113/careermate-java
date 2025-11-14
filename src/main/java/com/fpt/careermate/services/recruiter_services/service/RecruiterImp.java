@@ -52,11 +52,12 @@ public class RecruiterImp implements RecruiterService {
     @Override
     public NewRecruiterResponse createRecruiter(RecruiterCreationRequest request) {
         // Check website
-        if(!urlValidator.isWebsiteReachable(request.getWebsite())) throw new AppException(ErrorCode.INVALID_WEBSITE);
+        if (!urlValidator.isWebsiteReachable(request.getWebsite()))
+            throw new AppException(ErrorCode.INVALID_WEBSITE);
 
         // Check logo URL only if provided (optional field)
-        if(request.getLogoUrl() != null && !request.getLogoUrl().isEmpty()) {
-            if(!urlValidator.isImageUrlValid(request.getLogoUrl())) {
+        if (request.getLogoUrl() != null && !request.getLogoUrl().isEmpty()) {
+            if (!urlValidator.isImageUrlValid(request.getLogoUrl())) {
                 throw new AppException(ErrorCode.INVALID_LOGO_URL);
             }
         }
@@ -72,7 +73,7 @@ public class RecruiterImp implements RecruiterService {
         recruiter.setRating(0.0f); // Set default rating to avoid null value error
 
         // Set default logo if not provided
-        if(recruiter.getLogoUrl() == null || recruiter.getLogoUrl().isEmpty()) {
+        if (recruiter.getLogoUrl() == null || recruiter.getLogoUrl().isEmpty()) {
             recruiter.setLogoUrl("https://via.placeholder.com/150");
         }
 
@@ -83,8 +84,11 @@ public class RecruiterImp implements RecruiterService {
     @Override
     public List<RecruiterApprovalResponse> getPendingRecruiters() {
         // Get all recruiters with PENDING status (waiting for admin approval)
-        return recruiterRepo.findAll().stream()
-                .filter(recruiter -> "PENDING".equals(recruiter.getAccount().getStatus()))
+        // Use paginated query to avoid loading all data - fetch first 1000 records max
+        Pageable pageable = PageRequest.of(0, 1000, Sort.by("id").descending());
+        Page<Recruiter> recruiterPage = recruiterRepo.findByAccount_Status("PENDING", pageable);
+
+        return recruiterPage.getContent().stream()
                 .map(this::mapToApprovalResponse)
                 .collect(Collectors.toList());
     }
@@ -92,14 +96,18 @@ public class RecruiterImp implements RecruiterService {
     @Override
     public List<RecruiterApprovalResponse> getAllRecruiters() {
         // Get all recruiters with ACTIVE status (approved by admin)
-        return recruiterRepo.findAll().stream()
-                .filter(recruiter -> "ACTIVE".equals(recruiter.getAccount().getStatus()))
+        // Use paginated query to avoid loading all data - fetch first 1000 records max
+        Pageable pageable = PageRequest.of(0, 1000, Sort.by("id").descending());
+        Page<Recruiter> recruiterPage = recruiterRepo.findByAccount_Status("ACTIVE", pageable);
+
+        return recruiterPage.getContent().stream()
                 .map(this::mapToApprovalResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public PageResponse<RecruiterApprovalResponse> getRecruitersByStatus(String status, int page, int size, String sortBy, String sortDir) {
+    public PageResponse<RecruiterApprovalResponse> getRecruitersByStatus(String status, int page, int size,
+            String sortBy, String sortDir) {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -120,12 +128,12 @@ public class RecruiterImp implements RecruiterService {
                 recruiterPage.getNumber(),
                 recruiterPage.getSize(),
                 recruiterPage.getTotalElements(),
-                recruiterPage.getTotalPages()
-        );
+                recruiterPage.getTotalPages());
     }
 
     @Override
-    public PageResponse<RecruiterApprovalResponse> searchRecruiters(String status, String search, int page, int size, String sortBy, String sortDir) {
+    public PageResponse<RecruiterApprovalResponse> searchRecruiters(String status, String search, int page, int size,
+            String sortBy, String sortDir) {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -144,8 +152,7 @@ public class RecruiterImp implements RecruiterService {
                 recruiterPage.getNumber(),
                 recruiterPage.getSize(),
                 recruiterPage.getTotalElements(),
-                recruiterPage.getTotalPages()
-        );
+                recruiterPage.getTotalPages());
     }
 
     @Override
@@ -153,6 +160,70 @@ public class RecruiterImp implements RecruiterService {
         Recruiter recruiter = recruiterRepo.findById(recruiterId)
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
         return mapToApprovalResponse(recruiter);
+    }
+
+    @Override
+    public RecruiterApprovalResponse getMyRecruiterProfile() {
+        // Get current authenticated user's account
+        var currentAccount = authenticationImp.findByEmail();
+
+        // Find recruiter profile by account
+        Recruiter recruiter = recruiterRepo.findByAccount_Id(currentAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+
+        return mapToApprovalResponse(recruiter);
+    }
+
+    @Override
+    public void updateOrganizationInfo(com.fpt.careermate.services.authentication_services.service.dto.request.RecruiterRegistrationRequest.OrganizationInfo orgInfo) {
+        // Get current authenticated user's account
+        var currentAccount = authenticationImp.findByEmail();
+
+        // Check if account is BANNED - banned accounts cannot update
+        if ("BANNED".equals(currentAccount.getStatus())) {
+            throw new AppException(ErrorCode.ACCOUNT_BANNED);
+        }
+
+        // Find recruiter profile
+        Recruiter recruiter = recruiterRepo.findByAccount_Id(currentAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+
+        // Check if account is REJECTED - only rejected accounts can update and resubmit
+        if (!"REJECTED".equals(currentAccount.getStatus())) {
+            throw new AppException(ErrorCode.CANNOT_UPDATE_NON_REJECTED_PROFILE);
+        }
+
+        // Validate organization info
+        if (!urlValidator.isWebsiteReachable(orgInfo.getWebsite())) {
+            throw new AppException(ErrorCode.INVALID_WEBSITE);
+        }
+
+        // Validate logo URL if provided
+        if (orgInfo.getLogoUrl() != null && !orgInfo.getLogoUrl().isEmpty()) {
+            if (!urlValidator.isImageUrlValid(orgInfo.getLogoUrl())) {
+                throw new AppException(ErrorCode.INVALID_LOGO_URL);
+            }
+        }
+
+        // Update recruiter profile fields
+        recruiter.setCompanyName(orgInfo.getCompanyName());
+        recruiter.setWebsite(orgInfo.getWebsite());
+        recruiter.setLogoUrl(orgInfo.getLogoUrl() != null ? orgInfo.getLogoUrl() : recruiter.getLogoUrl());
+        recruiter.setAbout(orgInfo.getAbout());
+        recruiter.setContactPerson(orgInfo.getContactPerson());
+        recruiter.setPhoneNumber(orgInfo.getPhoneNumber());
+        recruiter.setCompanyAddress(orgInfo.getCompanyAddress());
+
+        // Reset verification status to PENDING for admin review
+        recruiter.setVerificationStatus("PENDING");
+        recruiter.setRejectionReason(null); // Clear previous rejection reason
+
+        // Change account status back to PENDING
+        currentAccount.setStatus("PENDING");
+
+        recruiterRepo.save(recruiter);
+
+        log.info("Recruiter organization info updated. Account ID: {}, Status: REJECTED → PENDING", currentAccount.getId());
     }
 
     // ========== RECRUITER PROFILE MANAGEMENT ==========
@@ -237,7 +308,8 @@ public class RecruiterImp implements RecruiterService {
     // ========== ADMIN - UPDATE REQUEST MANAGEMENT ==========
 
     @Override
-    public PageResponse<RecruiterUpdateRequestResponse> getAllUpdateRequests(String status, int page, int size, String sortBy, String sortDir) {
+    public PageResponse<RecruiterUpdateRequestResponse> getAllUpdateRequests(String status, int page, int size,
+            String sortBy, String sortDir) {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -257,19 +329,20 @@ public class RecruiterImp implements RecruiterService {
                 requestPage.getNumber(),
                 requestPage.getSize(),
                 requestPage.getTotalElements(),
-                requestPage.getTotalPages()
-        );
+                requestPage.getTotalPages());
     }
 
     @Override
-    public PageResponse<RecruiterUpdateRequestResponse> searchUpdateRequests(String status, String search, int page, int size, String sortBy, String sortDir) {
+    public PageResponse<RecruiterUpdateRequestResponse> searchUpdateRequests(String status, String search, int page,
+            int size, String sortBy, String sortDir) {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         String safeStatus = (status == null || status.trim().isEmpty()) ? "" : status.trim();
         String safeSearch = (search == null || search.trim().isEmpty()) ? "" : search.trim();
 
-        Page<RecruiterProfileUpdateRequest> requestPage = updateRequestRepo.searchUpdateRequests(safeStatus, safeSearch, pageable);
+        Page<RecruiterProfileUpdateRequest> requestPage = updateRequestRepo.searchUpdateRequests(safeStatus, safeSearch,
+                pageable);
 
         List<RecruiterUpdateRequestResponse> content = requestPage.getContent().stream()
                 .map(this::mapToUpdateRequestResponse)
@@ -280,8 +353,7 @@ public class RecruiterImp implements RecruiterService {
                 requestPage.getNumber(),
                 requestPage.getSize(),
                 requestPage.getTotalElements(),
-                requestPage.getTotalPages()
-        );
+                requestPage.getTotalPages());
     }
 
     @Override
@@ -367,13 +439,20 @@ public class RecruiterImp implements RecruiterService {
 
     // Helper methods
     private Recruiter getAuthenticatedRecruiter() {
-        return recruiterRepo.findByAccount_Id(authenticationImp.findByEmail().getId())
+        Recruiter recruiter = recruiterRepo.findByAccount_Id(authenticationImp.findByEmail().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+
+        // Check if recruiter is verified (APPROVED status)
+        if (!"APPROVED".equals(recruiter.getVerificationStatus())) {
+            throw new AppException(ErrorCode.RECRUITER_NOT_VERIFIED);
+        }
+
+        return recruiter;
     }
 
     private RecruiterApprovalResponse mapToApprovalResponse(Recruiter recruiter) {
         RecruiterApprovalResponse response = recruiterMapper.toRecruiterApprovalResponse(recruiter);
-        // Set account status (PENDING, ACTIVE, or BANNED)
+        // Set account status (PENDING, ACTIVE, REJECTED, or BANNED)
         response.setAccountStatus(recruiter.getAccount().getStatus());
         // Role is always RECRUITER for recruiter accounts
         response.setAccountRole("RECRUITER");
@@ -415,7 +494,8 @@ public class RecruiterImp implements RecruiterService {
                 .build();
     }
 
-    private void sendProfileUpdateApprovedEmail(Recruiter recruiter, RecruiterProfileUpdateRequest request, String adminNote) {
+    private void sendProfileUpdateApprovedEmail(Recruiter recruiter, RecruiterProfileUpdateRequest request,
+            String adminNote) {
         try {
             String email = recruiter.getAccount().getEmail();
             String companyName = recruiter.getCompanyName();
@@ -447,14 +527,16 @@ public class RecruiterImp implements RecruiterService {
         }
     }
 
-    private void sendProfileUpdateRejectedEmail(Recruiter recruiter, RecruiterProfileUpdateRequest request, String rejectionReason) {
+    private void sendProfileUpdateRejectedEmail(Recruiter recruiter, RecruiterProfileUpdateRequest request,
+            String rejectionReason) {
         try {
             String email = recruiter.getAccount().getEmail();
             String companyName = recruiter.getCompanyName();
 
             StringBuilder emailBody = new StringBuilder();
             emailBody.append("Dear ").append(companyName).append(",\n\n");
-            emailBody.append("We regret to inform you that your profile update request has been reviewed and could not be approved.\n\n");
+            emailBody.append(
+                    "We regret to inform you that your profile update request has been reviewed and could not be approved.\n\n");
             emailBody.append("Reason for Rejection:\n");
             emailBody.append(rejectionReason != null ? rejectionReason : "No specific reason provided").append("\n\n");
             emailBody.append("You can submit a new update request after addressing the issues mentioned above.\n\n");

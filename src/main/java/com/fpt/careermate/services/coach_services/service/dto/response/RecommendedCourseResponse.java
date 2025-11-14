@@ -10,5 +10,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RecommendedCourseResponse {
     String title;
+    String url;
     double similarityScore;
 }

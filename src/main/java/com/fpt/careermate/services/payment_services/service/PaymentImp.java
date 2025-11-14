@@ -1,15 +1,18 @@
 package com.fpt.careermate.services.payment_services.service;
 
+import com.fpt.careermate.common.exception.AppException;
+import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.common.util.CoachUtil;
 import com.fpt.careermate.config.PaymentConfig;
-import com.fpt.careermate.common.constant.StatusOrder;
 import com.fpt.careermate.common.constant.StatusPayment;
+import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.account_services.repository.AccountRepo;
+import com.fpt.careermate.services.order_services.domain.Invoice;
+import com.fpt.careermate.services.order_services.domain.CandidatePackage;
+import com.fpt.careermate.services.order_services.service.OrderImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
-import com.fpt.careermate.services.order_services.domain.Order;
-import com.fpt.careermate.services.order_services.domain.Package;
-import com.fpt.careermate.services.payment_services.domain.Payment;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
-import com.fpt.careermate.services.order_services.repository.OrderRepo;
-import com.fpt.careermate.services.payment_services.repository.PaymentRepo;
+import com.fpt.careermate.services.order_services.repository.CandidateOrderRepo;
 import com.fpt.careermate.services.payment_services.service.impl.PaymentService;
 import com.fpt.careermate.common.util.PaymentUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,14 +40,27 @@ public class PaymentImp implements PaymentService {
 
     PaymentConfig paymentConfig;
     PaymentUtil paymentUtil;
-    PaymentRepo paymentRepo;
-    OrderRepo orderRepo;
+    CandidateOrderRepo candidateOrderRepo;
     CandidateRepo candidateRepo;
+    AccountRepo accountRepo;
+    OrderImp orderImp;
 
     static DateTimeFormatter VNP_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private final CoachUtil coachUtil;
 
     @Override
-    public String createPaymentUrl(HttpServletRequest httpServletRequest, long amount, String orderCode) {
+    public String createPaymentUrl(HttpServletRequest httpServletRequest, String packageName) {
+        String email = coachUtil.getCurrentCandidate().getAccount().getEmail();
+        String upperPackageName = packageName.toUpperCase();
+
+        // Kiểm tra nếu là FREE package thì không được phép thanh toán
+        if(upperPackageName.equals("FREE")) throw new AppException(ErrorCode.CAN_NOT_PAY_FOR_FREE_PACKAGE);
+
+        // Kiểm tra xem candidate đã có đơn hàng active chưa
+        if(orderImp.hasActivePackage()) throw new AppException(ErrorCode.HAS_ACTIVE_PACKAGE);
+
+        CandidatePackage candidatePackage = orderImp.getPackageByName(upperPackageName);
+
         HttpServletRequest req = httpServletRequest;
         String bankCode = "NCB";
         String language = "vn";
@@ -52,9 +68,10 @@ public class PaymentImp implements PaymentService {
         String vnp_Version = "2.1.0";
         String vnp_Command = "pay";
         String orderType = "other";
-        long vnpAmount = amount * 100;
+        long vnpAmount = candidatePackage.getPrice() * 100L;
         String vnp_TxnRef = paymentUtil.generateTxnRef(8);
         String vnp_IpAddr = paymentUtil.getIpAddress(req);
+
 
         Map<String, String> vnpParams = new HashMap<>();
         vnpParams.put("vnp_Version", vnp_Version);
@@ -64,7 +81,7 @@ public class PaymentImp implements PaymentService {
         vnpParams.put("vnp_CurrCode", "VND");
         if (bankCode != null && !bankCode.isEmpty()) vnpParams.put("vnp_BankCode", bankCode);
         vnpParams.put("vnp_TxnRef", vnp_TxnRef);
-        vnpParams.put("vnp_OrderInfo", "Order payment:" + vnp_TxnRef);
+        vnpParams.put("vnp_OrderInfo", "Invoice payment:" + vnp_TxnRef);
         vnpParams.put("vnp_OrderType", orderType);
         vnpParams.put("vnp_Locale", (language == null || language.isEmpty()) ? "vn" : language);
         vnpParams.put("vnp_ReturnUrl", paymentConfig.vnp_ReturnUrl);
@@ -72,7 +89,7 @@ public class PaymentImp implements PaymentService {
         vnpParams.put("vnp_CreateDate", paymentUtil.nowFormatted());
         vnpParams.put("vnp_ExpireDate", paymentUtil.expireDateFormatted(15));
 
-        vnpParams.put("vnp_OrderInfo", "orderCode=" + orderCode);
+        vnpParams.put("vnp_OrderInfo", "packageName=" + upperPackageName + "&email=" + email);
 
         String hashData = paymentUtil.buildHashDataSorted(vnpParams);
         String query = paymentUtil.buildQueryString(vnpParams);
@@ -131,19 +148,7 @@ public class PaymentImp implements PaymentService {
             log.warn("Cannot parse vnp_PayDate: {}", vnpPayDateStr, ex);
         }
 
-        Order order = null;
-        if (!vnpOrderInfo.isEmpty()) {
-            String orderCode = paymentUtil.parseOrderCodeFromOrderInfo(vnpOrderInfo);
-            if (orderCode != null) {
-                Optional<Order> maybe = orderRepo.findByOrderCode(orderCode);
-                if (maybe.isPresent()) order = maybe.get();
-            }
-        }
-
-        if(order.getStatus().equals(StatusOrder.CANCELLED)){
-            return "cancelled";
-        }
-
+        // Payment success or failed
         if (!valid) {
             serverStatus = StatusPayment.INVALID_HASH;
         } else {
@@ -154,77 +159,34 @@ public class PaymentImp implements PaymentService {
             }
         }
 
-        try {
-            Optional<Payment> maybePayment = Optional.empty();
-            if (order != null) {
-                maybePayment = paymentRepo.findByOrder(order);
-            }
+        if(!serverStatus.equalsIgnoreCase(StatusPayment.SUCCESS)) throw new AppException(ErrorCode.PAYMENT_FAILED);
 
-            Payment payment = maybePayment.orElseGet(Payment::new);
-            payment.setTxnRef(vnpTxnRef);
-            payment.setTransactionNo(vnpTransactionNo);
-            payment.setAmount(amount);
-            payment.setResponseCode(vnpResponse);
-            payment.setBankCode(fields.get("vnp_BankCode"));
-            payment.setPayDate(vnpPayDate);
-            payment.setRawResponse(fields.toString());
+        // Lấy email và packageName
+        String email = null;
+        if (!vnpOrderInfo.isEmpty()) {
+            email = paymentUtil.parseEmailFromOrderInfo(vnpOrderInfo);
+        }
+        String packageName = paymentUtil.parsePackageNameFromOrderInfo(vnpOrderInfo);
 
-            // validate payment status
-            if (!valid) {
-                payment.setStatus(StatusPayment.INVALID_HASH);
-            } else if ("00".equals(vnpResponse)) {
-                payment.setStatus(StatusPayment.SUCCESS);
-            } else {
-                payment.setStatus(StatusPayment.FAILED);
-            }
+        // Lấy currentCandidate
+        Optional<Account> exstingAccount = accountRepo.findByEmail(email);
+        if(exstingAccount.isEmpty()){
+            throw new AppException(ErrorCode.USER_NOT_EXISTED);
+        }
+        Optional<Candidate> exstingCandidate = candidateRepo.findByAccount_Id(exstingAccount.get().getId());
+        Candidate candidate = exstingCandidate.get();
 
-            // 3) assign relation payment -> found order
-            if (order != null) {
-                payment.setOrder(order);
-            }
-
-            // 4) Save payment (idempotency: if success, not duplicate)
-            // old payment is success -> skip updating order
-            if (maybePayment.isPresent()) {
-                Payment existing = maybePayment.get();
-
-                if (!existing.getStatus().equals(StatusPayment.SUCCESS)) {
-                    existing.setTransactionNo(payment.getTransactionNo());
-                    existing.setAmount(payment.getAmount());
-                    existing.setResponseCode(payment.getResponseCode());
-                    existing.setBankCode(payment.getBankCode());
-                    existing.setPayDate(payment.getPayDate());
-                    existing.setRawResponse(payment.getRawResponse());
-                    existing.setStatus(payment.getStatus());
-                    if (order != null) existing.setOrder(order);
-                    payment = paymentRepo.save(existing);
-                }
-            } else {
-                payment = paymentRepo.save(payment);
-            }
-
-            // 5) if payment success -> update order & candidate
-            if (payment.getStatus().equals(StatusPayment.SUCCESS) && order != null) {
-                if (!order.getStatus().equals(StatusOrder.PAID)) {
-                    LocalDate now = LocalDate.now();
-
-                    order.setStatus(StatusOrder.PAID);
-                    order.setStartDate(now);
-                    Package pkg = order.getCandidatePackage();
-                    order.setEndDate(now.plusDays(pkg.getDurationDays()));
-                    orderRepo.save(order);
-
-                    Candidate candidate = order.getCandidate();
-                    if (candidate != null && pkg != null) {
-                        candidate.setCurrentPackage(pkg);
-                        candidateRepo.save(candidate);
-                    }
-                } else {
-                    log.info("Order {} already PAID, skipping applying package", order.getOrderCode());
-                }
-            }
-        } catch (Exception ex) {
-            log.error("Error saving payment/update order: {}", ex.getMessage(), ex);
+        // Nếu không tìm thấy invoice thì là Free package
+        if(candidate.getInvoice() == null) {
+            // Tạo Invoice mới
+            orderImp.createOrder(packageName, candidate);
+        }
+        else {
+            // Cập nhật Invoice
+            // Tìm invoice từ DB
+            Invoice exstingInvoice = candidate.getInvoice();
+            // Cập nhật trạng thái và các thông tin liên quan bằng việc gọi updateCandidateOrder method
+            orderImp.updateCandidateOrder(exstingInvoice, packageName);
         }
 
         // --- Build redirect query (forward original params except vnp_SecureHash) + serverVerified info ---

@@ -18,4 +18,5 @@ public class AuthenticationResponse {
     boolean authenticated;
     Long expiresIn;
     String tokenType;
+    String accountStatus; // ACTIVE, PENDING, REJECTED, or BANNED
 }

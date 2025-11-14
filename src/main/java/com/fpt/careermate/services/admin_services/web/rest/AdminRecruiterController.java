@@ -142,14 +142,14 @@ public class AdminRecruiterController {
 
     @PutMapping("/{recruiterId}/reject")
     @Operation(summary = "Reject recruiter account",
-               description = "Admin rejects and deletes both recruiter profile and account permanently")
+               description = "Admin rejects recruiter account, marks as REJECTED and stores the rejection reason. The account status changes to REJECTED to prevent login.")
     public ApiResponse<Void> rejectRecruiter(@PathVariable int recruiterId,
                                              @RequestParam(required = false) String reason) {
         log.info("Admin rejecting recruiter account with ID: {}, Reason: {}", recruiterId, reason);
         registrationService.rejectRecruiterAccount(recruiterId, reason);
         return ApiResponse.<Void>builder()
                 .code(200)
-                .message("Recruiter account rejected and deleted. Reason: " + (reason != null ? reason : "Not specified"))
+                .message("Recruiter account rejected successfully. Account status changed to REJECTED. Reason: " + (reason != null ? reason : "Not specified"))
                 .build();
     }
 

@@ -102,10 +102,15 @@ public class AuthenticationImp implements AuthenticationService {
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
         String status = user.getStatus();
-        if (!StatusAccount.ACTIVE.equalsIgnoreCase(status)) {
-            throw new AppException(ErrorCode.USER_INACTIVE);
+
+        // Check if account is BANNED - banned accounts cannot sign in at all
+        if ("BANNED".equalsIgnoreCase(status)) {
+            throw new AppException(ErrorCode.ACCOUNT_BANNED);
         }
 
+        // For PENDING/REJECTED status: Allow recruiters to sign in to view their status/rejection reason
+        // For ACTIVE status: Normal authentication flow
+        // Generate tokens regardless of PENDING/REJECTED/ACTIVE status (except BANNED)
         String accessToken = generateToken(user, false);
         String refreshToken = generateToken(user, true);
 
@@ -115,6 +120,7 @@ public class AuthenticationImp implements AuthenticationService {
                 .authenticated(true)
                 .expiresIn(VALID_DURATION)
                 .tokenType("Bearer")
+                .accountStatus(status) // Include account status in response so frontend knows
                 .build();
     }
 
@@ -216,6 +222,7 @@ public class AuthenticationImp implements AuthenticationService {
                 .expirationTime(new Date(
                         Instant.now().plus(validDuration, ChronoUnit.SECONDS).toEpochMilli()))
                 .jwtID(UUID.randomUUID().toString())
+                .claim("fullname", account.getUsername())
                 .claim("scope", buildScope(account))
                 .build();
 

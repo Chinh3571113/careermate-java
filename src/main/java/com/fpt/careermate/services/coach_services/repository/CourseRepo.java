@@ -1,6 +1,8 @@
 package com.fpt.careermate.services.coach_services.repository;
 
 import com.fpt.careermate.services.coach_services.domain.Course;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -9,7 +11,5 @@ import java.util.Optional;
 
 @Repository
 public interface CourseRepo extends JpaRepository<Course,Integer> {
-    Optional<List<Course>> findByCandidate_CandidateId(Integer integer);
-    Optional<Course> findByIdAndCandidate_CandidateId(Integer courseId, Integer candidateId);
-    Optional<Course> findByTitleAndCandidate_CandidateId(String title, Integer candidateId);
+    Page<Course> findByMarkedAndCandidate_CandidateId(boolean marked, Integer candidateId, Pageable pageable);
 }

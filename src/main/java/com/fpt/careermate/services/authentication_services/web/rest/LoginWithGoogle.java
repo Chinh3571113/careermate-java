@@ -52,6 +52,7 @@ public class LoginWithGoogle {
         String email = (String) session.getAttribute("email");
         Boolean isRecruiter = (Boolean) session.getAttribute("isRecruiter");
         Boolean profileCompleted = (Boolean) session.getAttribute("profileCompleted");
+        String accountStatus = (String) session.getAttribute("accountStatus"); // Get account status
         String redirectUrl = (String) session.getAttribute("oauth_redirect_url");
 
         // Default to localhost if no redirect URL was stored
@@ -88,17 +89,18 @@ public class LoginWithGoogle {
         }
 
         // Set status and tokens based on account state
+        // Include account status (ACTIVE, PENDING, REJECTED, BANNED) in the redirect
+        if (accountStatus != null) {
+            finalUrl.append("&account_status=").append(accountStatus.toLowerCase());
+        }
+
         if (accessToken != null) {
-            // Account is ACTIVE and tokens were generated
+            // Tokens were generated (account is not BANNED)
             finalUrl.append("&access_token=").append(java.net.URLEncoder.encode(accessToken, "UTF-8"));
             finalUrl.append("&refresh_token=").append(java.net.URLEncoder.encode(refreshToken, "UTF-8"));
-            finalUrl.append("&status=active");
         } else if (isRecruiterAccount && !hasCompletedProfile) {
-            // Recruiter needs to complete organization info
+            // Recruiter needs to complete organization info (should have accountStatus=PENDING)
             finalUrl.append("&status=registration_required");
-        } else {
-            // Account is PENDING or awaiting approval
-            finalUrl.append("&status=pending_approval");
         }
 
 

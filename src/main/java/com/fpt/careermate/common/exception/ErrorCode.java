@@ -6,26 +6,33 @@ import org.springframework.http.HttpStatusCode;
 
 @Getter
 public enum ErrorCode {
-        UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
-        INVALID_JSON(9998, "Invalid JSON format or missing request body", HttpStatus.BAD_REQUEST),
-        EXTERNAL_API_ERROR(9997, "Error occurred while calling external API", HttpStatus.SERVICE_UNAVAILABLE),
-        RESPONSE_BODY_EMPTY(9996, "Response body from external API is empty", HttpStatus.SERVICE_UNAVAILABLE),
-        INVALID_KEY(1001, "Uncategorized error", HttpStatus.BAD_REQUEST),
-        USER_EXISTED(1002, "User existed", HttpStatus.BAD_REQUEST),
-        USERNAME_INVALID(1003, "Username must be at least {min} characters", HttpStatus.BAD_REQUEST),
-        INVALID_PASSWORD(1004, "Password must be at least {min} characters", HttpStatus.BAD_REQUEST),
-        USER_NOT_EXISTED(1005, "User not existed", HttpStatus.NOT_FOUND),
-        UNAUTHENTICATED(1006, "Unauthenticated", HttpStatus.UNAUTHORIZED),
-        UNAUTHORIZED(1007, "You do not have permission", HttpStatus.FORBIDDEN),
-        INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
-        DUPLICATE_EMAIL(1009, "Your is email existed", HttpStatus.BAD_REQUEST),
+    UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_JSON(9998, "Invalid JSON format or missing request body", HttpStatus.BAD_REQUEST),
+    EXTERNAL_API_ERROR(9997, "Error occurred while calling external API", HttpStatus.SERVICE_UNAVAILABLE),
+    RESPONSE_BODY_EMPTY(9996, "Response body from external API is empty", HttpStatus.SERVICE_UNAVAILABLE),
+    FILE_NOT_FOUND(9995, "File not found", HttpStatus.INTERNAL_SERVER_ERROR),
+    IO_EXCEPTION(9994, "I/O exception occurred", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_KEY(1001, "Uncategorized error", HttpStatus.BAD_REQUEST),
+    USER_EXISTED(1002, "User existed", HttpStatus.BAD_REQUEST),
+    USERNAME_INVALID(1003, "Username must be at least {min} characters", HttpStatus.BAD_REQUEST),
+    INVALID_PASSWORD(1004, "Password must be at least {min} characters", HttpStatus.BAD_REQUEST),
+    USER_NOT_EXISTED(1005, "User not existed", HttpStatus.NOT_FOUND),
+    UNAUTHENTICATED(1006, "Unauthenticated", HttpStatus.UNAUTHORIZED),
+    UNAUTHORIZED(1007, "You do not have permission", HttpStatus.FORBIDDEN),
+    INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
+    DUPLICATE_EMAIL(1009, "Your is email existed", HttpStatus.BAD_REQUEST),
 
-        // 20xx: Order
-        ORDER_NOT_FOUND(2000, "Order not found", HttpStatus.NOT_FOUND),
-        CANNOT_DELETE_ORDER(2001, "Cannot delete Order if status is not PENDING", HttpStatus.FORBIDDEN),
+        // 20xx: Invoice
+        ORDER_NOT_FOUND(2000, "Invoice not found", HttpStatus.NOT_FOUND),
+        CANNOT_DELETE_ORDER(2001, "Cannot delete Invoice if status is not PENDING", HttpStatus.FORBIDDEN),
+    PAYMENT_FAILED(2002, "Payment processing failed", HttpStatus.PAYMENT_REQUIRED),
+    CAN_NOT_PAY_FOR_FREE_PACKAGE(2003, "Cannot create payment URL for FREE package", HttpStatus.BAD_REQUEST),
+    HAS_ACTIVE_PACKAGE(2004, "You already have an active package. Cannot pay new package until the current package expires.",
+                    HttpStatus.BAD_REQUEST),
 
-        // 30xx: Package
-        PACKAGE_NOT_FOUND(3000, "Package not found", HttpStatus.NOT_FOUND),
+        // 30xx: CandidatePackage
+        PACKAGE_NOT_FOUND(3000, "CandidatePackage not found", HttpStatus.NOT_FOUND),
+    USING_FREE_PACAKGE(3001, "You are using FREE package", HttpStatus.BAD_REQUEST),
 
         // 40xx: Recruiter
         INVALID_WEBSITE(4000, "Website is not reachable", HttpStatus.BAD_REQUEST),
@@ -40,6 +47,13 @@ public enum ErrorCode {
         UPDATE_REQUEST_NOT_FOUND(4007, "Profile update request not found", HttpStatus.NOT_FOUND),
         UPDATE_REQUEST_ALREADY_PROCESSED(4008, "This update request has already been processed",
                         HttpStatus.BAD_REQUEST),
+        RECRUITER_NOT_VERIFIED(4009,
+                        "Your recruiter profile is not yet approved by admin. Please wait for verification.",
+                        HttpStatus.FORBIDDEN),
+    // 40xx: Recruiter
+    RECRUITER_ALREADY_REJECTED(4006, "Recruiter profile is already rejected", HttpStatus.BAD_REQUEST),
+    ACCOUNT_BANNED(4007, "Your account has been banned. You cannot update your profile.", HttpStatus.FORBIDDEN),
+    CANNOT_UPDATE_NON_REJECTED_PROFILE(4008, "You can only update organization information if your account is REJECTED. Current status allows you to access the system.", HttpStatus.BAD_REQUEST),
 
         // 50xx: JdSkill
         SKILL_EXISTED(5000, "JdSkill existed", HttpStatus.BAD_REQUEST),
@@ -71,9 +85,12 @@ public enum ErrorCode {
         INVALID_FEEDBACK_TYPE(6018, "Invalid feedback type. Must be one of: like, dislike, save, view",
                         HttpStatus.BAD_REQUEST),
 
-        // 70xx: Coach
-        LESSON_NOT_FOUND(7000, "Lesson not found", HttpStatus.NOT_FOUND),
-        COURSE_NOT_FOUND(7001, "Course not found", HttpStatus.NOT_FOUND),
+    // 70xx: Coach
+    LESSON_NOT_FOUND(7000, "Lesson not found", HttpStatus.NOT_FOUND),
+    COURSE_NOT_FOUND(7001, "Course not found", HttpStatus.NOT_FOUND),
+    ROADMAP_NOT_FOUND(7002, "Roadmap not found", HttpStatus.NOT_FOUND),
+    TOPIC_NOT_FOUND(7003, "Topic not found", HttpStatus.NOT_FOUND),
+    SUBTOPIC_NOT_FOUND(7004, "Subtopic not found", HttpStatus.NOT_FOUND),
 
         BLOG_NOT_FOUND(1010, "Blog not found", HttpStatus.NOT_FOUND),
         BLOG_INVALID_STATUS(1011, "Invalid blog status", HttpStatus.BAD_REQUEST),

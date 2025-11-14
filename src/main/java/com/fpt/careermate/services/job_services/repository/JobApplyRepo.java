@@ -24,4 +24,10 @@ public interface JobApplyRepo extends JpaRepository<JobApply,Integer> {
             @Param("candidateId") int candidateId,
             @Param("status") StatusJobApply status,
             Pageable pageable);
+
+    @Query("SELECT COUNT(a) FROM job_apply a WHERE a.candidate.candidateId = :candidateId " +
+            "AND MONTH(a.createAt) = :month AND YEAR(a.createAt) = :year")
+    int countByCandidateAndMonth(@Param("candidateId") int candidateId,
+                                 @Param("month") int month,
+                                 @Param("year") int year);
 }

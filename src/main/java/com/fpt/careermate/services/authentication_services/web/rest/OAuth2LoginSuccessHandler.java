@@ -106,10 +106,13 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 recruiterRepo.findByAccount_Id(account.getId()).isPresent();
         boolean requiresOrgInfo = hasRecruiterRole && !profileCompleted;
         boolean isAccountActive = "ACTIVE".equalsIgnoreCase(account.getStatus());
+        boolean isBanned = "BANNED".equalsIgnoreCase(account.getStatus());
 
         String accessToken = null;
         String refreshToken = null;
-        if (isAccountActive) {
+        // Generate tokens for ACTIVE, PENDING, and REJECTED accounts (not for BANNED)
+        // This allows recruiters to sign in and view their status/rejection reason
+        if (!isBanned) {
             accessToken = authenticationImp.generateToken(account, false);
             refreshToken = authenticationImp.generateToken(account, true);
         }
@@ -130,6 +133,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         // Fix: isRecruiter should indicate if account has recruiter role, not whether org info is required
         session.setAttribute("isRecruiter", hasRecruiterRole);
         session.setAttribute("profileCompleted", profileCompleted);
+        session.setAttribute("accountStatus", account.getStatus()); // Add account status to session
 
         // Set session to last 30 minutes for OAuth completion flow
         session.setMaxInactiveInterval(1800);

@@ -1,6 +1,6 @@
 package com.fpt.careermate.services.order_services.service.mapper;
 
-import com.fpt.careermate.services.order_services.domain.Package;
+import com.fpt.careermate.services.order_services.domain.CandidatePackage;
 import com.fpt.careermate.services.order_services.service.dto.request.PackageCreationRequest;
 import com.fpt.careermate.services.order_services.service.dto.response.PackageResponse;
 import org.mapstruct.Mapper;
@@ -10,10 +10,10 @@ import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface PackageMapper {
-    @Mapping(target = "candidates", ignore = true)
-    Package toPackage(PackageCreationRequest request);
+    @Mapping(target = "invoices", ignore = true)
+    CandidatePackage toPackage(PackageCreationRequest request);
 
-    PackageResponse toPackageResponse(Package pkg);
+    PackageResponse toPackageResponse(CandidatePackage pkg);
 
-    List<PackageResponse> toPackageResponseList(List<Package> packages);
+    List<PackageResponse> toPackageResponseList(List<CandidatePackage> candidatePackages);
 }

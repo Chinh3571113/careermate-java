@@ -8,6 +8,7 @@ import com.fpt.careermate.services.recruiter_services.service.dto.response.NewRe
 import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterApprovalResponse;
 import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterProfileResponse;
 import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterUpdateRequestResponse;
+import com.fpt.careermate.services.authentication_services.service.dto.request.RecruiterRegistrationRequest;
 
 import java.util.List;
 
@@ -34,4 +35,8 @@ public interface RecruiterService {
     RecruiterUpdateRequestResponse getUpdateRequestById(int requestId);
     void approveUpdateRequest(int requestId, String adminNote);
     void rejectUpdateRequest(int requestId, String rejectionReason);
+
+    // Recruiter self-service methods
+    RecruiterApprovalResponse getMyRecruiterProfile();
+    void updateOrganizationInfo(RecruiterRegistrationRequest.OrganizationInfo orgInfo);
 }

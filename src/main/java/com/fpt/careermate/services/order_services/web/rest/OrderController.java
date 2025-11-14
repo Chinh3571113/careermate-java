@@ -2,10 +2,11 @@ package com.fpt.careermate.services.order_services.web.rest;
 
 import com.fpt.careermate.services.order_services.service.OrderImp;
 import com.fpt.careermate.common.response.ApiResponse;
-import com.fpt.careermate.services.order_services.service.dto.response.OrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.CandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.MyCandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.PageCandidateOrderResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Validated
-@Tag(name = "Order", description = "Manage order")
+@Tag(name = "Invoice", description = "Manage invoice")
 @RestController
 @RequestMapping("/api/order")
 @RequiredArgsConstructor
@@ -27,59 +28,55 @@ public class OrderController {
 
     OrderImp orderImp;
 
-    @Operation(summary = "Create order")
-    @PostMapping
-    public ApiResponse<String> createOrder(
-            @RequestParam
-            @Min(value = 1, message = "packageId must be greater than or equal to 1")
-            Integer packageId
-    ) {
-        return ApiResponse.<String>builder()
-                .result(orderImp.createOrder(packageId))
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @Operation(summary = "Delete order by ID")
+    @Operation(summary = """
+            Cancel candidate package by id
+            input: invoice id
+            output: success message
+            """)
     @DeleteMapping("/{id}")
-    public ApiResponse<String> deleteOrder(@Positive @PathVariable int id) {
-        orderImp.deleteOrder(id);
-        return ApiResponse.<String>builder()
-                .result("")
+    public ApiResponse<Void> cancelOrder(@Positive @PathVariable int id) {
+        orderImp.cancelOrder(id);
+        return ApiResponse.<Void>builder()
                 .code(200)
                 .message("success")
                 .build();
     }
 
-    @Operation(summary = "Check order status")
-    @GetMapping("/status/{id}")
-    public ApiResponse<String> checkOrderStatus(@Positive @PathVariable int id) {
-        return ApiResponse.<String>builder()
-                .result(orderImp.checkOrderStatus(id))
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @Operation(summary = "Get order list for admin")
+    @Operation(summary = "Get invoice list for admin")
     @GetMapping
-    public ApiResponse<List<OrderResponse>> getOrderList() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderImp.getOrderList())
+    public ApiResponse<PageCandidateOrderResponse> getOrderList(
+            @RequestParam(name = "page", defaultValue = "1") @Positive int page,
+            @RequestParam(name = "size", defaultValue = "10") @Positive int size
+    ) {
+        return ApiResponse.<PageCandidateOrderResponse>builder()
+                .result(orderImp.getOrderList(page, size))
                 .code(200)
                 .message("success")
                 .build();
     }
 
-    @Operation(summary = "Get order list for candidate")
-    @GetMapping("/my-order")
-    public ApiResponse<List<OrderResponse>> myOrderList() {
-        return ApiResponse.<List<OrderResponse>>builder()
-                .result(orderImp.myOrderList())
+    @Operation(summary = "Get invoice list for candidate")
+    @GetMapping("/my-pacakge")
+    public ApiResponse<MyCandidateOrderResponse> myOrderList() {
+        return ApiResponse.<MyCandidateOrderResponse>builder()
+                .result(orderImp.myCandidatePackage())
                 .code(200)
                 .message("success")
                 .build();
     }
 
+    @Operation(summary = """
+            Call this API before call POST /api/payment
+            to check if candidate has an active package.
+            input: none
+            output: true if candidate has active package, false if not
+            """)
+    @GetMapping("/active-package")
+    public ApiResponse<Boolean> hasActivePackage() {
+        return ApiResponse.<Boolean>builder()
+                .result(orderImp.hasActivePackage())
+                .code(200)
+                .message("success")
+                .build();
+    }
 }

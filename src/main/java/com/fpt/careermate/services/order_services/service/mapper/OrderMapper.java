@@ -1,17 +1,22 @@
 package com.fpt.careermate.services.order_services.service.mapper;
 
-import com.fpt.careermate.services.order_services.domain.Order;
-import com.fpt.careermate.services.order_services.service.dto.response.OrderResponse;
+import com.fpt.careermate.services.order_services.domain.Invoice;
+import com.fpt.careermate.services.order_services.service.dto.response.CandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.MyCandidateOrderResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.PageCandidateOrderResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
 
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
-    @Mapping(source = "candidate.candidateId", target = "candidateId")
-    @Mapping(source = "candidatePackage.id", target = "packageId")
-    OrderResponse toOrderResponse(Order order);
+    @Mapping(source = "candidatePackage.name", target = "packageName")
+    MyCandidateOrderResponse toOrderResponse(Invoice invoice);
 
-    List<OrderResponse> toOrderResponseList (List<Order> orders);
+    @Mapping(source = "candidatePackage.name", target = "packageName")
+    @Mapping(source = "candidate.fullName", target = "candidateName")
+    CandidateOrderResponse toCandidateOrderResponse(Invoice invoice);
+
+    // Chuyển page sang PageCandidateOrderResponse
+    PageCandidateOrderResponse toPageCandidateOrderResponse(Page<Invoice> candidateOrderPage);
 }

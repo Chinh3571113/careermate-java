@@ -4,6 +4,7 @@ import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -20,7 +21,7 @@ import java.util.List;
 @Validated
 @RestController
 @RequestMapping("/api/jobposting")
-@Tag(name = "Job posting", description = "Manage job posting")
+@Tag(name = "Recruiter - Job posting", description = "Manage job posting")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
@@ -40,9 +41,13 @@ public class JobPostingController {
 
     @GetMapping("/recruiter")
     @Operation(summary = "Recruiter can manage all job postings of the current recruiter with all status")
-    ApiResponse<List<JobPostingForRecruiterResponse>> getJobPostingListForRecruiter() {
-        return ApiResponse.<List<JobPostingForRecruiterResponse>>builder()
-                .result(jobPostingImp.getAllJobPostingForRecruiter())
+    ApiResponse<PageJobPostingForRecruiterResponse> getJobPostingListForRecruiter(
+            @RequestParam int page,
+            @RequestParam int size,
+            @RequestParam(required = false) String keyword
+    ) {
+        return ApiResponse.<PageJobPostingForRecruiterResponse>builder()
+                .result(jobPostingImp.getAllJobPostingForRecruiter(page, size, keyword))
                 .code(200)
                 .message("success")
                 .build();
