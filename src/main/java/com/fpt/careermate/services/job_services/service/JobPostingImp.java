@@ -5,16 +5,13 @@ import com.fpt.careermate.services.authentication_services.service.Authenticatio
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.job_services.service.dto.response.*;
 import com.fpt.careermate.services.profile_services.domain.WorkModel;
 import com.fpt.careermate.services.profile_services.repository.WorkModelRepo;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.job_services.service.dto.request.JdSkillRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForAdminResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingSkillResponse;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingApprovalRequest;
 import com.fpt.careermate.services.job_services.service.impl.JobPostingService;
 import com.fpt.careermate.services.job_services.domain.JdSkill;
@@ -33,16 +30,18 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -113,12 +112,33 @@ public class JobPostingImp implements JobPostingService {
     // Get all job postings of the current recruiter with all status
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
-    public List<JobPostingForRecruiterResponse> getAllJobPostingForRecruiter() {
+    public PageJobPostingForRecruiterResponse getAllJobPostingForRecruiter(
+            int page, int size, String keyword) {
         Recruiter recruiter = getMyRecruiter();
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").ascending());
 
-        return jobPostingMapper
-                .toJobPostingForRecruiterResponseList(jobPostingRepo.findAllByRecruiter_Id(recruiter.getId()));
+        Page<JobPosting> pageJobPosting;
+        if (keyword == null || keyword.isEmpty()) {
+            // Lấy tất cả
+            pageJobPosting = jobPostingRepo.findAllByRecruiterId(recruiter.getId(), pageable);
+        } else {
+            // Lọc theo keyword (ví dụ search trong title)
+            pageJobPosting = jobPostingRepo
+                    .findByRecruiterIdAndTitleContainingIgnoreCase(recruiter.getId(), keyword, pageable);
+        }
+
+        List<JobPostingForRecruiterResponse> jobPostingForRecruiterResponses = pageJobPosting
+                .stream()
+                .map(jobPostingMapper::toJobPostingDetailForRecruiterResponse)
+                .collect(Collectors.toList());
+
+        PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
+                .toPageJobPostingForRecruiterResponse(pageJobPosting);
+        pageResponse.setContent(jobPostingForRecruiterResponses);
+
+        return pageResponse;
     }
+
 
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
