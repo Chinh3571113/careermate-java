@@ -33,4 +33,6 @@ public interface RecruiterRepo extends JpaRepository<Recruiter,Integer> {
     Page<Recruiter> searchRecruiters(@Param("status") String status,
                                      @Param("search") String search,
                                      @NonNull Pageable pageable);
+
+    Page<Recruiter> findAllByVerificationStatus(String status, Pageable pageable);
 }

@@ -5,6 +5,7 @@ import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageRecruiterResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
@@ -136,6 +137,23 @@ public class CandidateJobPostingController {
                 .code(200)
                 .message("Company detail retrieved successfully")
                 .result(jobPostingImp.getCompanyDetail(recruiterId))
+                .build();
+    }
+
+    @GetMapping("/company")
+    @Operation(description = """
+            Get List of Companies
+            intput: page, size
+            output: list of companies with pagination
+            """)
+    public ApiResponse<PageRecruiterResponse> getCompanies(
+            @RequestParam int page,
+            @RequestParam int size
+    ) {
+        return ApiResponse.<PageRecruiterResponse>builder()
+                .code(200)
+                .message("Companies retrieved successfully")
+                .result(jobPostingImp.getCompanies(page, size))
                 .build();
     }
 

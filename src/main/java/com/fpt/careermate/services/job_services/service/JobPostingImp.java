@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.job_services.service;
 
 import com.fpt.careermate.common.constant.StatusJobPosting;
+import com.fpt.careermate.common.constant.StatusRecruiter;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
@@ -772,5 +773,22 @@ public class JobPostingImp implements JobPostingService {
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
 
         return jobPostingMapper.toRecruiterCompanyInfo(recruiter);
+    }
+
+    @Override
+    public PageRecruiterResponse getCompanies(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("companyName").ascending());
+        Page<Recruiter> pageRecruiter =
+                recruiterRepo.findAllByVerificationStatus(StatusRecruiter.APPROVED,pageable);
+
+        List<Recruiter> recruiters = pageRecruiter.getContent();
+
+        // Map to PageRecruiterResponse
+        PageRecruiterResponse pageRecruiterResponse = jobPostingMapper.toPageRecruiterResponse(pageRecruiter);
+
+        // Map to RecruiterResponse DTOs and set content
+        pageRecruiterResponse.setContent(jobPostingMapper.toRecruiterResponseList(recruiters));
+
+        return pageRecruiterResponse;
     }
 }

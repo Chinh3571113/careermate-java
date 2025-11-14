@@ -3,10 +3,7 @@ package com.fpt.careermate.services.job_services.service.mapper;
 import com.fpt.careermate.services.job_services.domain.JobDescription;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingSkillResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.*;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -40,4 +37,7 @@ public interface JobPostingMapper {
     @Mapping(source = "id", target = "recruiterId")
     JobPostingForCandidateResponse.RecruiterCompanyInfo toRecruiterCompanyInfo(Recruiter recruiter);
 
+    PageRecruiterResponse toPageRecruiterResponse(Page<Recruiter> pageRecruiter);
+
+    List<RecruiterResponse> toRecruiterResponseList(List<Recruiter> recruiters);
 }
