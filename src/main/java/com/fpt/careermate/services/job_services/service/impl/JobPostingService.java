@@ -6,6 +6,7 @@ import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCr
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForAdminResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -15,7 +16,7 @@ public interface JobPostingService {
     // Recruiter methods
     void createJobPosting(JobPostingCreationRequest request);
 
-    List<JobPostingForRecruiterResponse> getAllJobPostingForRecruiter();
+    PageJobPostingForRecruiterResponse getAllJobPostingForRecruiter(int page, int size, String keyword);
 
     JobPostingForRecruiterResponse getJobPostingDetailForRecruiter(int id);
 
@@ -39,4 +40,10 @@ public interface JobPostingService {
     PageResponse<JobPostingForCandidateResponse> getAllApprovedJobPostings(String keyword, Pageable pageable);
 
     JobPostingForCandidateResponse getJobPostingDetailForCandidate(int id);
+
+    PageJobPostingForRecruiterResponse getAllJobPostingsPublic(
+            int page, int size, String keyword, int recruiterId
+    );
+
+    JobPostingForCandidateResponse.RecruiterCompanyInfo getCompanyDetail(int recruiterId);
 }

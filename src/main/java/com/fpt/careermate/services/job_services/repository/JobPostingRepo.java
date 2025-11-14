@@ -16,7 +16,7 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Integer> {
 
     Optional<JobPosting> findByTitle(String title);
 
-    List<JobPosting> findAllByRecruiter_Id(int recruiterId);
+    Page<JobPosting> findAllByRecruiterId(int recruiterId, Pageable pageable);
 
     List<JobPosting> findByExpirationDateBeforeAndStatusNotIn(
             LocalDate date, List<String> statuses);
@@ -44,4 +44,8 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Integer> {
             Pageable pageable);
 
     Optional<JobPosting> findByIdAndStatus(int id, String status);
+
+    Page<JobPosting> findByRecruiterIdAndTitleContainingIgnoreCase(
+            int recruiterId, String keyword, Pageable pageable
+    );
 }

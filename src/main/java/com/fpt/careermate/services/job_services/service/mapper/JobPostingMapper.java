@@ -6,8 +6,11 @@ import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCr
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingSkillResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
+import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 import java.util.Set;
@@ -17,7 +20,7 @@ public interface JobPostingMapper {
     @Mapping(target = "workModel", ignore = true)
     JobPosting toJobPosting(JobPostingCreationRequest request);
 
-    List<JobPostingForRecruiterResponse> toJobPostingForRecruiterResponseList(List<JobPosting> jobPostings);
+
 
     @Mapping(target = "postTime", source = "createAt")
     JobPostingForRecruiterResponse toJobPostingDetailForRecruiterResponse(JobPosting jobPosting);
@@ -31,4 +34,10 @@ public interface JobPostingMapper {
     JobPostingForCandidateResponse toJobPostingForCandidateResponse(JobPosting jobPosting);
 
     List<JobPostingForCandidateResponse> toJobPostingForCandidateResponseList(List<JobPosting> jobPostings);
+
+    PageJobPostingForRecruiterResponse toPageJobPostingForRecruiterResponse(Page<JobPosting> pageJobPosting);
+
+    @Mapping(source = "id", target = "recruiterId")
+    JobPostingForCandidateResponse.RecruiterCompanyInfo toRecruiterCompanyInfo(Recruiter recruiter);
+
 }

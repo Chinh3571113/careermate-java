@@ -1,4 +1,4 @@
-package com.fpt.careermate.services.order_services.service;
+package com.fpt.careermate.common.seeder;
 
 import com.fpt.careermate.common.constant.EntitlementCode;
 import com.fpt.careermate.common.constant.PackageCode;
@@ -29,7 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
-public class DataSeederImp implements CommandLineRunner {
+public class CandidatePacakgeSeeder implements CommandLineRunner {
 
     EntitlementRepo entitlementRepo;
     PackageRepo packageRepo;
@@ -173,7 +173,7 @@ public class DataSeederImp implements CommandLineRunner {
                     new EntitlementPackage(false, 0, now, aiRoadmap, free),
                     new EntitlementPackage(false, 0, now, cvDownload, free),
                     new EntitlementPackage(false, 0, now, jobRecommendation, free)
-                    ));
+            ));
 
             // === Plus CandidatePackage ===
             entitlementpackageRepo.saveAll(List.of(
@@ -184,7 +184,7 @@ public class DataSeederImp implements CommandLineRunner {
                     new EntitlementPackage(false, 0, now, aiRoadmap, plus),
                     new EntitlementPackage(true, 0, now, cvDownload, plus),
                     new EntitlementPackage(true, 0, now, jobRecommendation, plus)
-                    ));
+            ));
 
             // === Premium CandidatePackage ===
             entitlementpackageRepo.saveAll(List.of(
@@ -195,7 +195,7 @@ public class DataSeederImp implements CommandLineRunner {
                     new EntitlementPackage(true, 0, now, aiRoadmap, premium),
                     new EntitlementPackage(true, 0, now, cvDownload, premium),
                     new EntitlementPackage(true, 0, now, jobRecommendation, premium)
-                    ));
+            ));
         }
     }
 }

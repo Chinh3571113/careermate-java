@@ -4,6 +4,7 @@ import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
@@ -97,6 +98,44 @@ public class CandidateJobPostingController {
                 .code(200)
                 .message("Job posting detail retrieved successfully")
                 .result(response)
+                .build();
+    }
+
+    @GetMapping("/company/list/{recruiterId}")
+    @Operation(description = """
+            Get Job Postings of a Specific Company
+            Retrieve all job postings associated with a specific company (recruiter).
+            Supports pagination and optional keyword search.
+            Query Parameters:
+            - page: Page number
+            - size: Items per page
+            - keyword: Optional search term to filter job postings
+            """)
+    public ApiResponse<PageJobPostingForRecruiterResponse> getJobPostingsOfCompany(
+            @PathVariable int recruiterId,
+            @RequestParam int page,
+            @RequestParam int size,
+            @RequestParam(required = false) String keyword
+    ) {
+        return ApiResponse.<PageJobPostingForRecruiterResponse>builder()
+                .code(200)
+                .message("List job posting of Company detail retrieved successfully")
+                .result(jobPostingImp.getAllJobPostingsPublic(page, size, keyword, recruiterId))
+                .build();
+    }
+
+    @GetMapping("/company/{recruiterId}")
+    @Operation(description = """
+            Get Company Detail
+            Retrieve detailed information about a specific company (recruiter).
+            """)
+    public ApiResponse<JobPostingForCandidateResponse.RecruiterCompanyInfo> getCompanyDetail(
+            @PathVariable int recruiterId
+    ) {
+        return ApiResponse.<JobPostingForCandidateResponse.RecruiterCompanyInfo>builder()
+                .code(200)
+                .message("Company detail retrieved successfully")
+                .result(jobPostingImp.getCompanyDetail(recruiterId))
                 .build();
     }
 
