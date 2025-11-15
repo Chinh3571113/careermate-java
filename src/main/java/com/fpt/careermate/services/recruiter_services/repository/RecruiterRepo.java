@@ -35,4 +35,10 @@ public interface RecruiterRepo extends JpaRepository<Recruiter,Integer> {
                                      @NonNull Pageable pageable);
 
     Page<Recruiter> findAllByVerificationStatus(String status, Pageable pageable);
+
+    Page<Recruiter> findAllByVerificationStatusAndCompanyAddressContainingIgnoreCase(
+            String status,
+            String companyAddress,
+            Pageable pageable
+    );
 }

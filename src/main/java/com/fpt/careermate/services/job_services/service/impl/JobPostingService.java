@@ -43,5 +43,5 @@ public interface JobPostingService {
     );
 
     JobPostingForCandidateResponse.RecruiterCompanyInfo getCompanyDetail(int recruiterId);
-    PageRecruiterResponse getCompanies(int page, int size);
+    PageRecruiterResponse getCompanies(int page, int size, String companyAddress);
 }

@@ -148,14 +148,14 @@ public class CandidateJobPostingController {
             """)
     public ApiResponse<PageRecruiterResponse> getCompanies(
             @RequestParam int page,
-            @RequestParam int size
+            @RequestParam int size,
+            @RequestParam(required = false) String companyAddress
     ) {
         return ApiResponse.<PageRecruiterResponse>builder()
                 .code(200)
                 .message("Companies retrieved successfully")
-                .result(jobPostingImp.getCompanies(page, size))
+                .result(jobPostingImp.getCompanies(page, size, companyAddress))
                 .build();
     }
 
 }
-

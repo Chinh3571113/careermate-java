@@ -776,10 +776,20 @@ public class JobPostingImp implements JobPostingService {
     }
 
     @Override
-    public PageRecruiterResponse getCompanies(int page, int size) {
+    public PageRecruiterResponse getCompanies(int page, int size, String companyAddress) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("companyName").ascending());
-        Page<Recruiter> pageRecruiter =
-                recruiterRepo.findAllByVerificationStatus(StatusRecruiter.APPROVED,pageable);
+        Page<Recruiter> pageRecruiter = null;
+        // Logic nếu CompanyAddress có giá trị thì lọc theo địa chỉ, nếu không thì lấy tất cả
+        if(companyAddress == null || companyAddress.isEmpty()) {
+            pageRecruiter = recruiterRepo.findAllByVerificationStatus(
+                            StatusRecruiter.APPROVED, pageable
+            );
+        }
+        else {
+            pageRecruiter = recruiterRepo.findAllByVerificationStatusAndCompanyAddressContainingIgnoreCase(
+                            StatusRecruiter.APPROVED, companyAddress, pageable
+            );
+        }
 
         List<Recruiter> recruiters = pageRecruiter.getContent();
 
