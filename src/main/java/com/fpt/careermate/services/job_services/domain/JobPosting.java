@@ -3,6 +3,8 @@ package com.fpt.careermate.services.job_services.domain;
 import com.fpt.careermate.services.profile_services.domain.WorkModel;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.admin_services.domain.Admin;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -11,7 +13,6 @@ import lombok.experimental.FieldDefaults;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
-
 
 @Getter
 @Setter
@@ -58,7 +59,7 @@ public class JobPosting {
 
     @ManyToOne
     @JoinColumn(name = "approved_by")
-    Account approvedBy;
+    Admin approvedBy;
 
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL)
     Set<JobDescription> jobDescriptions;
