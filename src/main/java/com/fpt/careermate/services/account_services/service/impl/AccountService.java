@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.account_services.service.impl;
 
 import com.fpt.careermate.services.account_services.service.dto.request.AccountCreationRequest;
+import com.fpt.careermate.services.account_services.service.dto.request.SignUpRequest;
 import com.fpt.careermate.services.account_services.service.dto.response.AccountResponse;
 import com.fpt.careermate.common.response.PageResponse;
 import org.springframework.data.domain.Pageable;
@@ -15,4 +16,5 @@ public interface AccountService {
     AccountResponse getAccountById(int id);
     void deleteAccount(int id);
     AccountResponse getCurrentUser();
+    void signUp(SignUpRequest request);
 }

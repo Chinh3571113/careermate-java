@@ -30,7 +30,9 @@ public class SecurityConfig {
 
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     public String[] PUBLIC_ENDPOINTS = {
-            "/api/users", "/api/auth/token", "/api/auth/introspect", "/api/auth/logout", "/api/auth/refresh",
+            "/api/users", "/api/auth/token","/api/auth/token/candidate", "/api/auth/introspect", "/api/auth/logout",
+            "/api/auth" +
+            "/refresh",
             "/api/users/verify-email/**",
             "/api/users/verify-otp",
             "/api/users/change-password/**",
@@ -40,6 +42,7 @@ public class SecurityConfig {
             "/api/oauth2/recruiter/complete-registration",
             "/api/registration/recruiter",
             "/api/v1/auth/**",
+            "/api/users/sign-up",
 
             "/v3/api-docs/**",
             "/v3/api-docs.yaml",

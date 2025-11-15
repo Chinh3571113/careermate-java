@@ -3,6 +3,7 @@ package com.fpt.careermate.services.account_services.service;
 import com.fpt.careermate.common.constant.PredefineRole;
 import com.fpt.careermate.common.constant.StatusAccount;
 import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.account_services.service.dto.request.SignUpRequest;
 import com.fpt.careermate.services.authentication_services.domain.Role;
 import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.authentication_services.repository.RoleRepo;
@@ -14,6 +15,8 @@ import com.fpt.careermate.services.account_services.service.mapper.AccountMapper
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
+import com.fpt.careermate.services.profile_services.domain.Candidate;
+import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -23,6 +26,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 
@@ -36,6 +40,7 @@ public class AccountImp implements AccountService {
     AccountMapper accountMapper;
     PasswordEncoder passwordEncoder;
     AuthenticationImp authenticationImp;
+    CandidateRepo candidateRepo;
 
     @Override
     public AccountResponse createAccount(AccountCreationRequest request) {
@@ -115,6 +120,37 @@ public class AccountImp implements AccountService {
     public AccountResponse getCurrentUser() {
         Account account = authenticationImp.findByEmail();
         return accountMapper.toAccountResponse(account);
+    }
+
+    @Override
+    @Transactional
+    public void signUp(SignUpRequest request) {
+        if (accountRepo.existsByEmail(request.getEmail()))
+            throw new AppException(ErrorCode.DUPLICATE_EMAIL);
+
+        HashSet<Role> roles = new HashSet<>();
+        Account user = Account.builder()
+                .email(request.getEmail())
+                .username(request.getFullName())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .build();
+
+
+        roleRepo.findById(PredefineRole.USER_ROLE).ifPresent(roles::add);
+
+        user.setRoles(roles);
+        user.setStatus("ACTIVE");
+
+        user = accountRepo.save(user);
+
+        Candidate candidate = Candidate.builder()
+                .fullName(request.getFullName())
+                .dob(request.getDateOfBirth())
+                .account(user)
+                .build();
+
+        candidateRepo.save(candidate);
+
     }
 
 }
