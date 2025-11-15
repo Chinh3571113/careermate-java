@@ -11,6 +11,8 @@ import com.fpt.careermate.services.profile_services.domain.WorkModel;
 import com.fpt.careermate.services.profile_services.repository.WorkModelRepo;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.admin_services.domain.Admin;
+import com.fpt.careermate.services.admin_services.repository.AdminRepo;
 import com.fpt.careermate.services.job_services.service.dto.request.JdSkillRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingApprovalRequest;
@@ -62,6 +64,7 @@ public class JobPostingImp implements JobPostingService {
 
     JobPostingRepo jobPostingRepo;
     RecruiterRepo recruiterRepo;
+    AdminRepo adminRepo;
     JdSkillRepo jdSkillRepo;
     JobDescriptionRepo jobDescriptionRepo;
     WorkModelRepo workModelRepo;
@@ -135,7 +138,6 @@ public class JobPostingImp implements JobPostingService {
             int page, int size, String keyword) {
         return gellAllJobPostings(page, size, keyword, 0);
     }
-
 
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
@@ -381,8 +383,10 @@ public class JobPostingImp implements JobPostingService {
             throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
 
-        // Get current admin account
-        Account admin = authenticationImp.findByEmail();
+        // Get current admin account and admin entity
+        Account adminAccount = authenticationImp.findByEmail();
+        Admin admin = adminRepo.findByAccount_Id(adminAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         String newStatus = request.getStatus().toUpperCase();
 
@@ -391,7 +395,7 @@ public class JobPostingImp implements JobPostingService {
             jobPosting.setStatus(StatusJobPosting.ACTIVE);
             jobPosting.setApprovedBy(admin);
             jobPosting.setRejectionReason(null); // Clear any previous rejection reason
-            log.info("Job posting ID: {} APPROVED by admin: {}", id, admin.getEmail());
+            log.info("Job posting ID: {} APPROVED by admin: {}", id, admin.getAccount().getEmail());
 
             // Send approval notification to recruiter
             sendJobPostingApprovedNotification(jobPosting);
@@ -404,7 +408,7 @@ public class JobPostingImp implements JobPostingService {
             jobPosting.setStatus(StatusJobPosting.REJECTED);
             jobPosting.setRejectionReason(request.getRejectionReason());
             jobPosting.setApprovedBy(admin);
-            log.info("Job posting ID: {} REJECTED by admin: {}", id, admin.getEmail());
+            log.info("Job posting ID: {} REJECTED by admin: {}", id, admin.getAccount().getEmail());
 
             // Send rejection notification to recruiter
             sendJobPostingRejectedNotification(jobPosting);
@@ -465,7 +469,8 @@ public class JobPostingImp implements JobPostingService {
                 .createAt(jobPosting.getCreateAt())
                 .rejectionReason(jobPosting.getRejectionReason())
                 .recruiter(recruiterInfo)
-                .approvedByEmail(jobPosting.getApprovedBy() != null ? jobPosting.getApprovedBy().getEmail() : null)
+                .approvedByEmail(
+                        jobPosting.getApprovedBy() != null ? jobPosting.getApprovedBy().getAccount().getEmail() : null)
                 .skills(skills)
                 .build();
     }
@@ -611,25 +616,24 @@ public class JobPostingImp implements JobPostingService {
     private void sendJobPostingApprovedNotification(JobPosting jobPosting) {
         String emailMessage = String.format(
                 "Great news! Your job posting '%s' has been approved and is now live on CareerMate.\n\n" +
-                "Job Details:\n" +
-                "- Title: %s\n" +
-                "- Location: %s\n" +
-                "- Expiration Date: %s\n\n" +
-                "Candidates can now view and apply to your job posting.\n\n" +
-                "Best regards,\n" +
-                "CareerMate Team",
+                        "Job Details:\n" +
+                        "- Title: %s\n" +
+                        "- Location: %s\n" +
+                        "- Expiration Date: %s\n\n" +
+                        "Candidates can now view and apply to your job posting.\n\n" +
+                        "Best regards,\n" +
+                        "CareerMate Team",
                 jobPosting.getTitle(),
                 jobPosting.getTitle(),
                 jobPosting.getAddress(),
-                jobPosting.getExpirationDate()
-        );
+                jobPosting.getExpirationDate());
 
         try {
             // Send Kafka notification for in-app notification
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("jobPostingId", jobPosting.getId());
             metadata.put("jobTitle", jobPosting.getTitle());
-            metadata.put("approvedBy", jobPosting.getApprovedBy().getEmail());
+            metadata.put("approvedBy", jobPosting.getApprovedBy().getAccount().getEmail());
             metadata.put("status", jobPosting.getStatus());
 
             NotificationEvent event = NotificationEvent.builder()
@@ -673,14 +677,15 @@ public class JobPostingImp implements JobPostingService {
     private void sendJobPostingRejectedNotification(JobPosting jobPosting) {
         String emailMessage = String.format(
                 "Your job posting '%s' was not approved and requires updates.\n\n" +
-                "Rejection Reason:\n%s\n\n" +
-                "Please review the feedback above and resubmit your job posting after making the necessary changes.\n\n" +
-                "If you have any questions, please contact our support team.\n\n" +
-                "Best regards,\n" +
-                "CareerMate Team",
+                        "Rejection Reason:\n%s\n\n" +
+                        "Please review the feedback above and resubmit your job posting after making the necessary changes.\n\n"
+                        +
+                        "If you have any questions, please contact our support team.\n\n" +
+                        "Best regards,\n" +
+                        "CareerMate Team",
                 jobPosting.getTitle(),
-                jobPosting.getRejectionReason() != null ? jobPosting.getRejectionReason() : "No specific reason provided"
-        );
+                jobPosting.getRejectionReason() != null ? jobPosting.getRejectionReason()
+                        : "No specific reason provided");
 
         try {
             // Send Kafka notification for in-app notification
@@ -688,7 +693,7 @@ public class JobPostingImp implements JobPostingService {
             metadata.put("jobPostingId", jobPosting.getId());
             metadata.put("jobTitle", jobPosting.getTitle());
             metadata.put("rejectionReason", jobPosting.getRejectionReason());
-            metadata.put("rejectedBy", jobPosting.getApprovedBy().getEmail());
+            metadata.put("rejectedBy", jobPosting.getApprovedBy().getAccount().getEmail());
             metadata.put("status", jobPosting.getStatus());
 
             NotificationEvent event = NotificationEvent.builder()
@@ -727,9 +732,8 @@ public class JobPostingImp implements JobPostingService {
     }
 
     private PageJobPostingForRecruiterResponse gellAllJobPostings(
-            int page, int size, String keyword, int recruiterId
-    ){
-        if(recruiterId == 0) {
+            int page, int size, String keyword, int recruiterId) {
+        if (recruiterId == 0) {
             Recruiter recruiter = getMyRecruiter();
             recruiterId = recruiter.getId();
         }
@@ -760,11 +764,9 @@ public class JobPostingImp implements JobPostingService {
 
     @Override
     public PageJobPostingForRecruiterResponse getAllJobPostingsPublic(
-            int page, int size, String keyword, int recruiterId
-    ) {
+            int page, int size, String keyword, int recruiterId) {
         return gellAllJobPostings(
-                page, size, keyword, recruiterId
-        );
+                page, size, keyword, recruiterId);
     }
 
     @Override
