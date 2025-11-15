@@ -288,7 +288,6 @@ public class AuthenticationImp implements AuthenticationService {
                 .authenticated(true)
                 .expiresIn(VALID_DURATION)
                 .tokenType("Bearer")
-                .accountStatus(status) // Include account status in response so frontend knows
                 .build();
     }
 
