@@ -809,4 +809,21 @@ public class JobPostingImp implements JobPostingService {
 
         return pageRecruiterResponse;
     }
+
+    @Override
+    public List<String> getAddresses(String keyword, int limit) {
+        // Nếu keyword null hoặc rỗng thì tìm tất cả
+        String searchKeyword = (keyword == null || keyword.isEmpty()) ? "" : keyword;
+
+        // Giới hạn số lượng kết quả
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<String> addresses = recruiterRepo.findDistinctCompanyAddressByKeyword(
+                StatusRecruiter.APPROVED,
+                searchKeyword,
+                pageable
+        );
+
+        return addresses;
+    }
 }

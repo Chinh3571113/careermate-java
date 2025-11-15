@@ -17,6 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/job-postings")
 @Tag(name = "Job Postings", description = "Public API for viewing and searching approved job postings")
@@ -155,6 +157,33 @@ public class CandidateJobPostingController {
                 .code(200)
                 .message("Companies retrieved successfully")
                 .result(jobPostingImp.getCompanies(page, size, companyAddress))
+                .build();
+    }
+
+    @GetMapping("/addresses")
+    @Operation(
+        summary = "Autocomplete search for company addresses",
+        description = """
+            Get a list of distinct company addresses for autocomplete functionality.
+            Returns addresses from approved recruiters that match the keyword (case-insensitive).
+            
+            Query Parameters:
+            - keyword: Optional search term to filter addresses (default: returns all)
+            - limit: Maximum number of results to return (default: 10)
+            
+            Example:
+            - /api/job-postings/addresses?keyword=hanoi&limit=5
+            - /api/job-postings/addresses?limit=20
+            """
+    )
+    public ApiResponse<List<String>> getAddresses(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ApiResponse.<List<String>>builder()
+                .code(200)
+                .message("Addresses retrieved successfully")
+                .result(jobPostingImp.getAddresses(keyword, limit))
                 .build();
     }
 
