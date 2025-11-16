@@ -1,6 +1,8 @@
 package com.fpt.careermate.services.kafka.consumer;
 
 import com.fpt.careermate.config.KafkaConfig;
+import com.fpt.careermate.services.health_services.domain.NotificationHeartbeat;
+import com.fpt.careermate.services.health_services.repository.NotificationHeartbeatRepo;
 import com.fpt.careermate.services.kafka.dto.NotificationEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +13,8 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+
 /**
  * Kafka consumer service for processing notifications
  */
@@ -18,6 +22,8 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class NotificationConsumer {
+
+    private final NotificationHeartbeatRepo heartbeatRepo;
 
     /**
      * Consumer for admin notifications
@@ -43,10 +49,15 @@ public class NotificationConsumer {
             // Manually commit offset after successful processing
             acknowledgment.acknowledge();
             log.info("✅ Successfully processed ADMIN notification: {}", event.getEventId());
+            
+            // Update heartbeat
+            updateHeartbeat(true, null);
 
         } catch (Exception e) {
             log.error("❌ Error processing ADMIN notification: {} | Error: {}",
                 event.getEventId(), e.getMessage(), e);
+            // Update heartbeat with error
+            updateHeartbeat(false, e.getMessage());
             // Don't acknowledge - message will be reprocessed
         }
     }
@@ -75,10 +86,15 @@ public class NotificationConsumer {
             // Manually commit offset after successful processing
             acknowledgment.acknowledge();
             log.info("✅ Successfully processed RECRUITER notification: {}", event.getEventId());
+            
+            // Update heartbeat
+            updateHeartbeat(true, null);
 
         } catch (Exception e) {
             log.error("❌ Error processing RECRUITER notification: {} | Error: {}",
                 event.getEventId(), e.getMessage(), e);
+            // Update heartbeat with error
+            updateHeartbeat(false, e.getMessage());
             // Don't acknowledge - message will be reprocessed
         }
     }
@@ -107,10 +123,15 @@ public class NotificationConsumer {
             // Manually commit offset after successful processing
             acknowledgment.acknowledge();
             log.info("✅ Successfully processed CANDIDATE notification: {}", event.getEventId());
+            
+            // Update heartbeat
+            updateHeartbeat(true, null);
 
         } catch (Exception e) {
             log.error("❌ Error processing CANDIDATE notification: {} | Error: {}",
                 event.getEventId(), e.getMessage(), e);
+            // Update heartbeat with error
+            updateHeartbeat(false, e.getMessage());
             // Don't acknowledge - message will be reprocessed
         }
     }
@@ -141,6 +162,33 @@ public class NotificationConsumer {
                 break;
             default:
                 log.info("📧 Generic notification sent to: {}", event.getRecipientId());
+        }
+    }
+    
+    /**
+     * Update heartbeat for health monitoring
+     */
+    private void updateHeartbeat(boolean success, String errorMessage) {
+        try {
+            NotificationHeartbeat heartbeat = heartbeatRepo.findByName("notification-worker")
+                    .orElse(NotificationHeartbeat.builder()
+                            .name("notification-worker")
+                            .lastProcessedAt(Instant.now())
+                            .messageCount(0L)
+                            .errorCount(0L)
+                            .build());
+            
+            heartbeat.setLastProcessedAt(Instant.now());
+            heartbeat.setMessageCount(heartbeat.getMessageCount() + 1);
+            
+            if (!success) {
+                heartbeat.setErrorCount(heartbeat.getErrorCount() + 1);
+                heartbeat.setLastErrorMessage(errorMessage);
+            }
+            
+            heartbeatRepo.save(heartbeat);
+        } catch (Exception e) {
+            log.error("Failed to update heartbeat", e);
         }
     }
 }

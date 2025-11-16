@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,15 @@ public class BlogImp implements BlogService {
 
         Blog blog = blogMapper.toBlog(request);
         blog.setAdmin(admin);
+        
+        // Generate unique slug from title
+        String baseSlug = Blog.generateSlug(request.getTitle());
+        String slug = baseSlug;
+        int counter = 1;
+        while (blogRepo.existsBySlug(slug)) {
+            slug = baseSlug + "-" + counter++;
+        }
+        blog.setSlug(slug);
 
         if (request.getStatus() != null) {
             try {
@@ -228,5 +238,49 @@ public class BlogImp implements BlogService {
 
         blog.setViewCount(blog.getViewCount() + 1);
         blogRepo.save(blog);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public BlogResponse getBlogBySlug(String slug) {
+        log.info("Fetching blog by slug: {}", slug);
+
+        Blog blog = blogRepo.findBySlug(slug)
+                .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        return blogMapper.toBlogResponse(blog);
+    }
+    
+    @Override
+    @Transactional
+    public void incrementViewCountBySlug(String slug) {
+        log.info("Incrementing view count for blog slug: {}", slug);
+
+        Blog blog = blogRepo.findBySlug(slug)
+                .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        blog.setViewCount(blog.getViewCount() + 1);
+        blogRepo.save(blog);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<BlogResponse> getRelatedBlogs(Long blogId, int limit) {
+        log.info("Fetching related blogs for ID: {} with limit: {}", blogId, limit);
+
+        Blog blog = blogRepo.findById(blogId)
+                .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
+
+        Pageable pageable = PageRequest.of(0, limit);
+        List<Blog> relatedBlogs = blogRepo.findRelatedBlogs(
+                blogId,
+                blog.getCategory(),
+                blog.getTags(),
+                pageable
+        );
+
+        return relatedBlogs.stream()
+                .map(blogMapper::toBlogResponse)
+                .toList();
     }
 }

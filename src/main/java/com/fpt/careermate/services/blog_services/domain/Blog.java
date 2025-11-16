@@ -22,6 +22,9 @@ public class Blog {
     @Column(nullable = false, length = 500)
     String title;
 
+    @Column(unique = true, nullable = false, length = 600)
+    String slug;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     String content;
 
@@ -81,6 +84,33 @@ public class Blog {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Calculate reading time based on average 200 words per minute
+     */
+    @Transient
+    public int getReadingTimeMinutes() {
+        if (content == null || content.isEmpty()) {
+            return 0;
+        }
+        int wordCount = content.split("\\s+").length;
+        int minutes = wordCount / 200;
+        return minutes < 1 ? 1 : minutes; // Minimum 1 minute
+    }
+
+    /**
+     * Generate SEO-friendly slug from title
+     */
+    public static String generateSlug(String title) {
+        if (title == null || title.isEmpty()) {
+            return "";
+        }
+        return title.toLowerCase()
+                .replaceAll("[^a-z0-9\\s-]", "") // Remove special characters
+                .replaceAll("\\s+", "-")           // Replace spaces with hyphens
+                .replaceAll("-+", "-")              // Remove duplicate hyphens
+                .replaceAll("^-|-$", "");           // Trim hyphens from start/end
     }
 
     public enum BlogStatus {

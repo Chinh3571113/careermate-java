@@ -16,6 +16,7 @@ public class BlogCommentResponse {
     Long userId;
     String userName;
     String content;
+    Boolean isHidden; // true = hidden by admin, false = visible
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
 }

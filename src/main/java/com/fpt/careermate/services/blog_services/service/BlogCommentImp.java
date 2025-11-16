@@ -76,7 +76,7 @@ public class BlogCommentImp {
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<BlogComment> comments = blogCommentRepo.findByBlog_IdAndIsDeletedFalse(blogId, pageable);
+        Page<BlogComment> comments = blogCommentRepo.findByBlog_IdAndIsHiddenFalse(blogId, pageable);
 
         return comments.map(blogCommentMapper::toBlogCommentResponse);
     }
@@ -88,7 +88,7 @@ public class BlogCommentImp {
             throw new AppException(ErrorCode.BLOG_NOT_EXISTED);
         }
 
-        Page<BlogComment> comments = blogCommentRepo.findByBlog_IdAndIsDeletedFalse(blogId, pageable);
+        Page<BlogComment> comments = blogCommentRepo.findByBlog_IdAndIsHiddenFalse(blogId, pageable);
 
         return comments.map(blogCommentMapper::toBlogCommentResponse);
     }
@@ -151,7 +151,7 @@ public class BlogCommentImp {
     }
 
     private void updateBlogCommentCount(Blog blog) {
-        Long commentCount = blogCommentRepo.countByBlog_IdAndIsDeletedFalse(blog.getId());
+        Long commentCount = blogCommentRepo.countByBlog_IdAndIsHiddenFalse(blog.getId());
         blog.setCommentCount(commentCount.intValue());
         blogRepo.save(blog);
 
@@ -180,18 +180,18 @@ public class BlogCommentImp {
 
     @Transactional
     public void deleteCommentAsAdmin(Long commentId) {
-        log.info("Admin deleting comment ID: {}", commentId);
+        log.info("Admin permanently deleting comment ID: {}", commentId);
 
         BlogComment comment = blogCommentRepo.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_EXISTED));
 
-        comment.setIsDeleted(true);
-        blogCommentRepo.save(comment);
+        Blog blog = comment.getBlog();
+        blogCommentRepo.delete(comment);
 
         // Update blog's comment count
-        updateBlogCommentCount(comment.getBlog());
+        updateBlogCommentCount(blog);
 
-        log.info("Comment deleted by admin: {}", commentId);
+        log.info("Comment permanently deleted by admin: {}", commentId);
     }
 
     @Transactional
@@ -201,8 +201,11 @@ public class BlogCommentImp {
         BlogComment comment = blogCommentRepo.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_EXISTED));
 
-        comment.setIsDeleted(true); // Using isDeleted as hidden flag
+        comment.setIsHidden(true);
         blogCommentRepo.save(comment);
+
+        // Update blog's comment count
+        updateBlogCommentCount(comment.getBlog());
 
         return blogCommentMapper.toBlogCommentResponse(comment);
     }
@@ -214,8 +217,11 @@ public class BlogCommentImp {
         BlogComment comment = blogCommentRepo.findById(commentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_EXISTED));
 
-        comment.setIsDeleted(false);
+        comment.setIsHidden(false);
         blogCommentRepo.save(comment);
+
+        // Update blog's comment count
+        updateBlogCommentCount(comment.getBlog());
 
         return blogCommentMapper.toBlogCommentResponse(comment);
     }
@@ -224,8 +230,8 @@ public class BlogCommentImp {
         log.info("Admin getting comment statistics");
 
         Long totalComments = blogCommentRepo.count();
-        Long visibleComments = blogCommentRepo.countByIsDeletedFalse();
-        Long hiddenComments = blogCommentRepo.countByIsDeletedTrue();
+        Long visibleComments = blogCommentRepo.countByIsHiddenFalse();
+        Long hiddenComments = blogCommentRepo.countByIsHiddenTrue();
 
         return new Object() {
             public final Long total = totalComments;

@@ -14,6 +14,7 @@ import java.util.List;
 public class BlogResponse {
     Long id;
     String title;
+    String slug;
     String content;
     String summary;
     String thumbnailUrl;
@@ -21,6 +22,10 @@ public class BlogResponse {
     List<String> tags;
     String status;
     Integer viewCount;
+    Double averageRating;
+    Integer ratingCount;
+    Integer commentCount;
+    Integer readingTimeMinutes;
     LocalDateTime publishedAt;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;

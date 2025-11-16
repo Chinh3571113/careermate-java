@@ -8,9 +8,9 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface BlogCommentRepo extends JpaRepository<BlogComment, Long> {
-    Page<BlogComment> findByBlog_IdAndIsDeletedFalse(Long blogId, Pageable pageable);
+    Page<BlogComment> findByBlog_IdAndIsHiddenFalse(Long blogId, Pageable pageable);
 
-    Long countByBlogIdAndIsDeletedFalse(Long blogId);
+    Long countByBlogIdAndIsHiddenFalse(Long blogId);
 
     // Admin methods for comment management
     Page<BlogComment> findByBlogIdAndUserEmailContainingIgnoreCaseOrderByCreatedAtDesc(Long blogId, String userEmail,
@@ -22,9 +22,9 @@ public interface BlogCommentRepo extends JpaRepository<BlogComment, Long> {
 
     Page<BlogComment> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-    Long countByIsDeletedFalse();
+    Long countByIsHiddenFalse();
 
-    Long countByIsDeletedTrue();
-    Long countByBlog_IdAndIsDeletedFalse(Long blogId);
+    Long countByIsHiddenTrue();
+    Long countByBlog_IdAndIsHiddenFalse(Long blogId);
 }
 

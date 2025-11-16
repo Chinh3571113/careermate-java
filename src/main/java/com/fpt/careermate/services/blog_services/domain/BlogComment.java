@@ -36,15 +36,15 @@ public class BlogComment {
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
 
-    @Column(name = "is_deleted")
-    Boolean isDeleted;
+    @Column(name = "is_hidden")
+    Boolean isHidden;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (isDeleted == null) {
-            isDeleted = false;
+        if (isHidden == null) {
+            isHidden = false;
         }
     }
 

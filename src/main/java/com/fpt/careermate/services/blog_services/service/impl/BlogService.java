@@ -38,4 +38,10 @@ public interface BlogService {
     BlogResponse unarchiveBlog(Long blogId);
 
     void incrementViewCount(Long blogId);
+    
+    BlogResponse getBlogBySlug(String slug);
+    
+    void incrementViewCountBySlug(String slug);
+    
+    List<BlogResponse> getRelatedBlogs(Long blogId, int limit);
 }
