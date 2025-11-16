@@ -18,20 +18,24 @@ import java.time.LocalDate;
 public abstract class BaseUser {
 
     @Column(name = "full_name")
-    String fullName;
+    String fullName = "";
 
     @Column(name = "dob")
     LocalDate dob;
 
     @Column(name = "gender")
-    String gender;
+    @Builder.Default
+    String gender = "";
 
     @Column(name = "phone")
-    String phone;
+    @Builder.Default
+    String phone = "";
 
     @Column(name = "address")
-    String address;
+    @Builder.Default
+    String address = "";
 
     @Column(name = "image")
-    String image;
+    @Builder.Default
+    String image = "";
 }

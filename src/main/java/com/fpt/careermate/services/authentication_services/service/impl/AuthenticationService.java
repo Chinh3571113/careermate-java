@@ -21,6 +21,8 @@ public interface AuthenticationService {
     String generateToken(Account account,boolean isRefresh) throws JOSEException;
     String buildScope(Account account);
     Account findByEmail();
+    AuthenticationResponse authenticateCandidate(AuthenticationRequest request);
+
 
 
 }

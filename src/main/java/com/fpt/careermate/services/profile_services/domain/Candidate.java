@@ -28,13 +28,18 @@ public class Candidate extends BaseUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int candidateId;
 
-    String title;
-    String jobLevel;
+    @Builder.Default
+    String title = "";
+
+    @Builder.Default
+    String jobLevel = "";
 
     @Column(name = "experience")
-    Integer experience;
+    @Builder.Default
+    Integer experience = 0;
 
-    String link;
+    @Builder.Default
+    String link = "";
 
     // One-to-one với Account
     @OneToOne

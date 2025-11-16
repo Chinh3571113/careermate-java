@@ -48,4 +48,6 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Integer> {
     Page<JobPosting> findByRecruiterIdAndTitleContainingIgnoreCase(
             int recruiterId, String keyword, Pageable pageable
     );
+
+    long countByRecruiterIdAndStatus(int recruiterId, String status);
 }

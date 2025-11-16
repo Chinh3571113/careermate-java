@@ -50,4 +50,15 @@ public class JdSkillController {
                 .build();
     }
 
+    @GetMapping("/top-used")
+    @Operation(summary = "Get top used skills from first 50 job descriptions",
+               description = "Returns a list of the most frequently used skills from the first 50 job description records, ordered by usage count (descending)")
+    ApiResponse<List<JdSkillResponse>> getTopUsedSkills() {
+        return ApiResponse.<List<JdSkillResponse>>builder()
+                .result(jdSkillImp.getTopUsedSkillsFromFirst50())
+                .code(200)
+                .message("Top used skills retrieved successfully")
+                .build();
+    }
+
 }

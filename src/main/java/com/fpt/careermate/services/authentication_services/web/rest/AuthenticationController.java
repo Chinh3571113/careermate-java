@@ -134,4 +134,19 @@ public class AuthenticationController {
                 .map(Cookie::getValue)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
     }
+
+    @PostMapping("/token/candidate")
+    @Operation(summary = "Authenticate Candidate", description = "Authenticate user and generate access and refresh " +
+            "tokens.")
+    ApiResponse<AuthenticationResponse> authenticateCandidate(
+            @RequestBody @Valid AuthenticationRequest request,
+            HttpServletResponse response) {
+        var result = authenticationServiceImp.authenticateCandidate(request);
+
+        // Set refresh token in HTTP-only cookie
+        Cookie refreshTokenCookie = createRefreshTokenCookie(result.getRefreshToken());
+        response.addCookie(refreshTokenCookie);
+
+        return ApiResponse.<AuthenticationResponse>builder().result(result).build();
+    }
 }

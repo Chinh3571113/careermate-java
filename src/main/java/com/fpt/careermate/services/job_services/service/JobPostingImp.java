@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.job_services.service;
 
 import com.fpt.careermate.common.constant.StatusJobPosting;
+import com.fpt.careermate.common.constant.StatusRecruiter;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
@@ -774,5 +775,55 @@ public class JobPostingImp implements JobPostingService {
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
 
         return jobPostingMapper.toRecruiterCompanyInfo(recruiter);
+    }
+
+    @Override
+    public PageRecruiterResponse getCompanies(int page, int size, String companyAddress) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("companyName").ascending());
+        Page<Recruiter> pageRecruiter = null;
+        // Logic nếu CompanyAddress có giá trị thì lọc theo địa chỉ, nếu không thì lấy tất cả
+        if(companyAddress == null || companyAddress.isEmpty()) {
+            pageRecruiter = recruiterRepo.findAllByVerificationStatus(
+                            StatusRecruiter.APPROVED, pageable
+            );
+        }
+        else {
+            pageRecruiter = recruiterRepo.findAllByVerificationStatusAndCompanyAddressContainingIgnoreCase(
+                            StatusRecruiter.APPROVED, companyAddress, pageable
+            );
+        }
+
+        List<Recruiter> recruiters = pageRecruiter.getContent();
+        List<RecruiterResponse> recruiterResponses = jobPostingMapper.toRecruiterResponseList(recruiters);
+        // Thêm số lượng job postings cho mỗi recruiter
+        recruiterResponses.forEach(recruiterResponse -> {
+            long jobCount = jobPostingRepo.countByRecruiterIdAndStatus(recruiterResponse.getId(), StatusJobPosting.ACTIVE);
+            recruiterResponse.setJobCount(jobCount);
+        });
+
+        // Map to PageRecruiterResponse
+        PageRecruiterResponse pageRecruiterResponse = jobPostingMapper.toPageRecruiterResponse(pageRecruiter);
+
+        // Map to RecruiterResponse DTOs and set content
+        pageRecruiterResponse.setContent(recruiterResponses);
+
+        return pageRecruiterResponse;
+    }
+
+    @Override
+    public List<String> getAddresses(String keyword, int limit) {
+        // Nếu keyword null hoặc rỗng thì tìm tất cả
+        String searchKeyword = (keyword == null || keyword.isEmpty()) ? "" : keyword;
+
+        // Giới hạn số lượng kết quả
+        Pageable pageable = PageRequest.of(0, limit);
+
+        List<String> addresses = recruiterRepo.findDistinctCompanyAddressByKeyword(
+                StatusRecruiter.APPROVED,
+                searchKeyword,
+                pageable
+        );
+
+        return addresses;
     }
 }

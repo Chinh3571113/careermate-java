@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.job_services.service;
 
 import com.fpt.careermate.services.job_services.domain.JdSkill;
+import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.service.dto.response.JdSkillResponse;
 import com.fpt.careermate.services.job_services.service.impl.JdSkillService;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class JdJdSkillImp implements JdSkillService {
 
     JdSkillRepo jdSkillRepo;
     JdSkillMapper jdSkillMapper;
+    JobDescriptionRepo jobDescriptionRepo;
 
     @PreAuthorize("hasRole('ADMIN')")
     @Override
@@ -43,5 +46,28 @@ public class JdJdSkillImp implements JdSkillService {
     public List<JdSkillResponse> getAllSkill() {
         return jdSkillMapper.toSetSkillResponse(jdSkillRepo.findAll());
     }
+
+    // Kiểm tra 50 record đầu trong JobDescription entity có JdSkill nào được sử dụng nhiều nhất gọm lại thành 1 list rồi trả về
+    @Override
+    public List<JdSkillResponse> getTopUsedSkillsFromFirst50() {
+        // Lấy dữ liệu từ query: [skill_id, count]
+        List<Object[]> topSkillsData = jobDescriptionRepo.findTopSkillsFromFirst50Records();
+
+        // Lấy danh sách skill IDs theo thứ tự usage count giảm dần
+        List<Integer> skillIds = topSkillsData.stream()
+                .map(row -> ((Number) row[0]).intValue())
+                .collect(Collectors.toList());
+
+        // Fetch JdSkill entities và giữ nguyên thứ tự (nhiều nhất -> ít nhất)
+        List<JdSkill> topSkills = jdSkillRepo.findAllById(skillIds).stream()
+                .sorted((s1, s2) -> Integer.compare(
+                        skillIds.indexOf(s1.getId()),
+                        skillIds.indexOf(s2.getId())))
+                .collect(Collectors.toList());
+
+        // Convert sang DTO và trả về
+        return jdSkillMapper.toSetSkillResponse(topSkills);
+    }
+
 
 }

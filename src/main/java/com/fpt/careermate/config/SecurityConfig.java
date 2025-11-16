@@ -21,6 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
+import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
@@ -30,7 +31,9 @@ public class SecurityConfig {
 
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     public String[] PUBLIC_ENDPOINTS = {
-            "/api/users", "/api/auth/token", "/api/auth/introspect", "/api/auth/logout", "/api/auth/refresh",
+            "/api/users", "/api/auth/token","/api/auth/token/candidate", "/api/auth/introspect", "/api/auth/logout",
+            "/api/auth" +
+            "/refresh",
             "/api/users/verify-email/**",
             "/api/users/verify-otp",
             "/api/users/change-password/**",
@@ -40,6 +43,7 @@ public class SecurityConfig {
             "/api/oauth2/recruiter/complete-registration",
             "/api/registration/recruiter",
             "/api/v1/auth/**",
+            "/api/users/sign-up",
 
             "/v3/api-docs/**",
             "/v3/api-docs.yaml",
@@ -53,7 +57,9 @@ public class SecurityConfig {
             "/api/job-postings",
             "/api/job-postings/**",
             // Actuator endpoints for monitoring (consider securing these in production)
-            "/actuator/**"
+            "/actuator/**",
+            "/api/job-postings/**",
+            "/api/jdskill/top-used"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;
@@ -87,15 +93,18 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        // Use allowedOriginPatterns instead of allowedOrigins when credentials are enabled
-        corsConfiguration.setAllowedOriginPatterns(Arrays.asList(
-                "http://localhost:*",
-                "http://127.0.0.1:*",
-                "https://localhost:*",
-                "https://127.0.0.1:*",
-                "file://*"  // Allow direct HTML file access for testing
-        ));
+        // Allow localhost, 127.0.0.1, file:// protocol, and Next.js frontend
+//        corsConfiguration.setAllowedOriginPatterns(Arrays.asList(
+//                "http://localhost:*",
+//                "http://127.0.0.1:*",
+//                "https://localhost:*",
+//                "https://127.0.0.1:*",
+//                "file://*"  // Allow direct HTML file access for testing
+//        ));
+        // Also allow null origin (for file:// protocol)
+        corsConfiguration.addAllowedOrigin("*");
 
+        corsConfiguration.setAllowedOriginPatterns(Collections.singletonList("*"));
         corsConfiguration.addAllowedMethod("*");
         corsConfiguration.addAllowedHeader("*");
         corsConfiguration.setAllowCredentials(true);

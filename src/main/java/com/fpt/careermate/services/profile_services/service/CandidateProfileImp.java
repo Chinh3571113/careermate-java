@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.profile_services.service;
 
+import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
@@ -39,8 +40,7 @@ public class CandidateProfileImp implements CandidateProfileService {
     AuthenticationImp authenticationService;
     WorkModelRepo workModelRepo;
     IndustryExperienceRepo industryExperienceRepo;
-
-
+    AccountRepo accountRepo;
 
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -61,9 +61,16 @@ public class CandidateProfileImp implements CandidateProfileService {
     }
 
     @PreAuthorize("hasRole('CANDIDATE')")
+    @Transactional
     @Override
     public CandidateProfileResponse updateCandidateProfile(CandidateProfileRequest request) {
         Candidate candidate = generateProfile();
+        Account account = authenticationService.findByEmail();
+        if (candidate.getAccount().getId()!=account.getId()) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+        account.setUsername(request.getFullName());
+        accountRepo.save(account);
         candidateMapper.updateCandidateFromRequest(request, candidate);
         Candidate savedCandidate = candidateRepo.save(candidate);
         return candidateMapper.toCandidateProfileResponse(savedCandidate);

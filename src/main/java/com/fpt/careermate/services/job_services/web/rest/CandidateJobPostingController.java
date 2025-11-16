@@ -5,6 +5,7 @@ import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageRecruiterResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AccessLevel;
@@ -15,6 +16,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/job-postings")
@@ -139,5 +142,49 @@ public class CandidateJobPostingController {
                 .build();
     }
 
-}
+    @GetMapping("/company")
+    @Operation(description = """
+            Get List of Companies
+            intput: page, size
+            output: list of companies with pagination
+            """)
+    public ApiResponse<PageRecruiterResponse> getCompanies(
+            @RequestParam int page,
+            @RequestParam int size,
+            @RequestParam(required = false) String companyAddress
+    ) {
+        return ApiResponse.<PageRecruiterResponse>builder()
+                .code(200)
+                .message("Companies retrieved successfully")
+                .result(jobPostingImp.getCompanies(page, size, companyAddress))
+                .build();
+    }
 
+    @GetMapping("/addresses")
+    @Operation(
+        summary = "Autocomplete search for company addresses",
+        description = """
+            Get a list of distinct company addresses for autocomplete functionality.
+            Returns addresses from approved recruiters that match the keyword (case-insensitive).
+            
+            Query Parameters:
+            - keyword: Optional search term to filter addresses (default: returns all)
+            - limit: Maximum number of results to return (default: 10)
+            
+            Example:
+            - /api/job-postings/addresses?keyword=hanoi&limit=5
+            - /api/job-postings/addresses?limit=20
+            """
+    )
+    public ApiResponse<List<String>> getAddresses(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ApiResponse.<List<String>>builder()
+                .code(200)
+                .message("Addresses retrieved successfully")
+                .result(jobPostingImp.getAddresses(keyword, limit))
+                .build();
+    }
+
+}

@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.account_services.web.rest;
 
 import com.fpt.careermate.services.account_services.service.AccountImp;
+import com.fpt.careermate.services.account_services.service.dto.request.SignUpRequest;
 import com.fpt.careermate.services.email_services.service.EmailImp;
 import com.fpt.careermate.services.account_services.service.dto.request.AccountCreationRequest;
 import com.fpt.careermate.services.account_services.service.dto.response.AccountResponse;
@@ -159,6 +160,16 @@ public class AccountController {
                 .code(200)
                 .message("Password changed successfully")
                 .result(result)
+                .build();
+    }
+
+    @PostMapping("/sign-up")
+    @Operation(summary = "Sign Up", description = "Register a new user account")
+    ApiResponse<Void> signUp(@RequestBody @Valid SignUpRequest request) {
+        accountImp.signUp(request);
+        return ApiResponse.<Void>builder()
+                .code(200)
+                .message("Sign up successful")
                 .build();
     }
 

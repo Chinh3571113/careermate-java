@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -33,4 +34,23 @@ public interface RecruiterRepo extends JpaRepository<Recruiter,Integer> {
     Page<Recruiter> searchRecruiters(@Param("status") String status,
                                      @Param("search") String search,
                                      @NonNull Pageable pageable);
+
+    Page<Recruiter> findAllByVerificationStatus(String status, Pageable pageable);
+
+    Page<Recruiter> findAllByVerificationStatusAndCompanyAddressContainingIgnoreCase(
+            String status,
+            String companyAddress,
+            Pageable pageable
+    );
+
+    @Query("SELECT DISTINCT r.companyAddress FROM Recruiter r WHERE " +
+           "r.verificationStatus = :status AND " +
+           "r.companyAddress IS NOT NULL AND " +
+           "LOWER(r.companyAddress) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "ORDER BY r.companyAddress")
+    List<String> findDistinctCompanyAddressByKeyword(
+            @Param("status") String status,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
 }
