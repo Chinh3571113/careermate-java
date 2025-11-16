@@ -84,4 +84,7 @@ public class JobPosting {
     String salaryRange;
 
     String workModel;
+
+    @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL, orphanRemoval = true)
+    Set<SavedJob> savedJobs = new HashSet<>();
 }

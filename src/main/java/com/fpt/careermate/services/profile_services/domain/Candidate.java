@@ -4,6 +4,7 @@ import com.fpt.careermate.services.coach_services.domain.Course;
 import com.fpt.careermate.services.job_services.domain.JobFeedback;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.job_services.domain.JobApply;
+import com.fpt.careermate.services.job_services.domain.SavedJob;
 import com.fpt.careermate.services.order_services.domain.Invoice;
 import com.fpt.careermate.services.resume_services.domain.Resume;
 import jakarta.persistence.*;
@@ -71,4 +72,7 @@ public class Candidate extends BaseUser {
 
     @OneToMany(mappedBy = "candidate", cascade = CascadeType.ALL, orphanRemoval = true)
     Set<JobFeedback> jobFeedbacks = new HashSet<>();
+
+    @OneToMany(mappedBy = "candidate", cascade = CascadeType.ALL, orphanRemoval = true)
+    Set<SavedJob> savedJobs = new HashSet<>();
 }

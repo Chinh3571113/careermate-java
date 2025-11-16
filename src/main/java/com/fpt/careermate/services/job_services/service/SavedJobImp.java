@@ -7,9 +7,12 @@ import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.domain.SavedJob;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import com.fpt.careermate.services.job_services.repository.SavedJobRepo;
+import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForCandidateResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForCandidateResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.PageSavedJobPostingResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.SavedJobPostingResponse;
 import com.fpt.careermate.services.job_services.service.impl.SavedJobService;
+import com.fpt.careermate.services.job_services.service.mapper.JobPostingMapper;
 import com.fpt.careermate.services.job_services.service.mapper.SavedJobMapper;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class SavedJobImp implements SavedJobService {
     JobPostingRepo jobPostingRepo;
     CoachUtil coachUtil;
     SavedJobMapper savedJobMapper;
+    JobPostingMapper jobPostingMapper;
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
@@ -93,6 +97,39 @@ public class SavedJobImp implements SavedJobService {
         pageSavedJobPostingResponse.setContent(savedJobResponses);
 
         return pageSavedJobPostingResponse;
+    }
+
+    // Get all job postings for candidate
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Override
+    public PageJobPostingForCandidateResponse getJobsForCandidate(int page, int size) {
+        int candidateId = coachUtil.getCurrentCandidate().getCandidateId();
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").descending());
+        Page<JobPosting> jobPostingPage = jobPostingRepo.findAll(pageable);
+
+        // Convert to DTO response using mapper
+        List<JobPostingForCandidateResponse> jobPostingResponses = new ArrayList<>();
+        jobPostingPage.getContent().forEach(jobPosting -> {
+            JobPostingForCandidateResponse jobPostingResponse = jobPostingMapper.toJobPostingForCandidateResponse(jobPosting);
+
+            // Set recruiter info
+            jobPostingResponse.setRecruiterInfo(jobPostingMapper.toRecruiterCompanyInfo(jobPosting.getRecruiter()));
+
+            // Set skills from job descriptions
+            jobPostingResponse.setSkills(jobPostingMapper.toJobPostingSkillResponseSet(jobPosting.getJobDescriptions()));
+
+            // Check if the job is saved by the candidate
+            jobPostingResponse.setSaved(
+                savedJobRepo.findByCandidate_candidateIdAndJobPosting_Id(candidateId, jobPosting.getId()).isPresent()
+            );
+
+            jobPostingResponses.add(jobPostingResponse);
+        });
+
+        PageJobPostingForCandidateResponse pageJobPostingForCandidateResponse = jobPostingMapper.toPageJobPostingForCandidateResponse(jobPostingPage);
+        pageJobPostingForCandidateResponse.setContent(jobPostingResponses);
+
+        return pageJobPostingForCandidateResponse;
     }
 
 }

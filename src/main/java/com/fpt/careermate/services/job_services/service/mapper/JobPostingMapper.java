@@ -22,6 +22,10 @@ public interface JobPostingMapper {
     @Mapping(target = "postTime", source = "createAt")
     JobPostingForRecruiterResponse toJobPostingDetailForRecruiterResponse(JobPosting jobPosting);
 
+    @Mapping(source = "jdSkill.name", target = "name")
+    @Mapping(source = "jdSkill.id", target = "id")
+    JobPostingSkillResponse toJobPostingSkillResponse(JobDescription jobDescription);
+
     Set<JobPostingSkillResponse> toJobPostingSkillResponseSet(Set<JobDescription> jobDescriptions);
 
     // For candidate views
@@ -33,6 +37,8 @@ public interface JobPostingMapper {
     List<JobPostingForCandidateResponse> toJobPostingForCandidateResponseList(List<JobPosting> jobPostings);
 
     PageJobPostingForRecruiterResponse toPageJobPostingForRecruiterResponse(Page<JobPosting> pageJobPosting);
+
+    PageJobPostingForCandidateResponse toPageJobPostingForCandidateResponse(Page<JobPosting> pageJobPosting);
 
     @Mapping(source = "id", target = "recruiterId")
     JobPostingForCandidateResponse.RecruiterCompanyInfo toRecruiterCompanyInfo(Recruiter recruiter);

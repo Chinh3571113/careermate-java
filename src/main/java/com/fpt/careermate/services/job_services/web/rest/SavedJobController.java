@@ -1,12 +1,11 @@
 package com.fpt.careermate.services.job_services.web.rest;
 
 import com.fpt.careermate.common.response.ApiResponse;
+import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.SavedJobImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
-import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
-import com.fpt.careermate.services.job_services.service.dto.response.PageSavedJobPostingResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -53,4 +52,19 @@ public class SavedJobController {
                 .build();
     }
 
+    @GetMapping("/jobs-for-candidate")
+    @Operation(summary = "Get Jobs")
+    public ApiResponse<PageJobPostingForCandidateResponse> getJobsForCandidate(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
+    ) {
+        return ApiResponse.<PageJobPostingForCandidateResponse>builder()
+                .result(savedJobImp.getJobsForCandidate(page, size))
+                .code(200)
+                .message("success")
+                .build();
+    }
 }
