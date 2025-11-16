@@ -41,4 +41,6 @@ public class JobPostingForCandidateResponse {
         String logoUrl;
         String about;
     }
+
+    boolean isSaved;
 }

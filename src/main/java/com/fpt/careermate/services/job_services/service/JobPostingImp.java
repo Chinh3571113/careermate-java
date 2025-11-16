@@ -2,10 +2,13 @@ package com.fpt.careermate.services.job_services.service;
 
 import com.fpt.careermate.common.constant.StatusJobPosting;
 import com.fpt.careermate.common.constant.StatusRecruiter;
+import com.fpt.careermate.common.util.CoachUtil;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
+import com.fpt.careermate.services.job_services.domain.SavedJob;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.job_services.repository.SavedJobRepo;
 import com.fpt.careermate.services.job_services.service.dto.response.*;
 import com.fpt.careermate.services.profile_services.domain.WorkModel;
 import com.fpt.careermate.services.profile_services.repository.WorkModelRepo;
@@ -74,6 +77,8 @@ public class JobPostingImp implements JobPostingService {
     WeaviateImp weaviateImp;
     EmailService emailService;
     NotificationProducer notificationProducer;
+    SavedJobRepo savedJobRepo;
+    CoachUtil coachUtil;
 
     // Recruiter create job posting
     @PreAuthorize("hasRole('RECRUITER')")
@@ -754,6 +759,22 @@ public class JobPostingImp implements JobPostingService {
                 .stream()
                 .map(jobPostingMapper::toJobPostingDetailForRecruiterResponse)
                 .collect(Collectors.toList());
+
+        // Thêm saved status cho mỗi job posting
+        List<SavedJob> savedJobs = savedJobRepo.findAllByCandidate_CandidateId(coachUtil.getCurrentCandidate().getCandidateId());
+        for(JobPostingForRecruiterResponse jpResponse : jobPostingForRecruiterResponses) {
+            for(SavedJob savedJob: savedJobs) {
+                if(jpResponse.getId() == savedJob.getJobPosting().getId()) {
+                    jpResponse.setSaved(true);
+                    break;
+                }
+            }
+        }
+
+        // Thêm skills cho mỗi job posting, gộp skills thành 1 String
+        jobPostingForRecruiterResponses.forEach(jobPostingForRecruiterResponse -> {
+
+        });
 
         PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
                 .toPageJobPostingForRecruiterResponse(pageJobPosting);

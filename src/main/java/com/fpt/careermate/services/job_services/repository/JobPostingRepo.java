@@ -50,4 +50,8 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Integer> {
     );
 
     long countByRecruiterIdAndStatus(int recruiterId, String status);
+
+    Page<JobPosting> findAllByStatusAndRecruiter_VerificationStatus(
+            String status, String verificationStatus, Pageable pageable
+    );
 }
