@@ -6,6 +6,7 @@ import com.fpt.careermate.services.job_services.service.SavedJobImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.PageSavedJobPostingResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,6 +35,19 @@ public class SavedJobController {
         boolean isSaved = savedJobImp.toggleSaveJob(jobId);
         return ApiResponse.<Boolean>builder()
                 .result(isSaved)
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @GetMapping
+    @Operation(summary = "Candidate can get all saved job postings")
+    ApiResponse<PageSavedJobPostingResponse> getSavedJobs(
+            @RequestParam (defaultValue = "0") int page,
+            @RequestParam (defaultValue = "5") int size
+    ) {
+        return ApiResponse.<PageSavedJobPostingResponse>builder()
+                .result(savedJobImp.getSavedJobs(page, size))
                 .code(200)
                 .message("success")
                 .build();

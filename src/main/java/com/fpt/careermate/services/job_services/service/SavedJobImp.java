@@ -7,15 +7,24 @@ import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.domain.SavedJob;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import com.fpt.careermate.services.job_services.repository.SavedJobRepo;
+import com.fpt.careermate.services.job_services.service.dto.response.PageSavedJobPostingResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.SavedJobPostingResponse;
 import com.fpt.careermate.services.job_services.service.impl.SavedJobService;
+import com.fpt.careermate.services.job_services.service.mapper.SavedJobMapper;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -27,6 +36,7 @@ public class SavedJobImp implements SavedJobService {
     SavedJobRepo savedJobRepo;
     JobPostingRepo jobPostingRepo;
     CoachUtil coachUtil;
+    SavedJobMapper savedJobMapper;
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
@@ -51,6 +61,38 @@ public class SavedJobImp implements SavedJobService {
             savedJobRepo.save(savedJob);
             return true; // Job saved
         }
+    }
+
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Override
+    public PageSavedJobPostingResponse getSavedJobs(int page, int size) {
+        // Implementation for retrieving saved jobs with pagination
+        int candidateId = coachUtil.getCurrentCandidate().getCandidateId();
+        Pageable pageable = PageRequest.of(page, size, Sort.by("savedAt").descending());
+        Page<SavedJob> savedJobPage = savedJobRepo.findByCandidate_CandidateId(candidateId, pageable);
+
+        // Convert to DTO response
+        List<SavedJobPostingResponse> savedJobResponses = new ArrayList<>();
+        savedJobPage.getContent().forEach(savedJob -> {
+            SavedJobPostingResponse savedJobPostingResponse = savedJobMapper.toSavedJobPostingResponse(savedJob);
+
+            // Lấy tất cả skill name của jobDescriptions và ghép thành 1 string
+            String skills = savedJob.getJobPosting().getJobDescriptions().stream()
+                    .map(jd -> jd.getJdSkill().getName())
+                    .distinct() // loại bỏ trùng lặp
+                    .sorted()   // sắp xếp alphabet
+                    .reduce((s1, s2) -> s1 + ", " + s2) // ghép thành 1 chuỗi
+                    .orElse(""); // nếu không có skill nào
+
+            savedJobPostingResponse.setSkills(skills);
+
+            savedJobResponses.add(savedJobPostingResponse);
+        });
+
+        PageSavedJobPostingResponse pageSavedJobPostingResponse = savedJobMapper.toPageSavedJobPostingResponse(savedJobPage);
+        pageSavedJobPostingResponse.setContent(savedJobResponses);
+
+        return pageSavedJobPostingResponse;
     }
 
 }
