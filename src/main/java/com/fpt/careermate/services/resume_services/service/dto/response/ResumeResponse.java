@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.resume_services.service.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fpt.careermate.common.constant.ResumeType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -16,6 +17,9 @@ import java.util.List;
 public class ResumeResponse {
     int resumeId;
     String aboutMe;
+    String resumeUrl;
+    ResumeType type;
+    Boolean isActive;
     LocalDateTime createdAt;
     int candidateId;
 
@@ -27,4 +31,3 @@ public class ResumeResponse {
     List<ForeignLanguageResponse> foreignLanguages;
     List<AwardResponse> awards;
 }
-

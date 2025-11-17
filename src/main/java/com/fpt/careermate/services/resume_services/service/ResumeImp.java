@@ -5,6 +5,7 @@ import com.fpt.careermate.services.authentication_services.service.Authenticatio
 import com.fpt.careermate.services.profile_services.service.CandidateProfileImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.resume_services.repository.ResumeRepo;
+import com.fpt.careermate.services.resume_services.service.dto.request.ResumeStatusRequest;
 import com.fpt.careermate.services.resume_services.service.dto.response.ResumeResponse;
 import com.fpt.careermate.services.resume_services.service.impl.ResumeService;
 import com.fpt.careermate.services.resume_services.service.mapper.ResumeMapper;
@@ -39,9 +40,12 @@ public class ResumeImp implements ResumeService {
         Candidate candidate = candidateProfileImp.generateProfile();
 
         // Create new resume
-        Resume newResume = new Resume();
-        newResume.setCandidate(candidate);
-        newResume.setAboutMe(resumeRequest.getAboutMe());
+        Resume newResume = Resume.builder()
+                .candidate(candidate)
+                .isActive(false)
+                .type(resumeRequest.getType())
+                .aboutMe(resumeRequest.getAboutMe())
+                .build();
 
         Resume savedResume = resumeRepo.save(newResume);
         return resumeMapper.toResumeResponse(savedResume);
@@ -90,7 +94,28 @@ public class ResumeImp implements ResumeService {
                 .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
 
         // Update resume
+
         resume.setAboutMe(resumeRequest.getAboutMe());
+        resume.setType(resumeRequest.getType());
+        resume.setResumeUrl(resumeRequest.getResumeUrl());
+
+        Resume updatedResume = resumeRepo.save(resume);
+
+        return resumeMapper.toResumeResponse(updatedResume);
+    }
+
+    @Transactional
+    @Override
+    public ResumeResponse patchResumeStatus(int resumeId, ResumeStatusRequest request) {
+        // Get authenticated user's candidate profile
+        Candidate candidate = candidateProfileImp.generateProfile();
+
+        // Find resume and ensure it belongs to the authenticated candidate
+        Resume resume = resumeRepo.findByResumeIdAndCandidateCandidateId(resumeId, candidate.getCandidateId())
+                .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
+
+        // Update only isActive field
+        resume.setIsActive(request.getIsActive());
         Resume updatedResume = resumeRepo.save(resume);
 
         return resumeMapper.toResumeResponse(updatedResume);

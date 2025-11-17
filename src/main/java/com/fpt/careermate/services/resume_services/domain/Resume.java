@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.resume_services.domain;
 
+import com.fpt.careermate.common.constant.ResumeType;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,6 +25,13 @@ public class Resume {
     int resumeId;
 
     String aboutMe;
+
+    String resumeUrl;
+
+    @Enumerated(EnumType.STRING)
+    ResumeType type;
+
+    Boolean isActive;
 
     @CreationTimestamp
     @Column(updatable = false)
