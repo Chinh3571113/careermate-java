@@ -2,6 +2,8 @@ package com.fpt.careermate.services.notification_services.service;
 
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.kafka.dto.NotificationEvent;
 import com.fpt.careermate.services.kafka.producer.NotificationProducer;
 import com.fpt.careermate.services.notification_services.domain.Notification;
@@ -22,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +37,7 @@ public class NotificationImp implements NotificationService {
     NotificationRepo notificationRepo;
     NotificationMapper notificationMapper;
     NotificationProducer notificationProducer;
+    AccountRepo accountRepo;
 
     /**
      * Get current authenticated user ID
@@ -171,5 +176,112 @@ public class NotificationImp implements NotificationService {
         }
 
         log.info("✅ Test notification sent successfully");
+    }
+
+    @Override
+    @Transactional
+    public void sendNotificationToRole(String roleName, String title, String message, String category, Integer priority) {
+        log.info("📢 Sending notification to all users with role: {}", roleName);
+
+        try {
+            // Get all accounts with the specified role
+            List<Account> accounts = accountRepo.searchAccounts(
+                    List.of(roleName),
+                    List.of("ACTIVE"),
+                    null,
+                    Pageable.unpaged()
+            ).getContent();
+
+            log.info("Found {} active users with role: {}", accounts.size(), roleName);
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("broadcastType", "role");
+            metadata.put("targetRole", roleName);
+            metadata.put("timestamp", LocalDateTime.now().toString());
+
+            // Send notification to each user
+            for (Account account : accounts) {
+                NotificationEvent event = NotificationEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType("BROADCAST_NOTIFICATION")
+                        .recipientId(account.getEmail())
+                        .recipientEmail(account.getEmail())
+                        .title(title)
+                        .subject(title)
+                        .message(message)
+                        .category(category != null ? category : "ANNOUNCEMENT")
+                        .metadata(metadata)
+                        .priority(priority != null ? priority : 2)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+                // Route to appropriate topic based on role
+                if (roleName.equalsIgnoreCase("ADMIN")) {
+                    notificationProducer.sendAdminNotification(event);
+                } else if (roleName.equalsIgnoreCase("RECRUITER")) {
+                    notificationProducer.sendRecruiterNotification(event);
+                } else if (roleName.equalsIgnoreCase("CANDIDATE")) {
+                    notificationProducer.sendNotification("candidate-notifications", event);
+                }
+            }
+
+            log.info("✅ Successfully sent {} notifications to role: {}", accounts.size(), roleName);
+        } catch (Exception e) {
+            log.error("❌ Failed to send notification to role: {}", roleName, e);
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendBroadcastNotification(String title, String message, String category, Integer priority) {
+        log.info("📢 Sending broadcast notification to all active users");
+
+        try {
+            // Get all active accounts
+            List<Account> accounts = accountRepo.searchAccounts(
+                    null,
+                    List.of("ACTIVE"),
+                    null,
+                    Pageable.unpaged()
+            ).getContent();
+
+            log.info("Found {} active users for broadcast", accounts.size());
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("broadcastType", "all");
+            metadata.put("timestamp", LocalDateTime.now().toString());
+
+            // Send notification to each user
+            for (Account account : accounts) {
+                NotificationEvent event = NotificationEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType("BROADCAST_NOTIFICATION")
+                        .recipientId(account.getEmail())
+                        .recipientEmail(account.getEmail())
+                        .title(title)
+                        .subject(title)
+                        .message(message)
+                        .category(category != null ? category : "ANNOUNCEMENT")
+                        .metadata(metadata)
+                        .priority(priority != null ? priority : 2)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+                // Route to appropriate topic based on user's primary role
+                if (account.getRoles().stream().anyMatch(role -> role.getName().equals("ADMIN"))) {
+                    notificationProducer.sendAdminNotification(event);
+                } else if (account.getRoles().stream().anyMatch(role -> role.getName().equals("RECRUITER"))) {
+                    notificationProducer.sendRecruiterNotification(event);
+                } else if (account.getRoles().stream().anyMatch(role -> role.getName().equals("CANDIDATE"))) {
+                    notificationProducer.sendNotification("candidate-notifications", event);
+                }
+            }
+
+            log.info("✅ Successfully sent {} broadcast notifications", accounts.size());
+        } catch (Exception e) {
+            log.error("❌ Failed to send broadcast notification", e);
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
     }
 }

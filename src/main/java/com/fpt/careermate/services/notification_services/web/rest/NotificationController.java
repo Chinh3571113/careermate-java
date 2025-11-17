@@ -138,4 +138,41 @@ public class NotificationController {
                                 .message("Test notification sent successfully")
                                 .build();
         }
+
+        @PostMapping("/broadcast/role")
+        @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Send Notification to Role", description = "Send notification to all users with specific role (Admin only)")
+        public ApiResponse<Void> sendNotificationToRole(
+                        @RequestParam String roleName,
+                        @RequestParam String title,
+                        @RequestParam String message,
+                        @RequestParam(required = false) String category,
+                        @RequestParam(required = false, defaultValue = "2") Integer priority) {
+
+                log.info("REST request to send notification to role: {} | title: {}", roleName, title);
+
+                notificationService.sendNotificationToRole(roleName, title, message, category, priority);
+
+                return ApiResponse.<Void>builder()
+                                .message("Notification sent to all users with role: " + roleName)
+                                .build();
+        }
+
+        @PostMapping("/broadcast/all")
+        @PreAuthorize("hasRole('ADMIN')")
+        @Operation(summary = "Send Broadcast Notification", description = "Send notification to all active users (Admin only)")
+        public ApiResponse<Void> sendBroadcastNotification(
+                        @RequestParam String title,
+                        @RequestParam String message,
+                        @RequestParam(required = false) String category,
+                        @RequestParam(required = false, defaultValue = "2") Integer priority) {
+
+                log.info("REST request to send broadcast notification | title: {}", title);
+
+                notificationService.sendBroadcastNotification(title, message, category, priority);
+
+                return ApiResponse.<Void>builder()
+                                .message("Broadcast notification sent to all active users")
+                                .build();
+        }
 }

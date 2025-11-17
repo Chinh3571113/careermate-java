@@ -46,4 +46,14 @@ public interface NotificationService {
      * Send test notification (for testing purposes)
      */
     void sendTestNotification(String userRole, String recipientId);
+
+    /**
+     * Send notification to all users with a specific role
+     */
+    void sendNotificationToRole(String roleName, String title, String message, String category, Integer priority);
+
+    /**
+     * Send notification to all active users (broadcast)
+     */
+    void sendBroadcastNotification(String title, String message, String category, Integer priority);
 }
