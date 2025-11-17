@@ -102,7 +102,7 @@ public class SecurityConfig {
 //                "file://*"  // Allow direct HTML file access for testing
 //        ));
         // Also allow null origin (for file:// protocol)
-        corsConfiguration.addAllowedOrigin("*");
+//        corsConfiguration.addAllowedOrigin("*");
 
         corsConfiguration.setAllowedOriginPatterns(Collections.singletonList("*"));
         corsConfiguration.addAllowedMethod("*");
