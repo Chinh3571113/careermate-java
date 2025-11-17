@@ -11,7 +11,13 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@Entity(name = "job_description")
+@Entity
+@Table(
+        name = "job_description",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"job_posting_id", "skill_id"})
+        }
+)
 public class JobDescription {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

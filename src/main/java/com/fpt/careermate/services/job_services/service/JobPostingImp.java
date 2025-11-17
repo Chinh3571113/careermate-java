@@ -760,20 +760,22 @@ public class JobPostingImp implements JobPostingService {
                 .map(jobPostingMapper::toJobPostingDetailForRecruiterResponse)
                 .collect(Collectors.toList());
 
-        // Thêm saved status cho mỗi job posting
-        List<SavedJob> savedJobs = savedJobRepo.findAllByCandidate_CandidateId(coachUtil.getCurrentCandidate().getCandidateId());
-        for(JobPostingForRecruiterResponse jpResponse : jobPostingForRecruiterResponses) {
-            for(SavedJob savedJob: savedJobs) {
-                if(jpResponse.getId() == savedJob.getJobPosting().getId()) {
-                    jpResponse.setSaved(true);
-                    break;
-                }
-            }
-        }
-
-        // Thêm skills cho mỗi job posting, gộp skills thành 1 String
+        // Thêm skills
         jobPostingForRecruiterResponses.forEach(jobPostingForRecruiterResponse -> {
-
+            Set<JobPostingSkillResponse> skills = new HashSet<>();
+            pageJobPosting.getContent().forEach(jobPostingContent -> {
+                jobPostingContent.getJobDescriptions().forEach(jobDescription -> {
+                    if (jobPostingForRecruiterResponse.getId() == jobPostingContent.getId()) {
+                        skills.add(
+                                JobPostingSkillResponse.builder()
+                                        .id(jobDescription.getJdSkill().getId())
+                                        .name(jobDescription.getJdSkill().getName())
+                                        .mustToHave(jobDescription.isMustToHave())
+                                        .build());
+                    }
+                });
+            });
+            jobPostingForRecruiterResponse.setSkills(skills);
         });
 
         PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
