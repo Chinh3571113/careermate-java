@@ -15,6 +15,7 @@ public interface OrderMapper {
 
     @Mapping(source = "candidatePackage.name", target = "packageName")
     @Mapping(source = "candidate.fullName", target = "candidateName")
+    @Mapping(target = "isActive", ignore = true)
     CandidateOrderResponse toCandidateOrderResponse(Invoice invoice);
 
     // Chuyển page sang PageCandidateOrderResponse

@@ -11,6 +11,10 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface PackageMapper {
     @Mapping(target = "invoices", ignore = true)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createAt", ignore = true)
+    @Mapping(target = "entitlementPackages", ignore = true)
+    @Mapping(target = "priority", ignore = true)
     CandidatePackage toPackage(PackageCreationRequest request);
 
     PackageResponse toPackageResponse(CandidatePackage pkg);

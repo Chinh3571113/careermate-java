@@ -15,11 +15,20 @@ import java.util.Set;
 @Mapper(componentModel = "spring")
 public interface JobPostingMapper {
     @Mapping(target = "workModel", ignore = true)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "createAt", ignore = true)
+    @Mapping(target = "rejectionReason", ignore = true)
+    @Mapping(target = "approvedBy", ignore = true)
+    @Mapping(target = "jobDescriptions", ignore = true)
+    @Mapping(target = "recruiter", ignore = true)
+    @Mapping(target = "jobApplies", ignore = true)
+    @Mapping(target = "jobFeedbacks", ignore = true)
+    @Mapping(target = "savedJobs", ignore = true)
     JobPosting toJobPosting(JobPostingCreationRequest request);
 
-
-
     @Mapping(target = "postTime", source = "createAt")
+    @Mapping(target = "skills", ignore = true)
     JobPostingForRecruiterResponse toJobPostingDetailForRecruiterResponse(JobPosting jobPosting);
 
     @Mapping(source = "jdSkill.name", target = "name")
@@ -32,6 +41,7 @@ public interface JobPostingMapper {
     @Mapping(target = "postTime", source = "createAt")
     @Mapping(target = "skills", ignore = true)
     @Mapping(target = "recruiterInfo", ignore = true)
+    @Mapping(target = "isSaved", ignore = true)
     JobPostingForCandidateResponse toJobPostingForCandidateResponse(JobPosting jobPosting);
 
     List<JobPostingForCandidateResponse> toJobPostingForCandidateResponseList(List<JobPosting> jobPostings);
@@ -45,5 +55,7 @@ public interface JobPostingMapper {
 
     PageRecruiterResponse toPageRecruiterResponse(Page<Recruiter> pageRecruiter);
 
+    @Mapping(target = "jobCount", ignore = true)
+    RecruiterResponse toRecruiterResponse(Recruiter recruiter);
     List<RecruiterResponse> toRecruiterResponseList(List<Recruiter> recruiters);
 }
