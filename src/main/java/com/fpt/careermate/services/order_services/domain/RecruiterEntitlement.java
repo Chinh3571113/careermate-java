@@ -12,8 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@Entity(name = "entitlement")
-public class Entitlement {
+@Entity(name = "recruiter_entitlement")
+public class RecruiterEntitlement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int id;
@@ -23,6 +23,7 @@ public class Entitlement {
     String unit;
     boolean hasLimit;
 
-    @OneToMany(mappedBy = "entitlement")
-    List<EntitlementPackage> entitlementPackages;
+    @OneToMany(mappedBy = "recruiterEntitlement")
+    List<RecruiterEntitlementPackage> recruiterEntitlementPackages;
 }
+
