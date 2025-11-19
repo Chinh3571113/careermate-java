@@ -26,4 +26,5 @@ public class JobPostingForRecruiterResponse {
     String salaryRange;
     String reason;
     String jobPackage;
+    boolean saved;
 }

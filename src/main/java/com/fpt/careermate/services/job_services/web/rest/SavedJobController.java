@@ -59,10 +59,11 @@ public class SavedJobController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(defaultValue = "0") int candidateId
     ) {
         return ApiResponse.<PageJobPostingForCandidateResponse>builder()
-                .result(savedJobImp.getJobsForCandidate(page, size))
+                .result(savedJobImp.getJobsForCandidate(page, size, candidateId))
                 .code(200)
                 .message("success")
                 .build();

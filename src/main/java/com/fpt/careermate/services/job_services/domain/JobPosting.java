@@ -61,23 +61,28 @@ public class JobPosting {
     @JoinColumn(name = "approved_by")
     Admin approvedBy;
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL)
-    Set<JobDescription> jobDescriptions;
+    Set<JobDescription> jobDescriptions = new HashSet<>();
 
     @ManyToOne
     @JoinColumn(name = "recruiter_id", nullable = false)
     Recruiter recruiter;
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<JobApply> jobApplies = new HashSet<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<JobFeedback> jobFeedbacks = new HashSet<>();
 
     @Column(nullable = false)
     int yearsOfExperience;
 
+    @Column(columnDefinition = "TEXT")
     String reason;
+    @Column(columnDefinition = "TEXT")
     String jobPackage;
 
     @Column(name = "salary_range")
@@ -85,6 +90,7 @@ public class JobPosting {
 
     String workModel;
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL, orphanRemoval = true)
     Set<SavedJob> savedJobs = new HashSet<>();
 }

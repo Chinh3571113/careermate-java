@@ -25,6 +25,7 @@ public class Roadmap {
     @Column(unique = true)
     String name;
 
+    @Builder.Default
     // Một Roadmap có nhiều Topic
     @OneToMany(mappedBy = "roadmap", cascade = CascadeType.ALL, orphanRemoval = true)
     List<Topic> topics = new ArrayList<>();

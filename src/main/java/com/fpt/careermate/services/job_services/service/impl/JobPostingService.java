@@ -39,7 +39,7 @@ public interface JobPostingService {
     JobPostingForCandidateResponse getJobPostingDetailForCandidate(int id);
 
     PageJobPostingForRecruiterResponse getAllJobPostingsPublic(
-            int page, int size, String keyword, int recruiterId
+            int page, int size, String keyword, int recruiterId, int candidateId
     );
 
     JobPostingForCandidateResponse.RecruiterCompanyInfo getCompanyDetail(int recruiterId);

@@ -32,6 +32,7 @@ public class Topic {
     @JoinColumn(name = "roadmap_id")
     Roadmap roadmap;
 
+    @Builder.Default
     // Một Topic có nhiều Subtopic
     @OneToMany(mappedBy = "topic", cascade = CascadeType.ALL, orphanRemoval = true)
     List<Subtopic> subtopics = new ArrayList<>();

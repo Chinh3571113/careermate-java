@@ -59,7 +59,8 @@ public class SecurityConfig {
             // Actuator endpoints for monitoring (consider securing these in production)
             "/actuator/**",
             "/api/job-postings/**",
-            "/api/jdskill/top-used"
+            "/api/jdskill/top-used",
+            "/api/saved-jobs/jobs-for-candidate"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;

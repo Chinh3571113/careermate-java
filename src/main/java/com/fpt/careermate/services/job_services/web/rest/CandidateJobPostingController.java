@@ -118,12 +118,13 @@ public class CandidateJobPostingController {
             @PathVariable int recruiterId,
             @RequestParam int page,
             @RequestParam int size,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "0") int candidateId
     ) {
         return ApiResponse.<PageJobPostingForRecruiterResponse>builder()
                 .code(200)
                 .message("List job posting of Company detail retrieved successfully")
-                .result(jobPostingImp.getAllJobPostingsPublic(page, size, keyword, recruiterId))
+                .result(jobPostingImp.getAllJobPostingsPublic(page, size, keyword, recruiterId, candidateId))
                 .build();
     }
 

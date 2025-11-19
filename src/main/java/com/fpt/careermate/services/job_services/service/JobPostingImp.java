@@ -141,7 +141,7 @@ public class JobPostingImp implements JobPostingService {
     @Override
     public PageJobPostingForRecruiterResponse getAllJobPostingForRecruiter(
             int page, int size, String keyword) {
-        return gellAllJobPostings(page, size, keyword, 0);
+        return gellAllJobPostings(page, size, keyword, 0,0);
     }
 
     @PreAuthorize("hasRole('RECRUITER')")
@@ -737,7 +737,7 @@ public class JobPostingImp implements JobPostingService {
     }
 
     private PageJobPostingForRecruiterResponse gellAllJobPostings(
-            int page, int size, String keyword, int recruiterId) {
+            int page, int size, String keyword, int recruiterId, int candidateId) {
         if (recruiterId == 0) {
             Recruiter recruiter = getMyRecruiter();
             recruiterId = recruiter.getId();
@@ -778,6 +778,23 @@ public class JobPostingImp implements JobPostingService {
             jobPostingForRecruiterResponse.setSkills(skills);
         });
 
+        // Nếu candidateId != 0 thì đánh dấu đã lưu hay chưa
+        if(candidateId != 0) {
+            List<SavedJob> savedJobs = savedJobRepo.findAllByCandidate_CandidateId(candidateId);
+            savedJobs.forEach(savedJob -> {
+                jobPostingForRecruiterResponses.forEach(jobPostingForRecruiterResponse -> {
+                    if(savedJob.getJobPosting().getId() == jobPostingForRecruiterResponse.getId()) {
+                        jobPostingForRecruiterResponse.setSaved(true);
+                    }
+                });
+            });
+        }
+        else {
+            jobPostingForRecruiterResponses.forEach(jobPostingForRecruiterResponse -> {
+                jobPostingForRecruiterResponse.setSaved(false);
+            });
+        }
+
         PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
                 .toPageJobPostingForRecruiterResponse(pageJobPosting);
         pageResponse.setContent(jobPostingForRecruiterResponses);
@@ -787,9 +804,10 @@ public class JobPostingImp implements JobPostingService {
 
     @Override
     public PageJobPostingForRecruiterResponse getAllJobPostingsPublic(
-            int page, int size, String keyword, int recruiterId) {
+            int page, int size, String keyword, int recruiterId, int candidateId) {
         return gellAllJobPostings(
-                page, size, keyword, recruiterId);
+                page, size, keyword, recruiterId, candidateId
+        );
     }
 
     @Override
@@ -804,22 +822,22 @@ public class JobPostingImp implements JobPostingService {
     public PageRecruiterResponse getCompanies(int page, int size, String companyAddress) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("companyName").ascending());
         Page<Recruiter> pageRecruiter = null;
-        // Logic nếu CompanyAddress có giá trị thì lọc theo địa chỉ, nếu không thì lấy
-        // tất cả
+        // Logic nếu CompanyAddress có giá trị thì lọc theo địa chỉ, nếu không thì lấy tất cả
         if (companyAddress == null || companyAddress.isEmpty()) {
             pageRecruiter = recruiterRepo.findAllByVerificationStatus(
-                    StatusRecruiter.APPROVED, pageable);
+                    StatusRecruiter.APPROVED, pageable
+            );
         } else {
             pageRecruiter = recruiterRepo.findAllByVerificationStatusAndCompanyAddressContainingIgnoreCase(
-                    StatusRecruiter.APPROVED, companyAddress, pageable);
+                    StatusRecruiter.APPROVED, companyAddress, pageable
+            );
         }
 
         List<Recruiter> recruiters = pageRecruiter.getContent();
         List<RecruiterResponse> recruiterResponses = jobPostingMapper.toRecruiterResponseList(recruiters);
         // Thêm số lượng job postings cho mỗi recruiter
         recruiterResponses.forEach(recruiterResponse -> {
-            long jobCount = jobPostingRepo.countByRecruiterIdAndStatus(recruiterResponse.getId(),
-                    StatusJobPosting.ACTIVE);
+            long jobCount = jobPostingRepo.countByRecruiterIdAndStatus(recruiterResponse.getId(), StatusJobPosting.ACTIVE);
             recruiterResponse.setJobCount(jobCount);
         });
 
@@ -843,7 +861,8 @@ public class JobPostingImp implements JobPostingService {
         List<String> addresses = recruiterRepo.findDistinctCompanyAddressByKeyword(
                 StatusRecruiter.APPROVED,
                 searchKeyword,
-                pageable);
+                pageable
+        );
 
         return addresses;
     }

@@ -22,5 +22,6 @@ public interface SavedJobMapper {
     @Mapping(source = "jobPosting.expirationDate", target = "expirationDate")
     @Mapping(source = "id", target = "savedJobId")
     @Mapping(source = "jobPosting.id", target = "jobId")
+    @Mapping(target = "skills", ignore = true)
     SavedJobPostingResponse toSavedJobPostingResponse(SavedJob savedJob);
 }

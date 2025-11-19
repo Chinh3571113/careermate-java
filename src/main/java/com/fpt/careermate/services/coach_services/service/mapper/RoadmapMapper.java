@@ -16,6 +16,8 @@ public interface RoadmapMapper {
     TopicResponse toTopicResponse(Topic topic);
     SubtopicResponse toSubtopicResponse(Subtopic subtopic);
 
+    @Mapping(target = "resourceResponses", ignore = true)
     TopicDetailResponse topicDetailResponse(Topic topic);
+    @Mapping(target = "resourceResponses", ignore = true)
     TopicDetailResponse toSubtopicDetailResponse(Subtopic subtopic);
 }
