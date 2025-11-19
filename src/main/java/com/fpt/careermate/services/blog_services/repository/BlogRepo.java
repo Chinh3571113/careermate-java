@@ -26,14 +26,37 @@ public interface BlogRepo extends JpaRepository<Blog, Long> {
     @Query("SELECT DISTINCT b.category FROM blog b WHERE b.category IS NOT NULL")
     List<String> findAllCategories();
 
-    @Query("SELECT b FROM blog b WHERE " +
-           "(:keyword IS NULL OR " +
-           "LOWER(b.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(b.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(b.summary) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-           "(:status IS NULL OR b.status = :status)")
+    @Query(value = "SELECT * FROM blog b WHERE " +
+           "(:keyword IS NULL OR :keyword = '' OR " +
+           "LOWER(CAST(b.title AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.content AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.summary AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%'))) AND " +
+           "(:status IS NULL OR :status = '' OR CAST(b.status AS TEXT) = UPPER(CAST(:status AS TEXT)))",
+           nativeQuery = true)
     Page<Blog> searchBlogs(@Param("keyword") String keyword,
-                           @Param("status") Blog.BlogStatus status,
+                           @Param("status") String status,
+                           Pageable pageable);
+
+    @Query(value = "SELECT * FROM blog b WHERE " +
+           "(:keyword IS NULL OR :keyword = '' OR " +
+           "LOWER(CAST(b.title AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.content AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.summary AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.tags AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%'))) AND " +
+           "(:status IS NULL OR :status = '' OR CAST(b.status AS TEXT) = UPPER(CAST(:status AS TEXT))) AND " +
+           "(:category IS NULL OR :category = '' OR LOWER(CAST(b.category AS TEXT)) = LOWER(CAST(:category AS TEXT)))",
+           countQuery = "SELECT COUNT(*) FROM blog b WHERE " +
+           "(:keyword IS NULL OR :keyword = '' OR " +
+           "LOWER(CAST(b.title AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.content AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.summary AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%')) OR " +
+           "LOWER(CAST(b.tags AS TEXT)) LIKE LOWER(CONCAT('%', CAST(:keyword AS TEXT), '%'))) AND " +
+           "(:status IS NULL OR :status = '' OR CAST(b.status AS TEXT) = UPPER(CAST(:status AS TEXT))) AND " +
+           "(:category IS NULL OR :category = '' OR LOWER(CAST(b.category AS TEXT)) = LOWER(CAST(:category AS TEXT)))",
+           nativeQuery = true)
+    Page<Blog> filterBlogs(@Param("keyword") String keyword,
+                           @Param("status") String status,
+                           @Param("category") String category,
                            Pageable pageable);
                            
     @Query("SELECT b FROM blog b WHERE b.id <> :blogId AND " +

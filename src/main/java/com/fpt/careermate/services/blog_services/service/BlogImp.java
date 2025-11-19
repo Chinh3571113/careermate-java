@@ -146,16 +146,40 @@ public class BlogImp implements BlogService {
     public Page<BlogResponse> searchBlogs(String keyword, String status, Pageable pageable) {
         log.info("Searching blogs with keyword: {}, status: {}", keyword, status);
 
-        Blog.BlogStatus blogStatus = null;
+        // Validate status if provided
         if (status != null && !status.isEmpty()) {
             try {
-                blogStatus = Blog.BlogStatus.valueOf(status.toUpperCase());
+                Blog.BlogStatus.valueOf(status.toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new AppException(ErrorCode.BLOG_INVALID_STATUS);
             }
         }
 
-        return blogRepo.searchBlogs(keyword, blogStatus, pageable)
+        return blogRepo.searchBlogs(keyword, status, pageable)
+                .map(blogMapper::toBlogResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BlogResponse> filterBlogs(String keyword, String status, String category, Pageable pageable) {
+        log.info("Filtering blogs - keyword: {}, status: {}, category: {}", keyword, status, category);
+
+        // Validate status if provided
+        if (status != null && !status.isEmpty()) {
+            try {
+                Blog.BlogStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new AppException(ErrorCode.BLOG_INVALID_STATUS);
+            }
+        }
+
+        // Normalize category (trim and handle empty string as null)
+        String normalizedCategory = category;
+        if (category != null && category.trim().isEmpty()) {
+            normalizedCategory = null;
+        }
+
+        return blogRepo.filterBlogs(keyword, status, normalizedCategory, pageable)
                 .map(blogMapper::toBlogResponse);
     }
 

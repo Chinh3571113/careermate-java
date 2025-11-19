@@ -27,6 +27,8 @@ public interface BlogService {
 
     Page<BlogResponse> searchBlogs(String keyword, String status, Pageable pageable);
 
+    Page<BlogResponse> filterBlogs(String keyword, String status, String category, Pageable pageable);
+
     List<String> getAllCategories();
 
     BlogResponse publishBlog(Long blogId);

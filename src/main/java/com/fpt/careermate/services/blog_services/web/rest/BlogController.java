@@ -204,7 +204,7 @@ public class BlogController {
         }
 
         @GetMapping("/search")
-        @Operation(summary = "Search Blogs", description = "Search blog posts by keyword and/or status with pagination and sorting")
+        @Operation(summary = "Search Blogs", description = "Search blog posts by keyword and/or status with pagination and sorting (Legacy endpoint - use /filter for more options)")
         ApiResponse<Page<BlogResponse>> searchBlogs(
                         @RequestParam(required = false) String keyword,
                         @RequestParam(required = false) String status,
@@ -213,14 +213,74 @@ public class BlogController {
                         @RequestParam(defaultValue = "createdAt") String sortBy,
                         @RequestParam(defaultValue = "DESC") String sortDir) {
 
+                // Map Java field names to database column names
+                String dbColumnName = mapFieldToColumn(sortBy);
+                
                 Sort sort = sortDir.equalsIgnoreCase("ASC")
-                                ? Sort.by(sortBy).ascending()
-                                : Sort.by(sortBy).descending();
+                                ? Sort.by(dbColumnName).ascending()
+                                : Sort.by(dbColumnName).descending();
                 Pageable pageable = PageRequest.of(page, size, sort);
 
                 return ApiResponse.<Page<BlogResponse>>builder()
                                 .result(blogImp.searchBlogs(keyword, status, pageable))
                                 .build();
+        }
+
+        @GetMapping("/filter")
+        @Operation(summary = "Filter Blogs", description = "Filter blog posts by multiple criteria: keyword, status, and/or category with pagination and sorting. All filter parameters are optional and work together.")
+        ApiResponse<Page<BlogResponse>> filterBlogs(
+                        @RequestParam(required = false) String keyword,
+                        @RequestParam(required = false) String status,
+                        @RequestParam(required = false) String category,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDir) {
+
+                log.info("=== FILTER BLOGS REQUEST ===");
+                log.info("Keyword: '{}' (null: {})", keyword, keyword == null);
+                log.info("Status: '{}' (null: {})", status, status == null);
+                log.info("Category: '{}' (null: {})", category, category == null);
+                log.info("Page: {}, Size: {}, SortBy: {}, SortDir: {}", page, size, sortBy, sortDir);
+
+                try {
+                        // Map Java field names to database column names
+                        String dbColumnName = mapFieldToColumn(sortBy);
+                        log.info("Mapped sortBy '{}' to database column '{}'", sortBy, dbColumnName);
+                        
+                        Sort sort = sortDir.equalsIgnoreCase("ASC")
+                                        ? Sort.by(dbColumnName).ascending()
+                                        : Sort.by(dbColumnName).descending();
+                        Pageable pageable = PageRequest.of(page, size, sort);
+
+                        Page<BlogResponse> result = blogImp.filterBlogs(keyword, status, category, pageable);
+                        log.info("Filter successful - Total elements: {}, Total pages: {}", 
+                                 result.getTotalElements(), result.getTotalPages());
+                        
+                        return ApiResponse.<Page<BlogResponse>>builder()
+                                        .result(result)
+                                        .build();
+                } catch (Exception e) {
+                        log.error("Error filtering blogs", e);
+                        throw e;
+                }
+        }
+
+        /**
+         * Maps Java entity field names to database column names for native queries
+         */
+        private String mapFieldToColumn(String fieldName) {
+                return switch (fieldName) {
+                        case "createdAt" -> "created_at";
+                        case "updatedAt" -> "updated_at";
+                        case "publishedAt" -> "published_at";
+                        case "viewCount" -> "view_count";
+                        case "averageRating" -> "average_rating";
+                        case "ratingCount" -> "rating_count";
+                        case "commentCount" -> "comment_count";
+                        case "thumbnailUrl" -> "thumbnail_url";
+                        default -> fieldName; // id, title, slug, content, summary, category, tags, status
+                };
         }
 
         @GetMapping("/categories")
