@@ -102,10 +102,9 @@ public class SavedJobImp implements SavedJobService {
     }
 
     // Get all job postings for candidate (Job Tab)
-    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public PageJobPostingForCandidateResponse getJobsForCandidate(int page, int size) {
-        int candidateId = coachUtil.getCurrentCandidate().getCandidateId();
+    public PageJobPostingForCandidateResponse getJobsForCandidate(int page, int size, int candidateId) {
+        log.info("Fetching job postings for candidateId: {}", candidateId);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").descending());
         Page<JobPosting> jobPostingPage = jobPostingRepo.findAllByStatusAndRecruiter_VerificationStatus(
                 StatusJobPosting.ACTIVE, StatusRecruiter.APPROVED, pageable
@@ -123,9 +122,15 @@ public class SavedJobImp implements SavedJobService {
             jobPostingResponse.setSkills(jobPostingMapper.toJobPostingSkillResponseSet(jobPosting.getJobDescriptions()));
 
             // Check if the job is saved by the candidate
-            jobPostingResponse.setSaved(
-                savedJobRepo.findByCandidate_candidateIdAndJobPosting_Id(candidateId, jobPosting.getId()).isPresent()
-            );
+            // Nếu có candidateId thì check, không thì để false
+            if(candidateId == 0) {
+                jobPostingResponse.setSaved(false);
+            }
+            else {
+                jobPostingResponse.setSaved(
+                        savedJobRepo.findByCandidate_candidateIdAndJobPosting_Id(candidateId, jobPosting.getId()).isPresent()
+                );
+            }
 
             jobPostingResponses.add(jobPostingResponse);
         });

@@ -6,5 +6,5 @@ import com.fpt.careermate.services.job_services.service.dto.response.PageSavedJo
 public interface SavedJobService {
     boolean toggleSaveJob(int jobId);
     PageSavedJobPostingResponse getSavedJobs(int page, int size);
-    PageJobPostingForCandidateResponse getJobsForCandidate(int page, int size);
+    PageJobPostingForCandidateResponse getJobsForCandidate(int page, int size, int candidateId);
 }

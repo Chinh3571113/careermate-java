@@ -80,7 +80,9 @@ public class JobPosting {
     @Column(nullable = false)
     int yearsOfExperience;
 
+    @Column(columnDefinition = "TEXT")
     String reason;
+    @Column(columnDefinition = "TEXT")
     String jobPackage;
 
     @Column(name = "salary_range")
