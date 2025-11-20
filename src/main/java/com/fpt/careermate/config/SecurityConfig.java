@@ -44,6 +44,7 @@ public class SecurityConfig {
             "/api/registration/recruiter",
             "/api/v1/auth/**",
             "/api/users/sign-up",
+            "/api/auth/refresh/mobile",
 
             "/v3/api-docs/**",
             "/v3/api-docs.yaml",

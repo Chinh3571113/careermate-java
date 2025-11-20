@@ -1,6 +1,5 @@
 package com.fpt.careermate.services.authentication_services.service.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -9,13 +8,11 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AuthenticationResponse {
+public class MobileAuthenticationResponse {
     String accessToken;
-
-    @JsonIgnore // This won't be sent to frontend for web, only used internally
-    String refreshToken;
-
+    String refreshToken; // Visible for mobile clients
     boolean authenticated;
     Long expiresIn;
     String tokenType;
 }
+

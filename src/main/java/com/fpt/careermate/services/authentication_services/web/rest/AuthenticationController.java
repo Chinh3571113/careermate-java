@@ -8,6 +8,7 @@ import com.fpt.careermate.services.authentication_services.service.dto.request.R
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.authentication_services.service.dto.response.AuthenticationResponse;
 import com.fpt.careermate.services.authentication_services.service.dto.response.IntrospectResponse;
+import com.fpt.careermate.services.authentication_services.service.dto.response.MobileAuthenticationResponse;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.nimbusds.jose.JOSEException;
@@ -136,17 +137,40 @@ public class AuthenticationController {
     }
 
     @PostMapping("/token/candidate")
-    @Operation(summary = "Authenticate Candidate", description = "Authenticate user and generate access and refresh " +
-            "tokens.")
-    ApiResponse<AuthenticationResponse> authenticateCandidate(
-            @RequestBody @Valid AuthenticationRequest request,
-            HttpServletResponse response) {
+    @Operation(summary = "Authenticate Candidate for Mobile", description = "Authenticate candidate user and return access and refresh tokens in response body for mobile clients.")
+    ApiResponse<MobileAuthenticationResponse> authenticateCandidate(
+            @RequestBody @Valid AuthenticationRequest request) {
         var result = authenticationServiceImp.authenticateCandidate(request);
 
-        // Set refresh token in HTTP-only cookie
-        Cookie refreshTokenCookie = createRefreshTokenCookie(result.getRefreshToken());
-        response.addCookie(refreshTokenCookie);
+        // Convert to MobileAuthenticationResponse to include refreshToken in response body
+        MobileAuthenticationResponse mobileResponse = MobileAuthenticationResponse.builder()
+                .accessToken(result.getAccessToken())
+                .refreshToken(result.getRefreshToken())
+                .authenticated(result.isAuthenticated())
+                .expiresIn(result.getExpiresIn())
+                .tokenType(result.getTokenType())
+                .build();
 
-        return ApiResponse.<AuthenticationResponse>builder().result(result).build();
+        return ApiResponse.<MobileAuthenticationResponse>builder().result(mobileResponse).build();
+    }
+
+    @PutMapping("/refresh/mobile")
+    @Operation(summary = "Refresh Token for Mobile", description = "Refresh access token using refresh token from request body for mobile clients.")
+    ApiResponse<MobileAuthenticationResponse> refreshTokenMobile(
+            @RequestBody @Valid RefreshRequest request)
+            throws ParseException, JOSEException {
+
+        var result = authenticationServiceImp.refreshToken(request);
+
+        // Convert to MobileAuthenticationResponse to include refreshToken in response body
+        MobileAuthenticationResponse mobileResponse = MobileAuthenticationResponse.builder()
+                .accessToken(result.getAccessToken())
+                .refreshToken(result.getRefreshToken())
+                .authenticated(result.isAuthenticated())
+                .expiresIn(result.getExpiresIn())
+                .tokenType(result.getTokenType())
+                .build();
+
+        return ApiResponse.<MobileAuthenticationResponse>builder().result(mobileResponse).build();
     }
 }
