@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,6 +27,7 @@ public class HighLightProjectImp implements HighLightProjectService {
     ResumeRepo resumeRepo;
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public HighlightProjectResponse addHighlightProjectToResume(HighlightProjectRequest highlightProject) {
         Resume resume = resumeImp.getResumeEntityById(highlightProject.getResumeId());
@@ -44,6 +46,7 @@ public class HighLightProjectImp implements HighLightProjectService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeHighlightProjectFromResume(int highlightProjectId) {
         highlightProjectRepo.findById(highlightProjectId)
                 .orElseThrow(() -> new AppException(ErrorCode.HIGHLIGHT_PROJECT_NOT_FOUND));
@@ -51,6 +54,7 @@ public class HighLightProjectImp implements HighLightProjectService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public HighlightProjectResponse updateHighlightProjectInResume(int resumeId, int highlightProjectId, HighlightProjectRequest highlightProject) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));

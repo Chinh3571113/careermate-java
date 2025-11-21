@@ -78,6 +78,7 @@ public class CandidateProfileImp implements CandidateProfileService {
     }
 
     @Override
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     public void deleteProfile(int id) {
         candidateRepo.findById(id).orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
         candidateRepo.deleteById(id);

@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,6 +28,7 @@ public class AwardImp implements AwardService {
 
     @Transactional
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public AwardResponse addAwardToResume(AwardRequest award) {
         Resume resume = resumeImp.getResumeEntityById(award.getResumeId());
 
@@ -44,6 +46,7 @@ public class AwardImp implements AwardService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeAwardFromResume(int resumeId, int awardId) {
         awardRepo.findById(awardId)
                 .orElseThrow(() -> new AppException(ErrorCode.AWARD_NOT_FOUND));
@@ -51,6 +54,7 @@ public class AwardImp implements AwardService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public AwardResponse updateAwardInResume(int resumeId, int awardId, AwardRequest award) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));

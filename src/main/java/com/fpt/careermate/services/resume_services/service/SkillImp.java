@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,6 +27,7 @@ public class SkillImp implements SkillService {
     ResumeRepo resumeRepo;
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public SkillResponse addSkillToResume(SkillRequest skill) {
         Resume resume = resumeImp.getResumeEntityById(skill.getResumeId());
@@ -44,6 +46,7 @@ public class SkillImp implements SkillService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeSkillFromResume(int resumeId, int skillId) {
         skillRepo.findById(skillId)
                 .orElseThrow(() -> new AppException(ErrorCode.SKILL_NOT_FOUND));
@@ -51,6 +54,7 @@ public class SkillImp implements SkillService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public SkillResponse updateSkillInResume(int resumeId, int skillId, SkillRequest skill) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));

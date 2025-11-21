@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,6 +27,7 @@ public class CertificateImp implements CertificateService {
     ResumeRepo resumeRepo;
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public CertificateResponse addCertificationToResume(CertificateRequest certification) {
         Resume resume = resumeImp.getResumeEntityById(certification.getResumeId());
@@ -43,6 +45,7 @@ public class CertificateImp implements CertificateService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeCertificationFromResume(int certificationId) {
         certificateRepo.findById(certificationId)
                 .orElseThrow(() -> new AppException(ErrorCode.CERTIFICATE_NOT_FOUND));
@@ -51,6 +54,7 @@ public class CertificateImp implements CertificateService {
 
     @Transactional
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public CertificateResponse updateCertificationInResume(int resumeId, int certificationId, CertificateRequest certification) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
         Certificate existingCertificate = certificateRepo.findById(certificationId)

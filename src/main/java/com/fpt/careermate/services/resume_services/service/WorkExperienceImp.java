@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,6 +27,7 @@ public class WorkExperienceImp implements WorkExperienceService {
     ResumeRepo resumeRepo;
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public WorkExperienceResponse addWorkExperienceToResume(WorkExperienceRequest workExperience) {
         Resume resume = resumeImp.getResumeEntityById(workExperience.getResumeId());
@@ -44,6 +46,7 @@ public class WorkExperienceImp implements WorkExperienceService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeWorkExperienceFromResume(int workExperienceId) {
         workExperienceRepo.findById(workExperienceId)
                 .orElseThrow(() -> new AppException(ErrorCode.WORK_EXPERIENCE_NOT_FOUND));
@@ -51,6 +54,7 @@ public class WorkExperienceImp implements WorkExperienceService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public WorkExperienceResponse updateWorkExperienceInResume(int resumeId, int workExp, WorkExperienceRequest workExperience) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));

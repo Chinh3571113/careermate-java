@@ -15,6 +15,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,6 +28,7 @@ public class ForeignLanguageImp implements ForeignLanguageService {
     ResumeRepo resumeRepo;
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public ForeignLanguageResponse addForeignLanguageToResume(ForeignLanguageRequest foreignLanguage) {
         Resume resume = resumeImp.getResumeEntityById(foreignLanguage.getResumeId());
@@ -45,6 +47,7 @@ public class ForeignLanguageImp implements ForeignLanguageService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeForeignLanguageFromResume(int resumeId, int foreignLanguageId) {
         foreignLanguageRepo.findById(foreignLanguageId)
                 .orElseThrow(() -> new AppException(ErrorCode.FOREIGN_LANGUAGE_NOT_FOUND));
@@ -52,6 +55,7 @@ public class ForeignLanguageImp implements ForeignLanguageService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public ForeignLanguageResponse updateForeignLanguageInResume(int resumeId, int foreignLanguageId, ForeignLanguageRequest foreignLanguage) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));

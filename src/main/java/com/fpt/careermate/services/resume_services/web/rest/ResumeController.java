@@ -1,8 +1,10 @@
 package com.fpt.careermate.services.resume_services.web.rest;
 
+import com.fpt.careermate.common.constant.ResumeType;
 import com.fpt.careermate.services.resume_services.service.ResumeImp;
 import com.fpt.careermate.services.resume_services.service.dto.request.ResumeRequest;
 import com.fpt.careermate.services.resume_services.service.dto.request.ResumeStatusRequest;
+import com.fpt.careermate.services.resume_services.service.dto.request.ResumeTypeRequest;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.resume_services.service.dto.response.ResumeResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -76,6 +78,24 @@ public class ResumeController {
         return ApiResponse.<ResumeResponse>builder()
                 .result(resumeImp.patchResumeStatus(resumeId, request))
                 .message("Update resume status successfully")
+                .build();
+    }
+
+    @PatchMapping("/{resumeId}/type/{type}")
+    @Operation(summary = "Update Resume Type", description = "Update only the type of a resume (WEB, UPLOAD, DRAFT)")
+    ApiResponse<ResumeResponse> patchResumeType(@PathVariable int resumeId, @Valid @PathVariable ResumeType type) {
+        return ApiResponse.<ResumeResponse>builder()
+                .result(resumeImp.patchResumeType(resumeId, type))
+                .message("Update resume type successfully")
+                .build();
+    }
+
+    @GetMapping("/type/{type}")
+    @Operation(summary = "Get Resumes by Type", description = "Retrieve all resumes for the authenticated candidate filtered by type (WEB, UPLOAD, DRAFT)")
+    ApiResponse<List<ResumeResponse>> getResumesByType(@PathVariable ResumeType type) {
+        return ApiResponse.<List<ResumeResponse>>builder()
+                .result(resumeImp.getResumesByType(type))
+                .message("Get resumes by type successfully")
                 .build();
     }
 }

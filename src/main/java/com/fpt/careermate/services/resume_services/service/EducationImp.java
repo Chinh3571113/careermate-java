@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -26,6 +27,7 @@ public class EducationImp implements EducationService {
     ResumeRepo resumeRepo;
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public EducationResponse addEducationToResume(EducationRequest education) {
         Resume resume = resumeImp.getResumeEntityById(education.getResumeId());
@@ -46,6 +48,7 @@ public class EducationImp implements EducationService {
     }
 
     @Override
+    @PreAuthorize("hasRole('CANDIDATE')")
     public void removeEducationFromResume(int educationId) {
         educationRepo.findById(educationId)
                 .orElseThrow(() -> new AppException(ErrorCode.EDUCATION_NOT_FOUND));
@@ -53,6 +56,7 @@ public class EducationImp implements EducationService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public EducationResponse updateEducationInResume(int resumeId, int educationId, EducationRequest education) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
