@@ -140,7 +140,9 @@ public enum ErrorCode {
     // 80xx: Notification
     NOTIFICATION_NOT_FOUND(8000, "Notification not found", HttpStatus.NOT_FOUND),
     INVALID_REQUEST(8001, "Invalid request", HttpStatus.BAD_REQUEST),
-    RESUME_NOT_ACTIVE(8002,"Your Resume is not active" ,HttpStatus.BAD_REQUEST );
+    RESUME_NOT_ACTIVE(8002,"Your Resume is not active" ,HttpStatus.BAD_REQUEST ),
+
+    CAN_NOT_PAY_FOR_BASIC_PACKAGE(2005, "Cannot create payment URL for BASIC package", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;

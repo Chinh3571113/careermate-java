@@ -96,7 +96,7 @@ public class RecruiterPackageSeeder implements CommandLineRunner {
 
             var basic = RecruiterPackage.builder()
                     .name(RecruiterPackageCode.BASIC)
-                    .price(299000L)
+                    .price(0L)
                     .durationDays(30)
                     .priority(3)
                     .createAt(LocalDateTime.now())
@@ -104,7 +104,7 @@ public class RecruiterPackageSeeder implements CommandLineRunner {
 
             var professional = RecruiterPackage.builder()
                     .name(RecruiterPackageCode.PROFESSIONAL)
-                    .price(599000L)
+                    .price(199000L)
                     .durationDays(30)
                     .priority(2)
                     .createAt(LocalDateTime.now())
@@ -112,7 +112,7 @@ public class RecruiterPackageSeeder implements CommandLineRunner {
 
             var enterprise = RecruiterPackage.builder()
                     .name(RecruiterPackageCode.ENTERPRISE)
-                    .price(999000L)
+                    .price(299000L)
                     .durationDays(30)
                     .priority(1)
                     .createAt(LocalDateTime.now())

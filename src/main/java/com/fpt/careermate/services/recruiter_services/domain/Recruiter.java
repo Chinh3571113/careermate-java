@@ -2,6 +2,7 @@ package com.fpt.careermate.services.recruiter_services.domain;
 
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
+import com.fpt.careermate.services.order_services.domain.RecruiterInvoice;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -75,4 +76,7 @@ public class Recruiter {
 
     @OneToMany(mappedBy = "recruiter")
     List<JobPosting> jobPostings;
+
+    @OneToOne(mappedBy = "recruiter")
+    RecruiterInvoice recruiterInvoice;
 }

@@ -61,7 +61,8 @@ public class SecurityConfig {
             "/actuator/**",
             "/api/job-postings/**",
             "/api/jdskill/top-used",
-            "/api/saved-jobs/jobs-for-candidate"
+            "/api/saved-jobs/jobs-for-candidate",
+            "api/recruiter-payment/return"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;

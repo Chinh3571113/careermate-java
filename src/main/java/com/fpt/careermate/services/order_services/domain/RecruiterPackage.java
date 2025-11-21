@@ -29,5 +29,8 @@ public class RecruiterPackage {
     List<RecruiterEntitlementPackage> recruiterEntitlementPackages;
 
     int priority;
+
+    @OneToMany(mappedBy = "recruiterPackage")
+    List<RecruiterInvoice> recruiterInvoices;
 }
 

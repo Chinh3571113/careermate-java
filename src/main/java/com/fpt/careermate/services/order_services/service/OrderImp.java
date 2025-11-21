@@ -1,6 +1,6 @@
 package com.fpt.careermate.services.order_services.service;
 
-import com.fpt.careermate.common.constant.StatusOrder;
+import com.fpt.careermate.common.constant.StatusInvoice;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.order_services.domain.Invoice;
@@ -53,7 +53,7 @@ public class OrderImp implements OrderService {
         invoice.setCandidate(currentCandidate);
         invoice.setCandidatePackage(pkg);
         invoice.setAmount(pkg.getPrice());
-        invoice.setStatus(StatusOrder.PAID);
+        invoice.setStatus(StatusInvoice.PAID);
         invoice.setCreateAt(LocalDate.now());
         invoice.setActive(true);
         invoice.setStartDate(LocalDate.now());
@@ -68,8 +68,8 @@ public class OrderImp implements OrderService {
         Invoice invoice = candidateOrderRepo.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (invoice.getStatus().equals(StatusOrder.PAID)) {
-            invoice.setStatus(StatusOrder.CANCELLED);
+        if (invoice.getStatus().equals(StatusInvoice.PAID)) {
+            invoice.setStatus(StatusInvoice.CANCELLED);
             invoice.setCancelledAt(LocalDate.now());
             invoice.setActive(false);
             candidateOrderRepo.save(invoice);
@@ -122,7 +122,7 @@ public class OrderImp implements OrderService {
 
         exstingInvoice.setCandidatePackage(pkg);
         exstingInvoice.setAmount(pkg.getPrice());
-        exstingInvoice.setStatus(StatusOrder.PAID);
+        exstingInvoice.setStatus(StatusInvoice.PAID);
         exstingInvoice.setCreateAt(LocalDate.now());
         exstingInvoice.setActive(true);
         exstingInvoice.setStartDate(LocalDate.now());

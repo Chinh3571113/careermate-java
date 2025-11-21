@@ -18,5 +18,7 @@ public class PaymentConfig {
     @Value("${vnpay.secret-key}")
     public String secretKey;
 
+    @Value("${vnpay.recruiter-return-url}")
+    public String vnp_RecruiterReturnUrl;
 }
 
