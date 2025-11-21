@@ -4,7 +4,6 @@ import com.fpt.careermate.common.constant.ResumeType;
 import com.fpt.careermate.services.resume_services.service.ResumeImp;
 import com.fpt.careermate.services.resume_services.service.dto.request.ResumeRequest;
 import com.fpt.careermate.services.resume_services.service.dto.request.ResumeStatusRequest;
-import com.fpt.careermate.services.resume_services.service.dto.request.ResumeTypeRequest;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.resume_services.service.dto.response.ResumeResponse;
 import io.swagger.v3.oas.annotations.Operation;
