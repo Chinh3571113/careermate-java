@@ -9,6 +9,8 @@ import com.fpt.careermate.services.blog_services.service.dto.request.BlogCreatio
 import com.fpt.careermate.services.blog_services.service.dto.request.BlogUpdateRequest;
 import com.fpt.careermate.services.blog_services.service.dto.response.BlogResponse;
 import com.fpt.careermate.services.blog_services.service.mapper.BlogMapper;
+import com.fpt.careermate.services.file_services.service.FileStorageImp;
+import com.fpt.careermate.services.storage.FirebaseStorageService;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import lombok.AccessLevel;
@@ -32,6 +34,9 @@ public class BlogImp implements BlogService {
     BlogRepo blogRepo;
     AdminRepo adminRepo;
     BlogMapper blogMapper;
+    BlogImageCleanupImp blogImageCleanup;
+    FileStorageImp fileStorageImp;
+    FirebaseStorageService firebaseStorageService;
 
     @Override
     @Transactional
@@ -68,26 +73,106 @@ public class BlogImp implements BlogService {
     @Override
     @Transactional
     public BlogResponse updateBlog(Long blogId, BlogUpdateRequest request) {
-        log.info("Updating blog ID: {}", blogId);
+        log.info("=== UPDATE BLOG START === ID: {}", blogId);
 
         Blog blog = blogRepo.findById(blogId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
 
+        // Store old values for cleanup
+        String oldContent = blog.getContent();
+        String oldThumbnailUrl = blog.getThumbnailUrl();
+        
+        log.info("Old content length: {}", oldContent != null ? oldContent.length() : 0);
+        log.info("Old thumbnail URL: {}", oldThumbnailUrl);
+        log.info("New content length: {}", request.getContent() != null ? request.getContent().length() : 0);
+        log.info("New thumbnail URL: {}", request.getThumbnailUrl());
+
+        // Update blog
         blogMapper.updateBlog(blog, request);
         blog = blogRepo.save(blog);
+        
+        log.info("Blog updated in database");
+        
+        // Clean up images from old content that are no longer used
+        if (oldContent != null && request.getContent() != null) {
+            log.info("=== CALLING cleanupUnusedImages ===");
+            blogImageCleanup.cleanupUnusedImages(oldContent, request.getContent());
+        } else {
+            log.info("Skipping content cleanup - oldContent null: {}, newContent null: {}", 
+                     oldContent == null, request.getContent() == null);
+        }
+        
+        // Clean up old thumbnail if it was replaced or removed
+        if (oldThumbnailUrl != null && !oldThumbnailUrl.equals(request.getThumbnailUrl())) {
+            log.info("=== THUMBNAIL CHANGED - Deleting old thumbnail ===");
+            log.info("Old thumbnail URL: {}", oldThumbnailUrl);
+            try {
+                String oldThumbnailPath = blogImageCleanup.extractFilePathFromUrl(oldThumbnailUrl);
+                if (oldThumbnailPath != null) {
+                    log.info("Attempting to delete old thumbnail from Firebase: {}", oldThumbnailPath);
+                    boolean deleted = firebaseStorageService.deleteFile(oldThumbnailPath);
+                    log.info("Old thumbnail deletion result: {}", deleted ? "SUCCESS" : "FAILED");
+                } else {
+                    log.warn("Could not extract file path from old thumbnail URL");
+                }
+            } catch (Exception e) {
+                log.error("Failed to delete old thumbnail: {}", e.getMessage(), e);
+            }
+        } else {
+            log.info("Skipping thumbnail cleanup - oldThumbnail null: {}, unchanged: {}", 
+                     oldThumbnailUrl == null, 
+                     oldThumbnailUrl != null && oldThumbnailUrl.equals(request.getThumbnailUrl()));
+        }
 
+        log.info("=== UPDATE BLOG END === ID: {}", blogId);
         return blogMapper.toBlogResponse(blog);
     }
 
     @Override
     @Transactional
     public void deleteBlog(Long blogId) {
-        log.info("Deleting blog ID: {}", blogId);
+        log.info("=== DELETE BLOG START === ID: {}", blogId);
 
         Blog blog = blogRepo.findById(blogId)
                 .orElseThrow(() -> new AppException(ErrorCode.BLOG_NOT_FOUND));
 
+        String content = blog.getContent();
+        String thumbnailUrl = blog.getThumbnailUrl();
+        
+        log.info("Blog content length: {}", content != null ? content.length() : 0);
+        log.info("Blog thumbnail URL: {}", thumbnailUrl);
+
+        // Delete all images from content before deleting the blog
+        if (content != null) {
+            log.info("=== CALLING deleteAllImagesFromContent for content ===");
+            blogImageCleanup.deleteAllImagesFromContent(content);
+        } else {
+            log.info("Skipping content cleanup - content is null");
+        }
+        
+        // Delete thumbnail image if exists
+        if (thumbnailUrl != null) {
+            log.info("=== DELETING THUMBNAIL ===");
+            log.info("Thumbnail URL: {}", thumbnailUrl);
+            try {
+                String thumbnailPath = blogImageCleanup.extractFilePathFromUrl(thumbnailUrl);
+                if (thumbnailPath != null) {
+                    log.info("Attempting to delete thumbnail from Firebase: {}", thumbnailPath);
+                    boolean deleted = firebaseStorageService.deleteFile(thumbnailPath);
+                    log.info("Thumbnail deletion result for blog ID {}: {}", blogId, deleted ? "SUCCESS" : "FAILED");
+                } else {
+                    log.warn("Could not extract file path from thumbnail URL");
+                }
+            } catch (Exception e) {
+                log.error("Failed to delete thumbnail for blog ID {}: {}", blogId, e.getMessage(), e);
+            }
+        } else {
+            log.info("Skipping thumbnail cleanup - thumbnail URL is null");
+        }
+
+        log.info("Deleting blog record from database");
         blogRepo.delete(blog);
+        log.info("=== DELETE BLOG END === Successfully deleted blog ID: {} and associated images", blogId);
     }
 
     @Override
