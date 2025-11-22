@@ -2,6 +2,7 @@ package com.fpt.careermate.services.order_services.web.rest;
 
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.order_services.service.RecruiterInvoiceImp;
+import com.fpt.careermate.services.order_services.service.dto.response.MyRecruiterInvoiceResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
@@ -47,6 +48,20 @@ public class RecruiterInvoiceController {
     public ApiResponse<Boolean> hasActivePackage() {
         return ApiResponse.<Boolean>builder()
                 .result(recruiterInvoiceImp.hasActivePackage())
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @Operation(summary = """
+            API to get my active invoice
+            input: none
+            output: my active invoice information
+            """)
+    @GetMapping("/my-invoice")
+    public ApiResponse<MyRecruiterInvoiceResponse> getMyActiveInvoice() {
+        return ApiResponse.<MyRecruiterInvoiceResponse>builder()
+                .result(recruiterInvoiceImp.getMyActiveInvoice())
                 .code(200)
                 .message("success")
                 .build();

@@ -8,7 +8,9 @@ import com.fpt.careermate.services.order_services.domain.RecruiterInvoice;
 import com.fpt.careermate.services.order_services.domain.RecruiterPackage;
 import com.fpt.careermate.services.order_services.repository.RecruiterInvoiceRepo;
 import com.fpt.careermate.services.order_services.repository.RecruiterPackageRepo;
+import com.fpt.careermate.services.order_services.service.dto.response.MyRecruiterInvoiceResponse;
 import com.fpt.careermate.services.order_services.service.impl.RecruiterInvoiceService;
+import com.fpt.careermate.services.order_services.service.mapper.RecruiterInvoiceMapper;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class RecruiterInvoiceImp implements RecruiterInvoiceService {
     RecruiterInvoiceRepo recruiterInvoiceRepo;
     RecruiterPackageRepo recruiterPackageRepo;
     CoachUtil coachUtil;
+    RecruiterInvoiceMapper recruiterInvoiceMapper;
 
     @Transactional
     public void creatInvoice(String packageName, Recruiter currentRecruiter) {
@@ -88,5 +91,18 @@ public class RecruiterInvoiceImp implements RecruiterInvoiceService {
         Optional<RecruiterInvoice> activeOrder =
                 recruiterInvoiceRepo.findByRecruiter_IdAndIsActiveTrue(currentRecruiter.getId());
         return activeOrder.isPresent();
+    }
+
+    // Get my active invoice by recruiter id
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    public MyRecruiterInvoiceResponse getMyActiveInvoice() {
+        Recruiter currentRecruiter = coachUtil.getCurrentRecruiter();
+        Optional<RecruiterInvoice> exsting =
+                recruiterInvoiceRepo.findByRecruiter_IdAndIsActiveTrue(currentRecruiter.getId());
+
+        if(exsting.isEmpty()) throw new AppException(ErrorCode.RECRUITER_INVOICE_NOT_FOUND);
+
+        return recruiterInvoiceMapper.toMyRecruiterInvoiceResponse(exsting.get());
     }
 }
