@@ -57,11 +57,13 @@ public class CandidateInvoiceImp implements CandidateInvoiceService {
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public void cancelOrder(int id) {
-        CandidateInvoice candidateInvoice = candidateInvoiceRepo.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+    public void cancelMyInvoice() {
+        Candidate currentCandidate = getCurrentCandidate();
+        CandidateInvoice candidateInvoice =
+                candidateInvoiceRepo.findById(currentCandidate.getCandidateId())
+                .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_INVOICE_NOT_FOUND));
 
-        if (candidateInvoice.getStatus().equals(StatusInvoice.PAID)) {
+        if (candidateInvoice.isActive()) {
             candidateInvoice.setStatus(StatusInvoice.CANCELLED);
             candidateInvoice.setCancelledAt(LocalDate.now());
             candidateInvoice.setActive(false);
