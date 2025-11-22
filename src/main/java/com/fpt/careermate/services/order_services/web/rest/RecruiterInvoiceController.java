@@ -25,13 +25,13 @@ public class RecruiterInvoiceController {
     RecruiterInvoiceImp recruiterInvoiceImp;
 
     @Operation(summary = """
-            Cancel recruiter package by id
-            input: recruiter invoice id
+            Cancel recruiter invoice
+            input: none
             output: success message
             """)
-    @DeleteMapping("/{id}")
-    public ApiResponse<Void> cancelInvoice(@Positive @PathVariable int id) {
-        recruiterInvoiceImp.cancelInvoice(id);
+    @DeleteMapping
+    public ApiResponse<Void> cancelInvoice() {
+        recruiterInvoiceImp.cancelMyInvoice();
         return ApiResponse.<Void>builder()
                 .code(200)
                 .message("success")

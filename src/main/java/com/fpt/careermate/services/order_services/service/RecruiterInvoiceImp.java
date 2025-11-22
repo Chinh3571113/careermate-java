@@ -52,18 +52,19 @@ public class RecruiterInvoiceImp implements RecruiterInvoiceService {
 
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
-    public void cancelInvoice(int id) {
-        RecruiterInvoice invoice = recruiterInvoiceRepo.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+    public void cancelMyInvoice() {
+        Recruiter currentRecruiter = coachUtil.getCurrentRecruiter();
+        RecruiterInvoice invoice = recruiterInvoiceRepo.findById(currentRecruiter.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_INVOICE_NOT_FOUND));
 
-        if (invoice.getStatus().equals(StatusInvoice.PAID)) {
+        if (invoice.isActive()) {
             invoice.setStatus(StatusInvoice.CANCELLED);
             invoice.setCancelledAt(LocalDate.now());
             invoice.setActive(false);
             recruiterInvoiceRepo.save(invoice);
         }
         else {
-            throw new AppException(ErrorCode.CANNOT_DELETE_ORDER);
+            throw new AppException(ErrorCode.CANNOT_DELETE_MY_RECRUITER_INVOICE);
         }
     }
 
