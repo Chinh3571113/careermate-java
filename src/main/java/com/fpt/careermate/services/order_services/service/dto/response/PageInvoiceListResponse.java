@@ -10,8 +10,8 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class PageAdminRecruiterInvoiceResponse {
-    List<AdminRecruiterInvoiceResponse> content;
+public class PageInvoiceListResponse {
+    List<InvoiceListResponse> content;
     int number;          // The current page number (starts from 0)
     int size;            // The number of elements per page (page size)
     long totalElements;  // The total number of elements across all pages
