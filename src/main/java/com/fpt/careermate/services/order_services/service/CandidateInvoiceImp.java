@@ -60,7 +60,7 @@ public class CandidateInvoiceImp implements CandidateInvoiceService {
     public void cancelMyInvoice() {
         Candidate currentCandidate = getCurrentCandidate();
         CandidateInvoice candidateInvoice =
-                candidateInvoiceRepo.findById(currentCandidate.getCandidateId())
+                candidateInvoiceRepo.findByCandidate_CandidateIdAndIsActiveTrue(currentCandidate.getCandidateId())
                 .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_INVOICE_NOT_FOUND));
 
         if (candidateInvoice.isActive()) {

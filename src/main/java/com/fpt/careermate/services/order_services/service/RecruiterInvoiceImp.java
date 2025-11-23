@@ -54,7 +54,7 @@ public class RecruiterInvoiceImp implements RecruiterInvoiceService {
     @Override
     public void cancelMyInvoice() {
         Recruiter currentRecruiter = coachUtil.getCurrentRecruiter();
-        RecruiterInvoice invoice = recruiterInvoiceRepo.findById(currentRecruiter.getId())
+        RecruiterInvoice invoice = recruiterInvoiceRepo.findByRecruiter_IdAndIsActiveTrue(currentRecruiter.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_INVOICE_NOT_FOUND));
 
         if (invoice.isActive()) {

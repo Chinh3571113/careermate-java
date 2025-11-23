@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "CandidatePackage", description = "Manage package")
+@Tag(name = "Package", description = "Manage package for candidate and recruiter")
 @RestController
 @RequestMapping("/api/package")
 @RequiredArgsConstructor
@@ -25,21 +25,21 @@ public class PackageController {
 
     PackageImp packageImp;
 
-    @Operation(summary = "Create package")
-    @PostMapping
-    public ApiResponse<PackageResponse> createPackage(@Valid @RequestBody PackageCreationRequest request) {
-        return ApiResponse.<PackageResponse>builder()
-                .result(packageImp.createPackage(request))
+    @Operation(summary = "Get package list for candidate")
+    @GetMapping("/candidate")
+    public ApiResponse<List<PackageResponse>> getCandidatePackageList() {
+        return ApiResponse.<List<PackageResponse>>builder()
+                .result(packageImp.getCandidatePackageList())
                 .code(200)
                 .message("success")
                 .build();
     }
 
-    @Operation(summary = "Get package list for admin")
-    @GetMapping
-    public ApiResponse<List<PackageResponse>> getPackageList() {
+    @Operation(summary = "Get package list for recruiter")
+    @GetMapping("/recruiter")
+    public ApiResponse<List<PackageResponse>> getRecruiterPackageList() {
         return ApiResponse.<List<PackageResponse>>builder()
-                .result(packageImp.getPackageList())
+                .result(packageImp.getRecruiterPackageList())
                 .code(200)
                 .message("success")
                 .build();
