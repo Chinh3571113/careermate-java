@@ -41,23 +41,23 @@ public class AdminDashboardService {
                     .totalCandidates(countByRole("CANDIDATE"))
                     .totalRecruiters(countByRole("RECRUITER"))
                     .totalAdmins(countByRole("ADMIN"))
-                    
+
                     // Account status counts
                     .activeAccounts(countByStatus("ACTIVE"))
                     .pendingAccounts(countByStatus("PENDING"))
                     .bannedAccounts(countByStatus("BANNED"))
                     .rejectedAccounts(countByStatus("REJECTED"))
-                    
+
                     // Content counts
                     .totalBlogs(blogRepo.count())
                     .totalJobPostings(jobPostingRepo.count())
                     .totalApplications(jobApplyRepo.count())
-                    
+
                     // Moderation counts
                     .pendingRecruiterApprovals(recruiterUpdateRequestRepo.countByStatus("PENDING"))
                     .flaggedComments(blogCommentRepo.countByIsFlaggedTrue())
                     .flaggedRatings(0L) // BlogRating doesn't have flagged field
-                    
+
                     // System health
                     .databaseStatus(getComponentStatus("db"))
                     .kafkaStatus(getComponentStatus("kafka"))
@@ -66,7 +66,7 @@ public class AdminDashboardService {
                     .firebaseStatus(getComponentStatus("firebase"))
                     .systemStatus(isSystemHealthy() ? "UP" : "DOWN")
                     .build();
-                    
+
         } catch (Exception e) {
             log.error("Error fetching dashboard statistics", e);
             throw new RuntimeException("Failed to fetch dashboard statistics: " + e.getMessage());
@@ -98,7 +98,7 @@ public class AdminDashboardService {
                 accountRepo.count(); // If this works, DB is up
                 return "UP";
             }
-            
+
             // For other components, use health indicators
             if (healthIndicators.containsKey(componentName)) {
                 var health = healthIndicators.get(componentName).health();
@@ -119,13 +119,13 @@ public class AdminDashboardService {
             String weaviateStatus = getComponentStatus("weaviate");
             String emailStatus = getComponentStatus("email");
             String firebaseStatus = getComponentStatus("firebase");
-            
+
             // All critical services must be UP
-            return "UP".equals(dbStatus) && 
-                   "UP".equals(kafkaStatus) && 
-                   "UP".equals(weaviateStatus) && 
-                   "UP".equals(emailStatus) && 
-                   "UP".equals(firebaseStatus);
+            return "UP".equals(dbStatus) &&
+                    "UP".equals(kafkaStatus) &&
+                    "UP".equals(weaviateStatus) &&
+                    "UP".equals(emailStatus) &&
+                    "UP".equals(firebaseStatus);
         } catch (Exception e) {
             log.error("Error checking system health", e);
             return false;

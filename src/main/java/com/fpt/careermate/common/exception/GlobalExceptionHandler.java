@@ -17,7 +17,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-    
+
     /**
      * Handle client disconnection errors (browser closed, network drop, etc.)
      * These are expected when users close tabs or navigate away
@@ -29,16 +29,17 @@ public class GlobalExceptionHandler {
         // Return null - connection is already closed, can't send response
         return null;
     }
-    
+
     @ExceptionHandler(value = Exception.class)
     ResponseEntity<ApiResponse> handlingRuntimeException(Exception exception) {
-        // Ignore client abort exceptions - these are normal when client closes connection
-        if (exception.getCause() != null && 
-            exception.getCause().getClass().getName().contains("ClientAbortException")) {
+        // Ignore client abort exceptions - these are normal when client closes
+        // connection
+        if (exception.getCause() != null &&
+                exception.getCause().getClass().getName().contains("ClientAbortException")) {
             log.debug("Client aborted connection: {}", exception.getMessage());
             return null;
         }
-        
+
         log.error("Exception: ", exception);
         ApiResponse apiResponse = new ApiResponse();
 
@@ -73,8 +74,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage()));
+        ex.getBindingResult().getFieldErrors()
+                .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
 
         Map<String, Object> body = new HashMap<>();
         body.put("status", HttpStatus.BAD_REQUEST.value());
@@ -83,7 +84,6 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.badRequest().body(body);
     }
-
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse> handleInvalidJson(HttpMessageNotReadableException ex) {

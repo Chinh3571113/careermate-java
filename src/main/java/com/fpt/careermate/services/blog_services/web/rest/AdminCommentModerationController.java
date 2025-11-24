@@ -28,117 +28,101 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminCommentModerationController {
 
-    BlogCommentImp blogCommentImp;
+        BlogCommentImp blogCommentImp;
 
-    @GetMapping("/flagged")
-    @Operation(
-            summary = "Search/Filter Flagged Comments",
-            description = "Search and filter flagged comments with optional filters: user email, blog ID. " +
-                    "Supports flexible sorting by any field (flaggedAt, createdAt, etc.)"
-    )
-    public ApiResponse<Page<BlogCommentResponse>> searchFlaggedComments(
-            @RequestParam(required = false) String userEmail,
-            @RequestParam(required = false) Long blogId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "flaggedAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDirection) {
-        
-        log.info("Admin searching flagged comments - userEmail: {}, blogId: {}, page: {}, size: {}", 
-                userEmail, blogId, page, size);
+        @GetMapping("/flagged")
+        @Operation(summary = "Search/Filter Flagged Comments", description = "Search and filter flagged comments with optional filters: user email, blog ID. "
+                        +
+                        "Supports flexible sorting by any field (flaggedAt, createdAt, etc.)")
+        public ApiResponse<Page<BlogCommentResponse>> searchFlaggedComments(
+                        @RequestParam(required = false) String userEmail,
+                        @RequestParam(required = false) Long blogId,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                        @RequestParam(defaultValue = "flaggedAt") String sortBy,
+                        @RequestParam(defaultValue = "DESC") String sortDirection) {
 
-        Sort sort = sortDirection.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+                log.info("Admin searching flagged comments - userEmail: {}, blogId: {}, page: {}, size: {}",
+                                userEmail, blogId, page, size);
 
-        return ApiResponse.<Page<BlogCommentResponse>>builder()
-                .result(blogCommentImp.searchFlaggedComments(userEmail, blogId, pageable))
-                .message("Retrieved flagged comments")
-                .build();
-    }
+                Sort sort = sortDirection.equalsIgnoreCase("ASC")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
+                Pageable pageable = PageRequest.of(page, size, sort);
 
-    @GetMapping("/flagged/all")
-    @Operation(
-            summary = "Get All Flagged Comments",
-            description = "Retrieve all flagged comments including those already reviewed by admins"
-    )
-    public ApiResponse<Page<BlogCommentResponse>> getAllFlaggedComments(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        
-        log.info("Admin requesting all flagged comments - page: {}, size: {}", page, size);
+                return ApiResponse.<Page<BlogCommentResponse>>builder()
+                                .result(blogCommentImp.searchFlaggedComments(userEmail, blogId, pageable))
+                                .message("Retrieved flagged comments")
+                                .build();
+        }
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by("flaggedAt").descending());
+        @GetMapping("/flagged/all")
+        @Operation(summary = "Get All Flagged Comments", description = "Retrieve all flagged comments including those already reviewed by admins")
+        public ApiResponse<Page<BlogCommentResponse>> getAllFlaggedComments(
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size) {
 
-        return ApiResponse.<Page<BlogCommentResponse>>builder()
-                .result(blogCommentImp.getAllFlaggedComments(pageable))
-                .message("Retrieved all flagged comments")
-                .build();
-    }
+                log.info("Admin requesting all flagged comments - page: {}, size: {}", page, size);
 
-    @PostMapping("/{commentId}/approve")
-    @Operation(
-            summary = "Approve Flagged Comment",
-            description = "Mark flagged comment as reviewed and approved. " +
-                    "This will unflag the comment, make it visible, and mark as reviewed."
-    )
-    public ApiResponse<BlogCommentResponse> approveFlaggedComment(
-            @PathVariable Long commentId) {
-        
-        log.info("Admin approving flagged comment ID: {}", commentId);
+                Pageable pageable = PageRequest.of(page, size, Sort.by("flaggedAt").descending());
 
-        return ApiResponse.<BlogCommentResponse>builder()
-                .result(blogCommentImp.approveFlaggedComment(commentId))
-                .message("Comment approved and unflagged successfully")
-                .build();
-    }
+                return ApiResponse.<Page<BlogCommentResponse>>builder()
+                                .result(blogCommentImp.getAllFlaggedComments(pageable))
+                                .message("Retrieved all flagged comments")
+                                .build();
+        }
 
-    @PostMapping("/{commentId}/reject")
-    @Operation(
-            summary = "Reject Flagged Comment",
-            description = "Mark flagged comment as reviewed and rejected. " +
-                    "This will hide the comment and mark as reviewed."
-    )
-    public ApiResponse<BlogCommentResponse> rejectFlaggedComment(
-            @PathVariable Long commentId) {
-        
-        log.info("Admin rejecting flagged comment ID: {}", commentId);
+        @PostMapping("/{commentId}/approve")
+        @Operation(summary = "Approve Flagged Comment", description = "Mark flagged comment as reviewed and approved. "
+                        +
+                        "This will unflag the comment, make it visible, and mark as reviewed.")
+        public ApiResponse<BlogCommentResponse> approveFlaggedComment(
+                        @PathVariable Long commentId) {
 
-        return ApiResponse.<BlogCommentResponse>builder()
-                .result(blogCommentImp.rejectFlaggedComment(commentId))
-                .message("Comment rejected and hidden successfully")
-                .build();
-    }
+                log.info("Admin approving flagged comment ID: {}", commentId);
 
-    @PostMapping("/{commentId}/unflag")
-    @Operation(
-            summary = "Manually Unflag Comment",
-            description = "Remove flag from comment without hiding it. " +
-                    "Use this when the flag is a false positive."
-    )
-    public ApiResponse<BlogCommentResponse> unflagComment(
-            @PathVariable Long commentId) {
-        
-        log.info("Admin manually unflagging comment ID: {}", commentId);
+                return ApiResponse.<BlogCommentResponse>builder()
+                                .result(blogCommentImp.approveFlaggedComment(commentId))
+                                .message("Comment approved and unflagged successfully")
+                                .build();
+        }
 
-        return ApiResponse.<BlogCommentResponse>builder()
-                .result(blogCommentImp.unflagComment(commentId))
-                .message("Comment unflagged successfully")
-                .build();
-    }
+        @PostMapping("/{commentId}/reject")
+        @Operation(summary = "Reject Flagged Comment", description = "Mark flagged comment as reviewed and rejected. " +
+                        "This will hide the comment and mark as reviewed.")
+        public ApiResponse<BlogCommentResponse> rejectFlaggedComment(
+                        @PathVariable Long commentId) {
 
-    @GetMapping("/moderation-statistics")
-    @Operation(
-            summary = "Get Moderation Statistics",
-            description = "Retrieve detailed moderation statistics including automation rules and pending reviews"
-    )
-    public ApiResponse<Object> getModerationStatistics() {
-        log.info("Admin requesting moderation statistics");
+                log.info("Admin rejecting flagged comment ID: {}", commentId);
 
-        return ApiResponse.builder()
-                .result(blogCommentImp.getModerationStatistics())
-                .message("Retrieved moderation statistics")
-                .build();
-    }
+                return ApiResponse.<BlogCommentResponse>builder()
+                                .result(blogCommentImp.rejectFlaggedComment(commentId))
+                                .message("Comment rejected and hidden successfully")
+                                .build();
+        }
+
+        @PostMapping("/{commentId}/unflag")
+        @Operation(summary = "Manually Unflag Comment", description = "Remove flag from comment without hiding it. " +
+                        "Use this when the flag is a false positive.")
+        public ApiResponse<BlogCommentResponse> unflagComment(
+                        @PathVariable Long commentId) {
+
+                log.info("Admin manually unflagging comment ID: {}", commentId);
+
+                return ApiResponse.<BlogCommentResponse>builder()
+                                .result(blogCommentImp.unflagComment(commentId))
+                                .message("Comment unflagged successfully")
+                                .build();
+        }
+
+        @GetMapping("/moderation-statistics")
+        @Operation(summary = "Get Moderation Statistics", description = "Retrieve detailed moderation statistics including automation rules and pending reviews")
+        public ApiResponse<Object> getModerationStatistics() {
+                log.info("Admin requesting moderation statistics");
+
+                return ApiResponse.builder()
+                                .result(blogCommentImp.getModerationStatistics())
+                                .message("Retrieved moderation statistics")
+                                .build();
+        }
 }

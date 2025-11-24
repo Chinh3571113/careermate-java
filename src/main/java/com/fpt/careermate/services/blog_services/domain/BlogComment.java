@@ -71,4 +71,3 @@ public class BlogComment {
         updatedAt = LocalDateTime.now();
     }
 }
-

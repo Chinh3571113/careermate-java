@@ -16,10 +16,12 @@ public interface RecruiterProfileUpdateRequestRepo extends JpaRepository<Recruit
 
     // Find by status
     List<RecruiterProfileUpdateRequest> findByStatus(String status);
+
     Page<RecruiterProfileUpdateRequest> findByStatus(String status, Pageable pageable);
 
     // Find by recruiter
     List<RecruiterProfileUpdateRequest> findByRecruiterId(int recruiterId);
+
     Optional<RecruiterProfileUpdateRequest> findByRecruiterIdAndStatus(int recruiterId, String status);
 
     // Check if recruiter has pending request
@@ -27,17 +29,15 @@ public interface RecruiterProfileUpdateRequestRepo extends JpaRepository<Recruit
 
     // Search with filters
     @Query("SELECT r FROM RecruiterProfileUpdateRequest r WHERE " +
-           "(:status IS NULL OR :status = '' OR r.status = :status) AND " +
-           "(:search IS NULL OR :search = '' OR " +
-           "LOWER(r.newCompanyName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(r.newCompanyEmail) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(r.recruiter.account.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+            "(:status IS NULL OR :status = '' OR r.status = :status) AND " +
+            "(:search IS NULL OR :search = '' OR " +
+            "LOWER(r.newCompanyName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.newCompanyEmail) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(r.recruiter.account.email) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<RecruiterProfileUpdateRequest> searchUpdateRequests(
-        @Param("status") String status,
-        @Param("search") String search,
-        Pageable pageable
-    );
-    
+            @Param("status") String status,
+            @Param("search") String search,
+            Pageable pageable);
+
     Long countByStatus(String status);
 }
-

@@ -59,15 +59,15 @@ public class BlogCommentImp {
         comment.setUser(user);
 
         // Auto-flag inappropriate content
-        ContentModerationService.ModerationResult moderation = 
-                contentModerationService.analyzeContent(request.getContent());
-        
+        ContentModerationService.ModerationResult moderation = contentModerationService
+                .analyzeContent(request.getContent());
+
         if (moderation.shouldFlag) {
             comment.setIsFlagged(true);
             comment.setFlagReason(moderation.flagReason);
             comment.setFlaggedAt(java.time.LocalDateTime.now());
             comment.setReviewedByAdmin(false);
-            log.warn("Comment auto-flagged for moderation. User: {}, Reason: {}", 
+            log.warn("Comment auto-flagged for moderation. User: {}, Reason: {}",
                     email, moderation.flagReason);
         }
 
@@ -126,15 +126,15 @@ public class BlogCommentImp {
         comment.setContent(request.getContent());
 
         // Re-check content for inappropriate content on update
-        ContentModerationService.ModerationResult moderation = 
-                contentModerationService.analyzeContent(request.getContent());
-        
+        ContentModerationService.ModerationResult moderation = contentModerationService
+                .analyzeContent(request.getContent());
+
         if (moderation.shouldFlag) {
             comment.setIsFlagged(true);
             comment.setFlagReason(moderation.flagReason);
             comment.setFlaggedAt(java.time.LocalDateTime.now());
             comment.setReviewedByAdmin(false);
-            log.warn("Updated comment auto-flagged for moderation. User: {}, Reason: {}", 
+            log.warn("Updated comment auto-flagged for moderation. User: {}, Reason: {}",
                     email, moderation.flagReason);
         } else if (comment.getIsFlagged() && comment.getReviewedByAdmin()) {
             // If previously flagged but now clean, keep admin review status
@@ -406,18 +406,19 @@ public class BlogCommentImp {
      */
     private BlogCommentResponse toBlogCommentResponseWithModerationInfo(BlogComment comment) {
         BlogCommentResponse response = blogCommentMapper.toBlogCommentResponse(comment);
-        
+
         // Calculate severity if flagged
         if (comment.getIsFlagged() && comment.getFlagReason() != null) {
-            ContentModerationService.ModerationResult result = 
-                    new ContentModerationService.ModerationResult(true, comment.getFlagReason());
+            ContentModerationService.ModerationResult result = new ContentModerationService.ModerationResult(true,
+                    comment.getFlagReason());
             int severity = contentModerationService.calculateSeverityScore(result);
             String priority = contentModerationService.getPriorityLevel(severity);
-            
-            // Add moderation metadata to response (you may want to create a specific DTO for this)
+
+            // Add moderation metadata to response (you may want to create a specific DTO
+            // for this)
             log.debug("Comment {} severity: {}, priority: {}", comment.getId(), severity, priority);
         }
-        
+
         return response;
     }
 }

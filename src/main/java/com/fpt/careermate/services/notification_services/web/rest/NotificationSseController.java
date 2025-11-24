@@ -51,20 +51,20 @@ public class NotificationSseController {
      * 
      * // Pass token as query parameter (EventSource limitation workaround)
      * const eventSource = new EventSource(
-     *   `http://localhost:8080/api/notifications/stream?token=${token}`
+     * `http://localhost:8080/api/notifications/stream?token=${token}`
      * );
      * 
      * // Listen for new notifications
      * eventSource.addEventListener('notification', (event) => {
-     *   const notification = JSON.parse(event.data);
-     *   console.log('New notification:', notification);
+     * const notification = JSON.parse(event.data);
+     * console.log('New notification:', notification);
      * });
      * 
      * // Listen for unread count updates (for bell badge)
      * eventSource.addEventListener('unread-count', (event) => {
-     *   const { count } = JSON.parse(event.data);
-     *   console.log('Unread count:', count);
-     *   // Update bell badge here
+     * const { count } = JSON.parse(event.data);
+     * console.log('Unread count:', count);
+     * // Update bell badge here
      * });
      * ```
      * // Update UI with notification
@@ -115,10 +115,12 @@ public class NotificationSseController {
      * **Connection management:**
      * - Timeout: 30 minutes of inactivity
      * - Auto-reconnect: Browser handles reconnection automatically
-     * - Multiple tabs: Each tab gets its own connection, all receive same notifications
+     * - Multiple tabs: Each tab gets its own connection, all receive same
+     * notifications
      * - Authentication: JWT token required as query parameter
      * 
-     * @param token JWT Bearer token (query parameter) - REQUIRED because EventSource can't send headers
+     * @param token JWT Bearer token (query parameter) - REQUIRED because
+     *              EventSource can't send headers
      * @return SseEmitter that streams notifications to the client
      * @throws AppException if token is invalid or user is not authenticated
      */
@@ -127,7 +129,7 @@ public class NotificationSseController {
             Establish a Server-Sent Events (SSE) connection to receive real-time notifications.
 
             **⚠️ IMPORTANT**: Pass JWT token as query parameter `?token=YOUR_JWT_TOKEN`
-            
+
             Native EventSource API cannot send custom headers, so token must be in query parameter.
 
             **Events**:
@@ -147,7 +149,7 @@ public class NotificationSseController {
                 const notification = JSON.parse(event.data);
                 // Handle new notification
             });
-            
+
             eventSource.addEventListener('unread-count', (event) => {
                 const { count } = JSON.parse(event.data);
                 // Update bell badge
@@ -161,13 +163,13 @@ public class NotificationSseController {
             """)
     public SseEmitter streamNotifications(
             @RequestParam(value = "token", required = false) String token) {
-        
+
         // Try to get userId from SecurityContext first (if authenticated via header)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String userId = null;
-        
+
         // If authenticated via Spring Security (Authorization header)
-        if (authentication != null && authentication.isAuthenticated() 
+        if (authentication != null && authentication.isAuthenticated()
                 && !authentication.getName().equals("anonymousUser")) {
             userId = authentication.getName();
             log.info("🔌 SSE connection via Authorization header | userId: {}", userId);

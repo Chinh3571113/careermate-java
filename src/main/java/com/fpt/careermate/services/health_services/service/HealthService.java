@@ -23,21 +23,21 @@ public class HealthService {
     public HealthStatusDTO getAggregatedHealth() {
         Map<String, ComponentHealth> components = new LinkedHashMap<>();
         boolean systemDown = false;
-        
+
         // Only check critical components for system status
-        String[] criticalComponents = {"db", "kafka"};
+        String[] criticalComponents = { "db", "kafka" };
 
         for (Map.Entry<String, HealthIndicator> entry : healthIndicators.entrySet()) {
             String name = entry.getKey();
-            
+
             // Skip notification worker completely - it's not critical
             if (name.equals("notificationWorker")) {
                 continue;
             }
-            
+
             Health health = entry.getValue().health();
             String status = health.getStatus().getCode();
-            
+
             // Check if this is a critical component
             boolean isCritical = false;
             for (String criticalName : criticalComponents) {
@@ -46,23 +46,22 @@ public class HealthService {
                     break;
                 }
             }
-            
+
             // Only critical components affect overall status
             if (isCritical && Status.DOWN.getCode().equals(status)) {
                 systemDown = true;
                 log.warn("Critical component {} is DOWN!", name);
             }
-            
+
             Map<String, Object> details = health.getDetails();
             String message = details != null ? details.getOrDefault("message", "").toString() : "";
-            
+
             components.put(name, new ComponentHealth(
                     name,
                     status,
                     message,
                     Instant.now(),
-                    details != null ? details : Map.of()
-            ));
+                    details != null ? details : Map.of()));
         }
 
         String overall = systemDown ? Status.DOWN.getCode() : Status.UP.getCode();
@@ -72,8 +71,8 @@ public class HealthService {
 
     public boolean isCriticalComponentDown() {
         // Check critical components: kafka, db, weaviate
-        String[] criticalComponents = {"kafka", "db", "weaviate"};
-        
+        String[] criticalComponents = { "kafka", "db", "weaviate" };
+
         for (String componentName : criticalComponents) {
             if (healthIndicators.containsKey(componentName)) {
                 Health health = healthIndicators.get(componentName).health();
@@ -84,7 +83,7 @@ public class HealthService {
                 }
             }
         }
-        
+
         return false;
     }
 }

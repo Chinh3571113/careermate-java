@@ -24,16 +24,14 @@ public class AdminDashboardController {
     AdminDashboardService adminDashboardService;
 
     @GetMapping("/stats")
-    @Operation(
-        summary = "Get all dashboard statistics",
-        description = "Single endpoint that returns ALL admin dashboard data including user counts, content stats, moderation stats, and system health. " +
-                     "This is the ONLY endpoint the frontend needs to call for the entire dashboard."
-    )
+    @Operation(summary = "Get all dashboard statistics", description = "Single endpoint that returns ALL admin dashboard data including user counts, content stats, moderation stats, and system health. "
+            +
+            "This is the ONLY endpoint the frontend needs to call for the entire dashboard.")
     public ApiResponse<DashboardStatsResponse> getAllDashboardStats() {
         log.info("Admin requesting complete dashboard statistics");
-        
+
         DashboardStatsResponse stats = adminDashboardService.getAllDashboardStats();
-        
+
         return ApiResponse.<DashboardStatsResponse>builder()
                 .code(200)
                 .message("Dashboard statistics retrieved successfully")

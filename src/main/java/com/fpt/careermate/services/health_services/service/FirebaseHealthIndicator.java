@@ -17,7 +17,7 @@ public class FirebaseHealthIndicator implements HealthIndicator {
         try {
             // Check if Firebase Storage bucket is accessible
             var bucket = StorageClient.getInstance().bucket();
-            
+
             if (bucket != null && bucket.exists()) {
                 return Health.up()
                         .withDetail("message", "Firebase Storage is accessible")

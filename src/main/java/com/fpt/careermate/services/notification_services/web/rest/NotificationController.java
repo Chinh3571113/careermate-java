@@ -145,35 +145,35 @@ public class NotificationController {
         @Operation(summary = "Send Broadcast Notification", description = "Send notification to all active users or specific role (Admin only)")
         public ApiResponse<Void> sendBroadcast(@RequestBody BroadcastNotificationRequest request) {
 
-                log.info("REST request to send broadcast | title: {}, targetRole: {}", request.getTitle(), request.getTargetRole());
+                log.info("REST request to send broadcast | title: {}, targetRole: {}", request.getTitle(),
+                                request.getTargetRole());
 
                 // If targetRole is specified, send to that role; otherwise send to all
                 if (request.getTargetRole() != null && !request.getTargetRole().isEmpty()) {
                         notificationService.sendNotificationToRole(
-                                request.getTargetRole(),
-                                request.getTitle(),
-                                request.getMessage(),
-                                null,
-                                convertPriority(request.getPriority())
-                        );
+                                        request.getTargetRole(),
+                                        request.getTitle(),
+                                        request.getMessage(),
+                                        null,
+                                        convertPriority(request.getPriority()));
                         return ApiResponse.<Void>builder()
-                                .message("Notification sent to all users with role: " + request.getTargetRole())
-                                .build();
+                                        .message("Notification sent to all users with role: " + request.getTargetRole())
+                                        .build();
                 } else {
                         notificationService.sendBroadcastNotification(
-                                request.getTitle(),
-                                request.getMessage(),
-                                null,
-                                convertPriority(request.getPriority())
-                        );
+                                        request.getTitle(),
+                                        request.getMessage(),
+                                        null,
+                                        convertPriority(request.getPriority()));
                         return ApiResponse.<Void>builder()
-                                .message("Broadcast notification sent to all active users")
-                                .build();
+                                        .message("Broadcast notification sent to all active users")
+                                        .build();
                 }
         }
 
         private Integer convertPriority(String priority) {
-                if (priority == null) return 2; // MEDIUM
+                if (priority == null)
+                        return 2; // MEDIUM
                 return switch (priority.toUpperCase()) {
                         case "HIGH" -> 3;
                         case "MEDIUM" -> 2;

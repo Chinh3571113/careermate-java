@@ -22,18 +22,18 @@ public class FlaggedCommentResponse {
     String userName;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
-    
+
     // Flagging information
     Boolean isFlagged;
     String flagReason;
     LocalDateTime flaggedAt;
     Boolean reviewedByAdmin;
-    
+
     // Moderation metadata
-    Integer severityScore;  // 0-100
-    String priorityLevel;   // HIGH, MEDIUM, LOW
+    Integer severityScore; // 0-100
+    String priorityLevel; // HIGH, MEDIUM, LOW
     Boolean isHidden;
-    
+
     // Additional context
     Integer userCommentCount;
     Boolean userHasPreviousFlags;
