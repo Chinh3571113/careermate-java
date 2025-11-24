@@ -24,12 +24,10 @@ public interface RecruiterInvoiceRepo extends JpaRepository<RecruiterInvoice,Int
            "JOIN FETCH ri.recruiterPackage " +
            "WHERE (:status IS NULL OR ri.status = :status) " +
            "AND (:isActive IS NULL OR ri.isActive = :isActive) " +
-           "AND (:companyName IS NULL OR LOWER(r.companyName) LIKE LOWER(CONCAT('%', :companyName, '%'))) " +
            "ORDER BY ri.id DESC")
     Page<RecruiterInvoice> findAllWithFilters(
             @Param("status") String status,
             @Param("isActive") Boolean isActive,
-            @Param("companyName") String companyName,
             Pageable pageable
     );
 }

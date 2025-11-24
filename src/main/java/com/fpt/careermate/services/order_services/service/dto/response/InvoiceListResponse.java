@@ -10,11 +10,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class AdminRecruiterInvoiceResponse {
+public class InvoiceListResponse {
     int id;
-    int recruiterId;
-    String recruiterCompanyName;
-    String recruiterEmail;
+    String fullname;
     String packageName;
     Long amount;
     String status;

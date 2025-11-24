@@ -5,6 +5,7 @@ import com.fpt.careermate.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -43,10 +44,7 @@ public class CandidatePaymentController {
 
     @Operation(summary = "Return to backend service to verify payment")
     @GetMapping("/return")
-    public ApiResponse<String> paymentReturn(HttpServletRequest httpServletRequest, Model model){
-        return ApiResponse.<String>builder()
-                .result(candidatePaymentImp.paymentReturn(httpServletRequest, model))
-                .code(200)
-                .build();
+    public void paymentReturn(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, Model model){
+        candidatePaymentImp.paymentReturn(httpServletRequest, httpServletResponse, model);
     }
 }

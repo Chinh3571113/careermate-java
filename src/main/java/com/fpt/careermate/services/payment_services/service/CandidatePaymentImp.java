@@ -15,6 +15,7 @@ import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.payment_services.service.impl.CandidatePaymentService;
 import com.fpt.careermate.common.util.PaymentUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -100,7 +102,7 @@ public class CandidatePaymentImp implements CandidatePaymentService {
 
     @Override
     @Transactional
-    public String paymentReturn(HttpServletRequest request, Model model) {
+    public void paymentReturn(HttpServletRequest request, HttpServletResponse response, Model model) {
         Map<String, String> fields = new HashMap<>();
         Map<String, String[]> requestParams = request.getParameterMap();
         String vnp_SecureHash = null;
@@ -213,6 +215,12 @@ public class CandidatePaymentImp implements CandidatePaymentService {
         }
 
         String redirectUrl = "http://localhost:3000/payment/return?" + qs.toString();
-        return "redirect:" + redirectUrl;
+
+        try {
+            response.sendRedirect(redirectUrl);
+        } catch (IOException e) {
+            log.error("Error redirecting to payment return URL: {}", redirectUrl, e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
     }
 }
