@@ -43,6 +43,22 @@ public class RoadmapController {
                 .build();
     }
 
+    @PostMapping("/import-all")
+    @Operation(description = """
+            Import all roadmaps from roadmap_data directory
+            Automatically extract roadmap name from file name
+            Example: updated_frontend_developer.csv -> FRONTEND DEVELOPER
+            Need login as ADMIN to access
+            """)
+    public ApiResponse<Void> addAllRoadmaps()
+    {
+        roadmapImp.addAllRoadmaps();
+        return ApiResponse.<Void>builder()
+                .code(200)
+                .message("Successfully imported all roadmaps")
+                .build();
+    }
+
     @GetMapping()
     @Operation(description = """
             Get roadmap by name
@@ -102,6 +118,23 @@ public class RoadmapController {
     {
         return ApiResponse.<List<RecommendedRoadmapResponse>>builder()
                 .result(roadmapImp.recommendRoadmap(role))
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @DeleteMapping("/reset")
+    @Operation(description = """
+            Reset recommended roadmap collection
+            input: none
+            output: success
+            Need login as ADMIN to access this API
+            DO NOT USE IN PRODUCTION
+            """)
+    public ApiResponse<Void> resetRoadmapCollection()
+    {
+        roadmapImp.resetRoadmapCollection();
+        return ApiResponse.<Void>builder()
                 .code(200)
                 .message("success")
                 .build();

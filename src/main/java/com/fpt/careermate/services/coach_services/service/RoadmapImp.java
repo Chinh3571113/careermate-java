@@ -20,6 +20,8 @@ import io.weaviate.client.v1.graphql.query.argument.NearTextArgument;
 import io.weaviate.client.v1.graphql.query.builder.GetBuilder;
 import io.weaviate.client.v1.graphql.query.fields.Field;
 import io.weaviate.client.v1.graphql.query.fields.Fields;
+import io.weaviate.client.v1.schema.model.Property;
+import io.weaviate.client.v1.schema.model.WeaviateClass;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -31,6 +33,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -48,6 +51,133 @@ public class RoadmapImp implements RoadmapService {
     TopicRepo topicRepo;
     SubtopicRepo subtopicRepo;
     RoadmapMapper roadmapMapper;
+
+    // Thêm toàn bộ roadmap từ thư mục roadmap_data vào Postgres
+    @Transactional
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public void addAllRoadmaps() {
+        String directoryPath = "../django/agent_core/data/craw/roadmap_data";
+        File directory = new File(directoryPath);
+
+        // Kiểm tra thư mục tồn tại
+        if (!directory.exists() || !directory.isDirectory()) {
+            log.error("Directory not found: {}", directoryPath);
+            throw new AppException(ErrorCode.FILE_NOT_FOUND);
+        }
+
+        // Lấy danh sách tất cả file CSV trong thư mục
+        File[] csvFiles = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
+
+        if (csvFiles == null || csvFiles.length == 0) {
+            log.warn("No CSV files found in directory: {}", directoryPath);
+            return;
+        }
+
+        log.info("Found {} CSV files to process", csvFiles.length);
+
+        // Duyệt qua từng file CSV
+        for (File csvFile : csvFiles) {
+            try {
+                // Trích xuất tên roadmap từ tên file
+                // Ví dụ: "updated_frontend_developer.csv" -> "FRONTEND DEVELOPER"
+                String fileName = csvFile.getName();
+                String roadmapName = extractRoadmapName(fileName);
+
+                log.info("Processing file: {} -> Roadmap name: {}", fileName, roadmapName);
+
+                // Kiểm tra xem roadmap đã tồn tại chưa
+                if (roadmapRepo.findByName(roadmapName).isPresent()) {
+                    log.warn("Roadmap '{}' already exists, skipping...", roadmapName);
+                    continue;
+                }
+
+                // Thêm roadmap từ file
+                addRoadmapFromFile(roadmapName, csvFile.getAbsolutePath());
+                log.info("Successfully added roadmap: {}", roadmapName);
+
+            } catch (Exception e) {
+                log.error("Error processing file: {}", csvFile.getName(), e);
+                // Tiếp tục xử lý các file khác
+            }
+        }
+
+        log.info("Finished processing all roadmap files");
+    }
+
+    // Trích xuất tên roadmap từ tên file
+    private String extractRoadmapName(String fileName) {
+        // Bỏ phần mở rộng .csv
+        String nameWithoutExtension = fileName.replaceAll("\\.csv$", "");
+
+        // Bỏ prefix "updated_" nếu có
+        String cleanName = nameWithoutExtension.replaceFirst("^updated_", "");
+
+        // Thay thế dấu gạch dưới bằng khoảng trắng và chuyển thành chữ hoa
+        return cleanName.replace("_", " ").toUpperCase().trim();
+    }
+
+    // Thêm roadmap từ file path cụ thể
+    protected void addRoadmapFromFile(String roadmapName, String filePath) {
+        List<Topic> topics = new ArrayList<>();
+
+        try {
+            // Mở file CSV
+            FileReader reader = new FileReader(filePath);
+
+            // Parse file CSV
+            Iterable<CSVRecord> records = CSVFormat.DEFAULT
+                    .builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .build()
+                    .parse(reader);
+
+            // Tạo đối tượng Roadmap
+            Roadmap roadmap = new Roadmap();
+            roadmap.setName(roadmapName);
+
+            // Duyệt từng dòng trong file CSV
+            records.forEach(csvRecord -> {
+                String topic = csvRecord.get("topic");
+                String subtopic = csvRecord.get("subtopic");
+                String tags = csvRecord.get("tags") != null ? csvRecord.get("tags") : "";
+                String resources = csvRecord.get("resources");
+                String description = csvRecord.get("description");
+
+                // Nếu là Topic (có topic nhưng không có subtopic)
+                if (!topic.isEmpty() && subtopic.isEmpty()) {
+                    Topic topicObj = new Topic(topic, tags, resources, description, roadmap);
+                    topics.add(topicObj);
+                }
+                // Nếu là Subtopic (có cả topic và subtopic)
+                else if (!topic.isEmpty() && !subtopic.isEmpty()) {
+                    Subtopic subtopicObj = new Subtopic(subtopic, tags, resources, description);
+                    // Tìm Topic tương ứng và thêm Subtopic vào
+                    topics.forEach(t -> {
+                        if (t.getName().equals(topic)) {
+                            subtopicObj.setTopic(t);
+                            t.getSubtopics().add(subtopicObj);
+                        }
+                    });
+                }
+            });
+
+            // Thêm topics vào roadmap
+            roadmap.setTopics(topics);
+
+            // Lưu vào Postgres
+            roadmapRepo.save(roadmap);
+
+            // Thêm vào Weaviate
+            addRoadmapToWeaviate(roadmapName);
+
+        } catch (FileNotFoundException e) {
+            throw new AppException(ErrorCode.FILE_NOT_FOUND);
+        } catch (IOException e) {
+            throw new AppException(ErrorCode.IO_EXCEPTION);
+        }
+    }
 
     // Thêm roadmap vào Postgres
     @Transactional
@@ -243,4 +373,88 @@ public class RoadmapImp implements RoadmapService {
                 .run();
     }
 
+    // Reset Roadmap collection
+    @PreAuthorize("hasRole('ADMIN')")
+    public void resetRoadmapCollection() {
+        String collectionName = "Roadmap";
+
+        try {
+            // Delete existing collection
+            Result<Boolean> deleteResult = client.schema().classDeleter()
+                    .withClassName(collectionName)
+                    .run();
+
+            if (deleteResult.hasErrors()) {
+                log.warn("Could not delete existing collection: {}", deleteResult.getError().getMessages());
+            }
+            deleteRoadmapInPostgres();
+
+            Thread.sleep(2000);
+
+            // Create new collection
+            createRoadmapCollection(collectionName);
+            createRoadmapProperty(collectionName);
+        } catch (Exception e) {
+            log.error("Error resetting Roadmap collection: {}", e.getMessage(), e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+    }
+
+    private void createRoadmapCollection(String collectionName) {
+        Map<String, Object> moduleConfig = new HashMap<>();
+        Map<String, Object> text2vecHuggingface = new HashMap<>();
+        text2vecHuggingface.put("vectorizeClassName", false);
+        text2vecHuggingface.put("model", "sentence-transformers/all-MiniLM-L6-v2");
+        moduleConfig.put("text2vec-huggingface", text2vecHuggingface);
+
+        Map<String, Object> namePropertyConfig = new HashMap<>();
+        Map<String, Object> nameText2vec = new HashMap<>();
+        nameText2vec.put("skip", false);
+        nameText2vec.put("vectorizePropertyName", false);
+        namePropertyConfig.put("text2vec-huggingface", nameText2vec);
+
+        WeaviateClass weaviateClass =
+                io.weaviate.client.v1.schema.model.WeaviateClass.builder()
+                .className(collectionName)
+                .description("A collection of roadmap with title.")
+                .vectorizer("text2vec-huggingface")
+                .moduleConfig(moduleConfig)
+                .build();
+
+        Result<Boolean> result = client.schema().classCreator()
+                .withClass(weaviateClass)
+                .run();
+
+        if (result.hasErrors()) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+    }
+
+    private void createRoadmapProperty(String collectionName) {
+        Property nameProperty = Property.builder()
+                .name("name")
+                .dataType(Collections.singletonList("text"))
+                .description("The name of the roadmap")
+                .moduleConfig(new HashMap<String, Object>() {{
+                    put("text2vec-huggingface", new HashMap<String, Object>() {{
+                        put("skip", false);
+                        put("vectorizePropertyName", false);
+                    }});
+                }})
+                .build();
+
+        Result<Boolean> result = client.schema().propertyCreator()
+                .withClassName(collectionName)
+                .withProperty(nameProperty)
+                .run();
+
+        if (result.hasErrors()) {
+            throw new AppException(ErrorCode.CANNOT_CREATE_ROADMAP_PROPERTY);
+        }
+    }
+
+    private void deleteRoadmapInPostgres(){
+        roadmapRepo.deleteAll();
+    }
 }
+

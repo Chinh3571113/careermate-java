@@ -43,5 +43,6 @@ public class Topic {
         this.description = description;
         this.resources = resources;
         this.roadmap = roadmap;
+        this.subtopics = new ArrayList<>();
     }
 }
