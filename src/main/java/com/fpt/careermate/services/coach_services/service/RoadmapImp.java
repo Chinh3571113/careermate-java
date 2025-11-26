@@ -303,7 +303,6 @@ public class RoadmapImp implements RoadmapService {
     @PreAuthorize("hasRole('CANDIDATE')")
     public List<RecommendedRoadmapResponse> recommendRoadmap(String role) {
         String collectionName = "Roadmap";
-        String[] target_vector = {"name_vector"};
 
         // Tạo bộ lọc tìm kiếm gần theo văn bản (nearText)
         // "concepts" là mảng các từ khóa hoặc cụm từ dùng để tìm kiếm ngữ nghĩa
@@ -312,7 +311,6 @@ public class RoadmapImp implements RoadmapService {
                 // vì SDK được sinh máy móc từ định nghĩa GraphQL, nên nó phản ánh y nguyên kiểu danh sách.
                 .concepts(new String[]{role.toUpperCase().trim()})
                 .certainty(0.71f)
-                .targetVectors(target_vector) // Sử dụng trường vector tùy chỉnh
                 .build();
 
         // Xác định các trường cần lấy từ đối tượng "Roadmap" trong Weaviate
