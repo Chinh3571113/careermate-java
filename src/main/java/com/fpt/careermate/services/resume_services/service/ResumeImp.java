@@ -7,7 +7,6 @@ import com.fpt.careermate.services.profile_services.service.CandidateProfileImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.resume_services.repository.ResumeRepo;
 import com.fpt.careermate.services.resume_services.service.dto.request.ResumeStatusRequest;
-import com.fpt.careermate.services.resume_services.service.dto.request.ResumeTypeRequest;
 import com.fpt.careermate.services.resume_services.service.dto.response.ResumeResponse;
 import com.fpt.careermate.services.resume_services.service.impl.ResumeService;
 import com.fpt.careermate.services.resume_services.service.mapper.ResumeMapper;
@@ -123,6 +122,17 @@ public class ResumeImp implements ResumeService {
         Resume resume = resumeRepo.findByResumeIdAndCandidateCandidateId(resumeId, candidate.getCandidateId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
 
+        // If setting this resume to active, deactivate all other resumes
+        if (request.getIsActive() != null && request.getIsActive()) {
+            List<Resume> allResumes = resumeRepo.findByCandidateCandidateId(candidate.getCandidateId());
+            for (Resume otherResume : allResumes) {
+                if (otherResume.getResumeId() != resumeId) {
+                    otherResume.setIsActive(false);
+                    resumeRepo.save(otherResume);
+                }
+            }
+        }
+
         // Update only isActive field
         resume.setIsActive(request.getIsActive());
         Resume updatedResume = resumeRepo.save(resume);
@@ -140,11 +150,6 @@ public class ResumeImp implements ResumeService {
         // Find resume and ensure it belongs to the authenticated candidate
         Resume resume = resumeRepo.findByResumeIdAndCandidateCandidateId(resumeId, candidate.getCandidateId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
-
-        // Check if resume is active
-        if (!resume.getIsActive()) {
-            throw new AppException(ErrorCode.RESUME_NOT_ACTIVE);
-        }
 
         // Update only type field
         resume.setType(request);

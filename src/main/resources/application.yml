@@ -4,8 +4,6 @@ server:
 spring:
   #  main:
   #    web-application-type: none
-
-
   application:
     name: careermate
   datasource:
