@@ -8,8 +8,6 @@ import com.fpt.careermate.services.coach_services.service.dto.response.TopicDeta
 import java.util.List;
 
 public interface RoadmapService {
-    void addAllRoadmaps();
-    void addRoadmap(String nameRoadmap, String fileName);
     RoadmapResponse getRoadmap(String roadmapName);
     TopicDetailResponse getTopicDetail(int topicId);
     TopicDetailResponse getSubtopicDetail(int subtopicId);

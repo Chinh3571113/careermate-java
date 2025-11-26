@@ -27,38 +27,6 @@ public class RoadmapController {
 
     RoadmapImp roadmapImp;
 
-    @PostMapping()
-    @Operation(description = """
-            Do not use this API
-            Need login as ADMIN to access
-            """)
-    public ApiResponse<Void> addRoadmap(
-            @RequestParam String nameRoadmap,
-            @RequestParam String fileName)
-    {
-        roadmapImp.addRoadmap(nameRoadmap, fileName);
-        return ApiResponse.<Void>builder()
-                .code(200)
-                .message("success")
-                .build();
-    }
-
-    @PostMapping("/import-all")
-    @Operation(description = """
-            Import all roadmaps from roadmap_data directory
-            Automatically extract roadmap name from file name
-            Example: updated_frontend_developer.csv -> FRONTEND DEVELOPER
-            Need login as ADMIN to access
-            """)
-    public ApiResponse<Void> addAllRoadmaps()
-    {
-        roadmapImp.addAllRoadmaps();
-        return ApiResponse.<Void>builder()
-                .code(200)
-                .message("Successfully imported all roadmaps")
-                .build();
-    }
-
     @GetMapping()
     @Operation(description = """
             Get roadmap by name

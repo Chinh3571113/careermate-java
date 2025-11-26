@@ -119,3 +119,9 @@ huggingface:
   api-key: ${HUGGINGFACE_API_KEY:default}
   # Model is NOT specified - Weaviate will use its default model (all-MiniLM-L6-v2)
   # through the Weaviate Embeddings Inference API
+
+app:
+  seeder:
+    roadmap:
+      bucket-name: ${BUCKET_NAME:default}
+      prefix: ${BUCKET_PREFIX:default}
