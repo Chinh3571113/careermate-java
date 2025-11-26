@@ -48,5 +48,46 @@ public class JobApply {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatusJobApply status;
+    
+    // Original timestamps
     private LocalDateTime createAt;
+    
+    // Status transition timestamps for review eligibility tracking
+    private LocalDateTime interviewScheduledAt;  // When interview was scheduled
+    private LocalDateTime interviewedAt;         // When interview actually occurred
+    private LocalDateTime hiredAt;               // When candidate was hired/employed
+    private LocalDateTime leftAt;                // When employment ended
+    private LocalDateTime lastContactAt;         // Last communication from company
+    private LocalDateTime statusChangedAt;       // Last status update timestamp
+    
+    // Helper method to calculate days employed
+    public Integer getDaysEmployed() {
+        if (hiredAt == null) return null;
+        LocalDateTime endDate = leftAt != null ? leftAt : LocalDateTime.now();
+        return (int) java.time.Duration.between(hiredAt, endDate).toDays();
+    }
+    
+    // Helper method to calculate days since application
+    public Integer getDaysSinceApplication() {
+        if (createAt == null) return null;
+        return (int) java.time.Duration.between(createAt, LocalDateTime.now()).toDays();
+    }
+    
+    // Helper method to check if candidate qualifies for application review
+    public boolean canReviewApplication() {
+        return getDaysSinceApplication() != null && getDaysSinceApplication() >= 7 
+            && (status == StatusJobApply.SUBMITTED || status == StatusJobApply.NO_RESPONSE);
+    }
+    
+    // Helper method to check if candidate qualifies for interview review
+    public boolean canReviewInterview() {
+        return interviewedAt != null;
+    }
+    
+    // Helper method to check if candidate qualifies for work experience review
+    public boolean canReviewWorkExperience() {
+        return status == StatusJobApply.ACCEPTED 
+            && getDaysEmployed() != null 
+            && getDaysEmployed() >= 30;
+    }
 }

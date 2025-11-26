@@ -15,6 +15,11 @@ import java.io.IOException;
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
+        // Check if response is already committed before attempting to write
+        if (response.isCommitted()) {
+            return; // Response already sent, cannot modify
+        }
+
         ErrorCode errorCode = ErrorCode.UNAUTHENTICATED;
 
         response.setStatus(errorCode.getStatusCode().value());
@@ -28,6 +33,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         ObjectMapper objectMapper = new ObjectMapper();
 
         response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
-        response.flushBuffer();
+        // Removed flushBuffer() - let Tomcat handle response lifecycle
+        // flushBuffer() commits the response, preventing proper error handling
     }
 }

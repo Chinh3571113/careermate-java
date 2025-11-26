@@ -147,7 +147,37 @@ public enum ErrorCode {
     CANDIDATE_INVOICE_NOT_FOUND(2007, "CandidateInvoice not found", HttpStatus.NOT_FOUND),
     CANNOT_DELETE_MY_RECRUITER_INVOICE(
             2008, "Cannot delete RecruiterInvoice if status is not ACTIVE",
-            HttpStatus.FORBIDDEN);
+            HttpStatus.FORBIDDEN),
+
+    // 90xx: Job Application
+    JOB_APPLY_NOT_FOUND(9000, "Job application not found", HttpStatus.NOT_FOUND),
+
+    // 91xx: Interview Scheduling
+    INTERVIEW_NOT_FOUND(9100, "Interview schedule not found", HttpStatus.NOT_FOUND),
+    INTERVIEW_ALREADY_SCHEDULED(9101, "Interview already scheduled for this job application", HttpStatus.BAD_REQUEST),
+    INVALID_SCHEDULE_DATE(9102, "Scheduled date must be in the future", HttpStatus.BAD_REQUEST),
+    INTERVIEW_ALREADY_CONFIRMED(9103, "Interview has already been confirmed by candidate", HttpStatus.BAD_REQUEST),
+    CANNOT_RESCHEDULE_COMPLETED_INTERVIEW(9104, "Cannot reschedule a completed or cancelled interview", HttpStatus.BAD_REQUEST),
+    RESCHEDULE_TOO_LATE(9105, "Cannot reschedule interview less than 2 hours before scheduled time", HttpStatus.BAD_REQUEST),
+    RESCHEDULE_REQUEST_NOT_FOUND(9106, "Reschedule request not found", HttpStatus.NOT_FOUND),
+    RESCHEDULE_REQUEST_ALREADY_PROCESSED(9107, "Reschedule request has already been processed", HttpStatus.BAD_REQUEST),
+    RESCHEDULE_REQUEST_EXPIRED(9108, "Reschedule request has expired", HttpStatus.BAD_REQUEST),
+    SCHEDULING_CONFLICT(9109, "Scheduling conflict detected - time slot not available", HttpStatus.CONFLICT),
+    INTERVIEW_NOT_YET_COMPLETED(9109, "Interview has not yet reached scheduled end time", HttpStatus.BAD_REQUEST),
+    CANNOT_MARK_NO_SHOW_BEFORE_TIME(9110, "Cannot mark as no-show before scheduled interview time", HttpStatus.BAD_REQUEST),
+    CANNOT_CANCEL_COMPLETED_INTERVIEW(9111, "Cannot cancel a completed interview", HttpStatus.BAD_REQUEST),
+    INVALID_DURATION(9112, "Invalid interview duration", HttpStatus.BAD_REQUEST),
+    INTERVIEW_TOO_SHORT(9113, "Interview must last at least 50% of scheduled duration to complete early", HttpStatus.BAD_REQUEST),
+
+    // Company Review Error Codes (9300-9399)
+    REVIEW_NOT_FOUND(9300, "Company review not found", HttpStatus.NOT_FOUND),
+    UNAUTHORIZED_REVIEW(9301, "You are not authorized to review this company", HttpStatus.FORBIDDEN),
+    REVIEW_ALREADY_SUBMITTED(9302, "You have already submitted a review for this job application", HttpStatus.BAD_REQUEST),
+    
+    // Employment Verification Error Codes (9400-9499)
+    EMPLOYMENT_VERIFICATION_NOT_FOUND(9400, "Employment verification record not found", HttpStatus.NOT_FOUND),
+    EMPLOYMENT_VERIFICATION_EXISTS(9401, "Employment verification already exists for this job application", HttpStatus.BAD_REQUEST),
+    EMPLOYMENT_ALREADY_TERMINATED(9402, "Employment has already been terminated", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;

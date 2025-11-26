@@ -13,6 +13,7 @@ import org.springframework.web.context.request.async.AsyncRequestNotUsableExcept
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import jakarta.servlet.http.HttpServletResponse;
 
 @ControllerAdvice
 @Slf4j
@@ -31,7 +32,22 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(value = Exception.class)
-    ResponseEntity<ApiResponse> handlingRuntimeException(Exception exception) {
+    ResponseEntity<ApiResponse> handlingRuntimeException(Exception exception, HttpServletResponse response) {
+        // Check if response is already committed (headers already sent to client)
+        if (response != null && response.isCommitted()) {
+            log.warn("Cannot send error response - response already committed. Exception: {}", 
+                    exception.getClass().getSimpleName());
+            return null; // Can't modify response, it's already sent
+        }
+
+        // Check for Tomcat RecycleRequiredException
+        String exceptionClassName = exception.getClass().getName();
+        if (exceptionClassName.contains("RecycleRequiredException")) {
+            log.warn("Tomcat RecycleRequiredException - response handling conflict. " +
+                    "This usually happens during authentication failures or filter chain issues.");
+            return null; // Connection already closed/recycled
+        }
+
         // Ignore client abort exceptions - these are normal when client closes
         // connection
         if (exception.getCause() != null &&
@@ -50,7 +66,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(value = AppException.class)
-    ResponseEntity<ApiResponse> handlingAppException(AppException exception) {
+    ResponseEntity<ApiResponse> handlingAppException(AppException exception, HttpServletResponse response) {
+        if (response != null && response.isCommitted()) {
+            log.warn("Cannot send AppException response - already committed: {}", exception.getErrorCode());
+            return null;
+        }
+
         ErrorCode errorCode = exception.getErrorCode();
         ApiResponse apiResponse = new ApiResponse();
 
@@ -61,7 +82,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(value = AccessDeniedException.class)
-    ResponseEntity<ApiResponse> handlingAccessDeniedException(AccessDeniedException exception) {
+    ResponseEntity<ApiResponse> handlingAccessDeniedException(AccessDeniedException exception, HttpServletResponse response) {
+        if (response != null && response.isCommitted()) {
+            log.warn("Cannot send AccessDenied response - already committed");
+            return null;
+        }
+
         ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
 
         return ResponseEntity.status(errorCode.getStatusCode())
@@ -72,7 +98,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
+    public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex, HttpServletResponse response) {
+        if (response != null && response.isCommitted()) {
+            log.warn("Cannot send validation error - already committed");
+            return null;
+        }
+
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getFieldErrors()
                 .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
@@ -86,7 +117,12 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse> handleInvalidJson(HttpMessageNotReadableException ex) {
+    public ResponseEntity<ApiResponse> handleInvalidJson(HttpMessageNotReadableException ex, HttpServletResponse response) {
+        if (response != null && response.isCommitted()) {
+            log.warn("Cannot send JSON error - already committed");
+            return null;
+        }
+
         log.error("Invalid JSON format: ", ex);
 
         ErrorCode errorCode = ErrorCode.INVALID_JSON;

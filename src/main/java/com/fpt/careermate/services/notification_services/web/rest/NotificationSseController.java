@@ -1,12 +1,11 @@
 package com.fpt.careermate.services.notification_services.web.rest;
 
-import com.fpt.careermate.common.exception.AppException;
-import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.config.CustomJwtDecoder;
 import com.fpt.careermate.services.notification_services.service.NotificationSseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -19,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.io.IOException;
 
 /**
  * Controller for Server-Sent Events (SSE) real-time notification streaming.
@@ -162,7 +163,8 @@ public class NotificationSseController {
             - Multiple tabs: Supported (each gets own connection)
             """)
     public SseEmitter streamNotifications(
-            @RequestParam(value = "token", required = false) String token) {
+            @RequestParam(value = "token", required = false) String token,
+            HttpServletResponse response) throws IOException {
 
         // Try to get userId from SecurityContext first (if authenticated via header)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -183,13 +185,25 @@ public class NotificationSseController {
                 log.info("🔌 SSE connection via query parameter | userId: {}", userId);
             } catch (Exception e) {
                 log.error("❌ Invalid token in SSE connection: {}", e.getMessage());
-                throw new AppException(ErrorCode.UNAUTHENTICATED);
+                // Send error response for SSE - don't throw exception
+                if (!response.isCommitted()) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"error\":\"Invalid or expired token\"}");
+                }
+                return null;
             }
         }
         // No authentication provided
         else {
             log.error("❌ Unauthenticated SSE connection attempt - no token provided");
-            throw new AppException(ErrorCode.UNAUTHENTICATED);
+            // Send error response for SSE - don't throw exception
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.getWriter().write("{\"error\":\"Authentication required\"}");
+            }
+            return null;
         }
 
         return sseService.createConnection(userId);

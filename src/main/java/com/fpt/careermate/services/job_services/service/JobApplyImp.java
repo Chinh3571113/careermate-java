@@ -4,9 +4,11 @@ import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.job_services.domain.JobApply;
+import com.fpt.careermate.services.job_services.domain.JobApplyStatusHistory;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
+import com.fpt.careermate.services.job_services.repository.JobApplyStatusHistoryRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import com.fpt.careermate.services.job_services.service.dto.request.JobApplyRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.JobApplyResponse;
@@ -47,6 +49,7 @@ public class JobApplyImp implements JobApplyService {
         CandidateRepo candidateRepo;
         JobApplyMapper jobApplyMapper;
         NotificationProducer notificationProducer;
+        JobApplyStatusHistoryRepo statusHistoryRepo;
 
         @Override
         @Transactional
@@ -179,10 +182,23 @@ public class JobApplyImp implements JobApplyService {
 
                 StatusJobApply previousStatus = jobApply.getStatus();
 
-                // Update status if provided
+                // Validate status transition
+                if (!isValidStatusTransition(previousStatus, status)) {
+                        throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
+                }
+
+                // Update status and relevant timestamps
                 jobApply.setStatus(status);
+                jobApply.setStatusChangedAt(LocalDateTime.now());
+                
+                // Auto-set timestamps based on status
+                updateTimestampsForStatus(jobApply, status);
 
                 JobApply updatedJobApply = jobApplyRepo.save(jobApply);
+                
+                // Record status change in history
+                recordStatusChange(updatedJobApply, previousStatus, status, null, null);
+                
                 log.info("Job application ID: {} updated from {} to {}", id, previousStatus, status);
 
                 // Send notification to candidate about status change
@@ -403,4 +419,129 @@ public class JobApplyImp implements JobApplyService {
                 log.info("✅ Sent application status change notification to candidate {} for status: {}", candidateId,
                                 newStatus);
         }
+        
+        // ==================== STATUS TRANSITION VALIDATION ====================
+        
+        /**
+         * Validate if status transition is allowed
+         * Prevents invalid state changes (e.g., REJECTED → APPROVED)
+         */
+        private boolean isValidStatusTransition(StatusJobApply from, StatusJobApply to) {
+                // Same status is always allowed (no-op)
+                if (from == to) {
+                        return true;
+                }
+                
+                // Define allowed transitions
+                switch (from) {
+                        case SUBMITTED:
+                                // Can move to reviewing, interviewed, approved, rejected, or no response
+                                return to == StatusJobApply.REVIEWING 
+                                    || to == StatusJobApply.INTERVIEW_SCHEDULED
+                                    || to == StatusJobApply.APPROVED 
+                                    || to == StatusJobApply.REJECTED
+                                    || to == StatusJobApply.NO_RESPONSE
+                                    || to == StatusJobApply.WITHDRAWN;
+                                
+                        case REVIEWING:
+                                // Can move to interview scheduled, approved, rejected
+                                return to == StatusJobApply.INTERVIEW_SCHEDULED
+                                    || to == StatusJobApply.APPROVED 
+                                    || to == StatusJobApply.REJECTED
+                                    || to == StatusJobApply.WITHDRAWN;
+                                
+                        case INTERVIEW_SCHEDULED:
+                                // Can move to interviewed, approved, rejected
+                                return to == StatusJobApply.INTERVIEWED
+                                    || to == StatusJobApply.APPROVED 
+                                    || to == StatusJobApply.REJECTED
+                                    || to == StatusJobApply.WITHDRAWN;
+                                
+                        case INTERVIEWED:
+                                // Can move to approved, rejected, or schedule another interview
+                                return to == StatusJobApply.INTERVIEW_SCHEDULED
+                                    || to == StatusJobApply.APPROVED 
+                                    || to == StatusJobApply.REJECTED;
+                                
+                        case APPROVED:
+                                // Can move to accepted (hired) or rejected (changed mind)
+                                return to == StatusJobApply.ACCEPTED
+                                    || to == StatusJobApply.REJECTED
+                                    || to == StatusJobApply.WITHDRAWN;
+                                
+                        case ACCEPTED:
+                                // Once hired, can only be banned or stay accepted
+                                return to == StatusJobApply.BANNED;
+                                
+                        case REJECTED:
+                        case BANNED:
+                        case NO_RESPONSE:
+                        case WITHDRAWN:
+                                // Terminal states - cannot transition out
+                                return false;
+                                
+                        default:
+                                return false;
+                }
+        }
+        
+        /**
+         * Auto-set timestamps when status changes
+         */
+        private void updateTimestampsForStatus(JobApply jobApply, StatusJobApply newStatus) {
+                LocalDateTime now = LocalDateTime.now();
+                
+                switch (newStatus) {
+                        case INTERVIEW_SCHEDULED:
+                                if (jobApply.getInterviewScheduledAt() == null) {
+                                        jobApply.setInterviewScheduledAt(now);
+                                }
+                                jobApply.setLastContactAt(now);
+                                break;
+                                
+                        case INTERVIEWED:
+                                if (jobApply.getInterviewedAt() == null) {
+                                        jobApply.setInterviewedAt(now);
+                                }
+                                jobApply.setLastContactAt(now);
+                                break;
+                                
+                        case ACCEPTED:
+                                if (jobApply.getHiredAt() == null) {
+                                        jobApply.setHiredAt(now);
+                                }
+                                jobApply.setLastContactAt(now);
+                                break;
+                                
+                        case REVIEWING:
+                        case APPROVED:
+                        case REJECTED:
+                                jobApply.setLastContactAt(now);
+                                break;
+                                
+                        case NO_RESPONSE:
+                                // Don't update lastContactAt - that's the point
+                                break;
+                }
+        }
+        
+        /**
+         * Record status change in history table
+         */
+        private void recordStatusChange(JobApply jobApply, StatusJobApply previousStatus, 
+                                       StatusJobApply newStatus, Integer changedByUserId, String reason) {
+                JobApplyStatusHistory history = JobApplyStatusHistory.builder()
+                        .jobApply(jobApply)
+                        .previousStatus(previousStatus)
+                        .newStatus(newStatus)
+                        .changedAt(LocalDateTime.now())
+                        .changedByUserId(changedByUserId)
+                        .changeReason(reason)
+                        .build();
+                
+                statusHistoryRepo.save(history);
+                log.info("📝 Recorded status change: JobApply {} from {} to {}", 
+                        jobApply.getId(), previousStatus, newStatus);
+        }
 }
+
