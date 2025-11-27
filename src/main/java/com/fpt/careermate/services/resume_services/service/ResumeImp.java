@@ -47,6 +47,7 @@ public class ResumeImp implements ResumeService {
                 .candidate(candidate)
                 .isActive(false)
                 .type(resumeRequest.getType())
+                .resumeUrl(resumeRequest.getResumeUrl())
                 .aboutMe(resumeRequest.getAboutMe())
                 .build();
 
