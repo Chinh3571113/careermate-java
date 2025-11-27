@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.admin_services.web.rest;
 
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
+import com.fpt.careermate.services.job_services.service.WeaviateImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingApprovalRequest;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForAdminResponse;
@@ -29,6 +30,7 @@ import java.util.List;
 public class AdminJobPostingController {
 
     JobPostingImp jobPostingImp;
+    WeaviateImp weaviateImp;
 
     @GetMapping
     @Operation(summary = "Get all job postings with pagination and filtering", description = "Admin can view all job postings with pagination, filtering by status, and sorting")
@@ -99,6 +101,16 @@ public class AdminJobPostingController {
         return ApiResponse.<String>builder()
                 .code(200)
                 .message(message)
+                .build();
+    }
+
+    @DeleteMapping("/reset")
+    @Operation(description = "Admin reset job posting. DO NOT USE IN PRODUCTION")
+    ApiResponse<Void> reset() {
+        weaviateImp.resetJobPostingCollection();
+        return ApiResponse.<Void>builder()
+                .code(200)
+                .message("success")
                 .build();
     }
 }

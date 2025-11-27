@@ -8,6 +8,7 @@ import com.fpt.careermate.services.job_services.domain.JobFeedback;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.repository.JobFeedbackRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.job_services.service.WeaviateImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
@@ -48,6 +49,7 @@ public class JobFeedbackSeeder implements CommandLineRunner {
     AccountRepo accountRepo;
     RoleRepo roleRepo;
     PasswordEncoder passwordEncoder;
+    WeaviateImp weaviateImp;
 
     @Override
     public void run(String... args) throws Exception {
@@ -56,9 +58,13 @@ public class JobFeedbackSeeder implements CommandLineRunner {
         if (jobPostingCount == 0) {
             log.info("🌱 No job postings found. Creating 10 job postings...");
             seedJobPostings();
+
         } else {
             log.info("ℹ️ Job postings already exist. Count: {}", jobPostingCount);
         }
+
+        // Seed vào Weaviate sau khi tạo job postings
+        seedJobPostingInWeaviate();
 
         // Luôn seed job feedback nếu có candidates và job postings
         long feedbackCount = jobFeedbackRepo.count();
@@ -281,5 +287,27 @@ public class JobFeedbackSeeder implements CommandLineRunner {
 
         return recruiter;
     }
-}
 
+    private void seedJobPostingInWeaviate() {
+        List<JobPosting> jobPostings = jobPostingRepo.findAll();
+
+        if (jobPostings.isEmpty()) {
+            log.warn("⚠️ No job postings found in database. Skipping Weaviate seeding.");
+            return;
+        }
+
+        for (JobPosting jobPosting : jobPostings) {
+            try {
+                // Kiểm tra xem job posting đã tồn tại trong Weaviate chưa
+                if (weaviateImp.isJobPostingExistsInWeaviate(jobPosting.getId())) {
+                    continue;
+                }
+
+                weaviateImp.addJobPostingToWeaviate(jobPosting);
+            } catch (Exception e) {
+                log.error("❌ Failed to add job posting '{}' to Weaviate: {}",
+                         jobPosting.getTitle(), e.getMessage());
+            }
+        }
+    }
+}

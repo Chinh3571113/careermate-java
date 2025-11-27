@@ -22,25 +22,17 @@ public class FirebaseConfig {
     public void initialize() {
         if (FirebaseApp.getApps().isEmpty()) {
             try {
-                String credentialsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-
                 InputStream serviceAccount;
-                if (credentialsPath != null) {
-                    // Use environment variable path
-                    serviceAccount = new FileInputStream(credentialsPath);
-                    log.info("Using Firebase credentials from: {}", credentialsPath);
-                } else {
-                    // Fallback to classpath
-                    ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
-                    if (!resource.exists()) {
-                        log.error(
-                                "❌ Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
-                        throw new RuntimeException(
-                                "Firebase service account file not found: firebase-service-account.json");
-                    }
-                    serviceAccount = resource.getInputStream();
-                    log.info("Using Firebase credentials from classpath");
+                // Fallback to classpath
+                ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
+                if (!resource.exists()) {
+                    log.error(
+                            "❌ Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
+                    throw new RuntimeException(
+                            "Firebase service account file not found: firebase-service-account.json");
                 }
+                serviceAccount = resource.getInputStream();
+                log.info("Using Firebase credentials from classpath");
 
                 FirebaseOptions options = FirebaseOptions.builder()
                         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
