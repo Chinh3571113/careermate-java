@@ -148,7 +148,15 @@ public enum ErrorCode {
     CANDIDATE_INVOICE_NOT_FOUND(2007, "CandidateInvoice not found", HttpStatus.NOT_FOUND),
     CANNOT_DELETE_MY_RECRUITER_INVOICE(
             2008, "Cannot delete RecruiterInvoice if status is not ACTIVE",
-            HttpStatus.FORBIDDEN);
+            HttpStatus.FORBIDDEN),
+
+    // 90xx: Interview
+    INTERVIEW_SESSION_NOT_FOUND(9000, "Interview session not found", HttpStatus.NOT_FOUND),
+    INTERVIEW_SESSION_ALREADY_COMPLETED(9001, "Interview session is already completed", HttpStatus.BAD_REQUEST),
+    INTERVIEW_QUESTION_NOT_FOUND(9002, "Interview question not found", HttpStatus.NOT_FOUND),
+    INTERVIEW_SESSION_FORBIDDEN(9003, "You are not allowed to access this interview session", HttpStatus.FORBIDDEN),
+    INTERVIEW_QUESTION_ALREADY_ANSWERED(9004, "This question has already been answered", HttpStatus.BAD_REQUEST),
+    INTERVIEW_SESSION_NOT_ONGOING(9005, "Interview session is not ongoing", HttpStatus.BAD_REQUEST);
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;
