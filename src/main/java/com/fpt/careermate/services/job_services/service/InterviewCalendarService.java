@@ -22,43 +22,19 @@ public interface InterviewCalendarService {
     // =====================================================
     
     /**
-     * Set or update working hours for a recruiter
+     * Set or update working hours for authenticated recruiter
      */
-    RecruiterWorkingHoursResponse setWorkingHours(Integer recruiterId, RecruiterWorkingHoursRequest request);
+    RecruiterWorkingHoursResponse setWorkingHours(RecruiterWorkingHoursRequest request);
     
     /**
-     * Get working hours configuration for recruiter
+     * Get working hours configuration for authenticated recruiter
      */
-    List<RecruiterWorkingHoursResponse> getWorkingHours(Integer recruiterId);
+    List<RecruiterWorkingHoursResponse> getWorkingHours();
     
     /**
      * Check if recruiter is available at specific date/time
      */
     boolean isAvailable(Integer recruiterId, LocalDateTime dateTime, Integer durationMinutes);
-    
-    // =====================================================
-    // Time Off Management
-    // =====================================================
-    
-    /**
-     * Request time off for recruiter
-     */
-    RecruiterTimeOffResponse requestTimeOff(Integer recruiterId, TimeOffRequest request);
-    
-    /**
-     * Get all time-off periods for recruiter
-     */
-    List<RecruiterTimeOffResponse> getTimeOffPeriods(Integer recruiterId);
-    
-    /**
-     * Approve time-off request (admin only)
-     */
-    RecruiterTimeOffResponse approveTimeOff(Integer timeOffId, Integer adminId);
-    
-    /**
-     * Cancel time-off request
-     */
-    void cancelTimeOff(Integer timeOffId);
     
     // =====================================================
     // Conflict Detection

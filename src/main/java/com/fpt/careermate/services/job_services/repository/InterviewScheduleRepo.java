@@ -154,12 +154,13 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
     /**
      * Check if recruiter has conflicting interview at proposed time
      * Conflict exists if there's an overlap with any non-cancelled interview
+     * Uses native query for PostgreSQL interval arithmetic
      */
-    @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM interview_schedule i " +
-           "WHERE i.createdByRecruiter.id = :recruiterId " +
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM interview_schedule i " +
+           "WHERE i.created_by_recruiter_id = :recruiterId " +
            "AND i.status NOT IN ('CANCELLED', 'NO_SHOW') " +
-           "AND i.scheduledDate < :proposedEndTime " +
-           "AND FUNCTION('DATE_ADD', i.scheduledDate, i.durationMinutes, 'MINUTE') > :proposedStartTime")
+           "AND i.scheduled_date < :proposedEndTime " +
+           "AND (i.scheduled_date + (i.duration_minutes * INTERVAL '1 minute')) > :proposedStartTime", nativeQuery = true)
     boolean hasConflict(@Param("recruiterId") Integer recruiterId,
                         @Param("proposedStartTime") LocalDateTime proposedStartTime,
                         @Param("proposedEndTime") LocalDateTime proposedEndTime);
@@ -198,25 +199,28 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
     
     /**
      * Find overlapping interviews (for conflict detection with duration)
+     * Uses native query for PostgreSQL interval arithmetic
      */
-    @Query("SELECT i FROM interview_schedule i " +
-           "WHERE i.createdByRecruiter.id = :recruiterId " +
+    @Query(value = "SELECT * FROM interview_schedule i " +
+           "WHERE i.created_by_recruiter_id = :recruiterId " +
            "AND i.status NOT IN ('CANCELLED', 'NO_SHOW') " +
-           "AND i.scheduledDate < :proposedEndTime " +
-           "AND FUNCTION('DATE_ADD', i.scheduledDate, i.durationMinutes, 'MINUTE') > :proposedStartTime " +
-           "ORDER BY i.scheduledDate ASC")
+           "AND i.scheduled_date < :proposedEndTime " +
+           "AND (i.scheduled_date + (i.duration_minutes * INTERVAL '1 minute')) > :proposedStartTime " +
+           "ORDER BY i.scheduled_date ASC", nativeQuery = true)
     List<InterviewSchedule> findOverlappingInterviews(@Param("recruiterId") Integer recruiterId,
                                                        @Param("proposedStartTime") LocalDateTime proposedStartTime,
                                                        @Param("proposedEndTime") LocalDateTime proposedEndTime);
     
     /**
      * Check if candidate has conflicting interview
+     * Uses native query for PostgreSQL interval arithmetic
      */
-    @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM interview_schedule i " +
-           "WHERE i.jobApply.candidate.id = :candidateId " +
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM interview_schedule i " +
+           "JOIN job_apply ja ON i.job_apply_id = ja.id " +
+           "WHERE ja.candidate_id = :candidateId " +
            "AND i.status NOT IN ('CANCELLED', 'NO_SHOW') " +
-           "AND i.scheduledDate < :proposedEndTime " +
-           "AND FUNCTION('DATE_ADD', i.scheduledDate, i.durationMinutes, 'MINUTE') > :proposedStartTime")
+           "AND i.scheduled_date < :proposedEndTime " +
+           "AND (i.scheduled_date + (i.duration_minutes * INTERVAL '1 minute')) > :proposedStartTime", nativeQuery = true)
     boolean candidateHasConflict(@Param("candidateId") Integer candidateId,
                                   @Param("proposedStartTime") LocalDateTime proposedStartTime,
                                   @Param("proposedEndTime") LocalDateTime proposedEndTime);

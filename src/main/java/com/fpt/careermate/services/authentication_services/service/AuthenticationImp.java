@@ -13,6 +13,8 @@ import com.fpt.careermate.services.authentication_services.service.dto.request.R
 import com.fpt.careermate.services.authentication_services.service.dto.response.AuthenticationResponse;
 import com.fpt.careermate.services.authentication_services.service.dto.response.IntrospectResponse;
 import com.fpt.careermate.services.authentication_services.service.impl.AuthenticationService;
+import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
+import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.nimbusds.jose.*;
@@ -56,6 +58,8 @@ public class AuthenticationImp implements AuthenticationService {
     protected final InvalidDateTokenRepo invalidatedTokenRepository;
 
     private final AccountRepo accountRepo;
+    private final RecruiterRepo recruiterRepo;
+    private final CandidateRepo candidateRepo;
 
     @Override
     public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
@@ -107,8 +111,27 @@ public class AuthenticationImp implements AuthenticationService {
             throw new AppException(ErrorCode.USER_INACTIVE);
         }
 
-        String accessToken = generateToken(user, false);
-        String refreshToken = generateToken(user, true);
+        // Get recruiter/candidate profile IDs BEFORE generating token (to include in JWT claims)
+        Integer recruiterId = null;
+        Integer candidateId = null;
+        String primaryRole = getPrimaryRole(user);
+        
+        if ("RECRUITER".equals(primaryRole)) {
+            recruiterId = recruiterRepo.findByAccount_Id(user.getId())
+                    .map(r -> r.getId())
+                    .orElse(null);
+        } else if ("CANDIDATE".equals(primaryRole)) {
+            candidateId = candidateRepo.findByAccount_Id(user.getId())
+                    .map(c -> c.getCandidateId())
+                    .orElse(null);
+        }
+
+        // Generate tokens with IDs embedded in claims
+        String accessToken = generateToken(user, false, recruiterId, candidateId);
+        String refreshToken = generateToken(user, true, recruiterId, candidateId);
+
+        log.info("User {} logged in - userId: {}, recruiterId: {}, candidateId: {}, role: {}", 
+                user.getEmail(), user.getId(), recruiterId, candidateId, primaryRole);
 
         return AuthenticationResponse.builder()
                 .accessToken(accessToken)
@@ -116,7 +139,32 @@ public class AuthenticationImp implements AuthenticationService {
                 .authenticated(true)
                 .expiresIn(VALID_DURATION)
                 .tokenType("Bearer")
+                .userId(user.getId())
+                .recruiterId(recruiterId)
+                .candidateId(candidateId)
+                .email(user.getEmail())
+                .role(primaryRole)
                 .build();
+    }
+    
+    /**
+     * Get the primary role for a user (ADMIN > RECRUITER > CANDIDATE)
+     */
+    private String getPrimaryRole(Account user) {
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            return "CANDIDATE"; // Default
+        }
+        
+        for (var role : user.getRoles()) {
+            if ("ADMIN".equals(role.getName())) return "ADMIN";
+        }
+        for (var role : user.getRoles()) {
+            if ("RECRUITER".equals(role.getName())) return "RECRUITER";
+        }
+        for (var role : user.getRoles()) {
+            if ("CANDIDATE".equals(role.getName())) return "CANDIDATE";
+        }
+        return "CANDIDATE";
     }
 
     @Override
@@ -192,8 +240,24 @@ public class AuthenticationImp implements AuthenticationService {
         var user = accountRepo.findByEmail(username)
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
 
-        String newAccessToken = generateToken(user, false);
-        String newRefreshToken = generateToken(user, true);
+        // Get recruiter/candidate profile IDs BEFORE generating token
+        Integer recruiterId = null;
+        Integer candidateId = null;
+        String primaryRole = getPrimaryRole(user);
+        
+        if ("RECRUITER".equals(primaryRole)) {
+            recruiterId = recruiterRepo.findByAccount_Id(user.getId())
+                    .map(r -> r.getId())
+                    .orElse(null);
+        } else if ("CANDIDATE".equals(primaryRole)) {
+            candidateId = candidateRepo.findByAccount_Id(user.getId())
+                    .map(c -> c.getCandidateId())
+                    .orElse(null);
+        }
+
+        // Generate new tokens with IDs embedded
+        String newAccessToken = generateToken(user, false, recruiterId, candidateId);
+        String newRefreshToken = generateToken(user, true, recruiterId, candidateId);
 
         return AuthenticationResponse.builder()
                 .accessToken(newAccessToken)
@@ -201,16 +265,38 @@ public class AuthenticationImp implements AuthenticationService {
                 .authenticated(true)
                 .expiresIn(VALID_DURATION)
                 .tokenType("Bearer")
+                .userId(user.getId())
+                .recruiterId(recruiterId)
+                .candidateId(candidateId)
+                .email(user.getEmail())
+                .role(primaryRole)
                 .build();
     }
 
 
+    /**
+     * Generate token with user IDs embedded as claims.
+     * This allows APIs to extract userId, recruiterId, candidateId directly from JWT.
+     */
     @Override
     public String generateToken(Account account, boolean isRefresh) {
+        return generateToken(account, isRefresh, null, null);
+    }
+
+    /**
+     * Generate token with explicit recruiter/candidate IDs.
+     * 
+     * @param account The user account
+     * @param isRefresh Whether this is a refresh token
+     * @param recruiterId The recruiter profile ID (null if not a recruiter)
+     * @param candidateId The candidate profile ID (null if not a candidate)
+     * @return The signed JWT token
+     */
+    public String generateToken(Account account, boolean isRefresh, Integer recruiterId, Integer candidateId) {
         long validDuration = (isRefresh) ? REFRESHABLE_DURATION : VALID_DURATION;
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
-        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
+        JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
                 .subject(account.getEmail())
                 .issuer("careermate.com")
                 .issueTime(new Date())
@@ -219,8 +305,17 @@ public class AuthenticationImp implements AuthenticationService {
                 .jwtID(UUID.randomUUID().toString())
                 .claim("fullname", account.getUsername())
                 .claim("scope", buildScope(account))
-                .build();
+                .claim("userId", account.getId());  // Always include userId
+        
+        // Include recruiterId/candidateId if available
+        if (recruiterId != null) {
+            claimsBuilder.claim("recruiterId", recruiterId);
+        }
+        if (candidateId != null) {
+            claimsBuilder.claim("candidateId", candidateId);
+        }
 
+        JWTClaimsSet jwtClaimsSet = claimsBuilder.build();
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
 
         JWSObject jwsObject = new JWSObject(header, payload);
@@ -256,6 +351,81 @@ public class AuthenticationImp implements AuthenticationService {
         return accountRepo.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
+    /**
+     * Extract userId from the current JWT token.
+     * @return The userId claim from JWT
+     */
+    public Integer getUserIdFromToken() {
+        var context = SecurityContextHolder.getContext();
+        var auth = context.getAuthentication();
+        if (auth != null && auth.getCredentials() != null) {
+            try {
+                String token = auth.getCredentials().toString();
+                SignedJWT signedJWT = SignedJWT.parse(token);
+                Object userId = signedJWT.getJWTClaimsSet().getClaim("userId");
+                if (userId instanceof Number) {
+                    return ((Number) userId).intValue();
+                }
+            } catch (ParseException e) {
+                log.warn("Failed to parse userId from token", e);
+            }
+        }
+        // Fallback: get from database
+        return findByEmail().getId();
+    }
+
+    /**
+     * Extract recruiterId from the current JWT token.
+     * @return The recruiterId claim from JWT, or null if not a recruiter
+     */
+    public Integer getRecruiterIdFromToken() {
+        var context = SecurityContextHolder.getContext();
+        var auth = context.getAuthentication();
+        if (auth != null && auth.getCredentials() != null) {
+            try {
+                String token = auth.getCredentials().toString();
+                SignedJWT signedJWT = SignedJWT.parse(token);
+                Object recruiterId = signedJWT.getJWTClaimsSet().getClaim("recruiterId");
+                if (recruiterId instanceof Number) {
+                    return ((Number) recruiterId).intValue();
+                }
+            } catch (ParseException e) {
+                log.warn("Failed to parse recruiterId from token", e);
+            }
+        }
+        // Fallback: lookup from database
+        Account account = findByEmail();
+        return recruiterRepo.findByAccount_Id(account.getId())
+                .map(r -> r.getId())
+                .orElse(null);
+    }
+
+    /**
+     * Extract candidateId from the current JWT token.
+     * @return The candidateId claim from JWT, or null if not a candidate
+     */
+    public Integer getCandidateIdFromToken() {
+        var context = SecurityContextHolder.getContext();
+        var auth = context.getAuthentication();
+        if (auth != null && auth.getCredentials() != null) {
+            try {
+                String token = auth.getCredentials().toString();
+                SignedJWT signedJWT = SignedJWT.parse(token);
+                Object candidateId = signedJWT.getJWTClaimsSet().getClaim("candidateId");
+                if (candidateId instanceof Number) {
+                    return ((Number) candidateId).intValue();
+                }
+            } catch (ParseException e) {
+                log.warn("Failed to parse candidateId from token", e);
+            }
+        }
+        // Fallback: lookup from database
+        Account account = findByEmail();
+        return candidateRepo.findByAccount_Id(account.getId())
+                .map(c -> c.getCandidateId())
+                .orElse(null);
+    }
+
     @Override
     public AuthenticationResponse authenticateCandidate(AuthenticationRequest request) {
 
@@ -276,11 +446,17 @@ public class AuthenticationImp implements AuthenticationService {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
         }
 
+        // Get candidate profile ID BEFORE generating tokens
+        Integer candidateId = candidateRepo.findByAccount_Id(user.getId())
+                .map(c -> c.getCandidateId())
+                .orElse(null);
+
         // For PENDING/REJECTED status: Allow recruiters to sign in to view their status/rejection reason
         // For ACTIVE status: Normal authentication flow
         // Generate tokens regardless of PENDING/REJECTED/ACTIVE status (except BANNED)
-        String accessToken = generateToken(user, false);
-        String refreshToken = generateToken(user, true);
+        // Include candidateId in JWT claims
+        String accessToken = generateToken(user, false, null, candidateId);
+        String refreshToken = generateToken(user, true, null, candidateId);
 
         return AuthenticationResponse.builder()
                 .accessToken(accessToken)
@@ -288,6 +464,11 @@ public class AuthenticationImp implements AuthenticationService {
                 .authenticated(true)
                 .expiresIn(VALID_DURATION)
                 .tokenType("Bearer")
+                .userId(user.getId())
+                .recruiterId(null)
+                .candidateId(candidateId)
+                .email(user.getEmail())
+                .role("CANDIDATE")
                 .build();
     }
 

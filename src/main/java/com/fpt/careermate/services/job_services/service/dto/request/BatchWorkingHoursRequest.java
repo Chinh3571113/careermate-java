@@ -11,6 +11,9 @@ import java.util.List;
 /**
  * Request to set working hours for multiple days at once
  * Useful for setting up a complete weekly schedule in one operation
+ * 
+ * Note: recruiterId is NO LONGER required in request body
+ * Backend automatically gets recruiterId from JWT token
  */
 @Data
 @Builder
@@ -18,9 +21,6 @@ import java.util.List;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class BatchWorkingHoursRequest {
-    
-    @NotNull(message = "Recruiter ID is required")
-    Integer recruiterId;
     
     @NotEmpty(message = "At least one working hours configuration is required")
     @Valid

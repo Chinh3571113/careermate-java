@@ -4,6 +4,7 @@ import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.JobPostingForRecruiterResponse;
+import com.fpt.careermate.services.job_services.service.dto.response.JobPostingStatsResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.PageJobPostingForRecruiterResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -98,6 +99,17 @@ public class JobPostingController {
                 .message("success")
                 .build();
 
+    }
+
+    @GetMapping("/recruiter/stats")
+    @Operation(summary = "Get job posting statistics for the current recruiter",
+               description = "Returns counts of job postings by status and applications by status for the recruiter dashboard")
+    ApiResponse<JobPostingStatsResponse> getJobPostingStats() {
+        return ApiResponse.<JobPostingStatsResponse>builder()
+                .result(jobPostingImp.getJobPostingStats())
+                .code(200)
+                .message("success")
+                .build();
     }
 
 }

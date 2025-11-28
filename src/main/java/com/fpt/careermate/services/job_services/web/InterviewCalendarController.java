@@ -1,12 +1,18 @@
 package com.fpt.careermate.services.job_services.web;
 
+import com.fpt.careermate.common.exception.AppException;
+import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.service.InterviewCalendarService;
 import com.fpt.careermate.services.job_services.service.dto.request.BatchWorkingHoursRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.ConflictCheckRequest;
+import com.fpt.careermate.services.job_services.service.dto.request.ConflictCheckRequestSimple;
 import com.fpt.careermate.services.job_services.service.dto.request.RecruiterWorkingHoursRequest;
-import com.fpt.careermate.services.job_services.service.dto.request.TimeOffRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.*;
 import com.fpt.careermate.services.job_services.service.impl.InterviewCalendarServiceImpl;
+import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
+import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,41 +37,54 @@ import java.util.List;
 public class InterviewCalendarController {
 
         private final InterviewCalendarService calendarService;
+        private final AuthenticationImp authenticationImp;
+        private final RecruiterRepo recruiterRepo;
+        
+        /**
+         * Get current recruiter from JWT token.
+         * Uses JWT claims first (efficient), falls back to DB lookup if needed.
+         */
+        private Recruiter getMyRecruiter() {
+            Integer recruiterId = authenticationImp.getRecruiterIdFromToken();
+            if (recruiterId != null) {
+                return recruiterRepo.findById(recruiterId)
+                        .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+            }
+            // Fallback for old tokens without recruiterId claim
+            Account currentAccount = authenticationImp.findByEmail();
+            return recruiterRepo.findByAccount_Id(currentAccount.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+        }
 
         // =====================================================
         // Working Hours Management
         // =====================================================
 
-        @PostMapping("/recruiters/{recruiterId}/working-hours")
-        @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
-        @Operation(summary = "Set or update working hours", description = "Configure recruiter's working hours for a specific day of week")
-        public ResponseEntity<RecruiterWorkingHoursResponse> setWorkingHours(
-                        @PathVariable Integer recruiterId,
-                        @Valid @RequestBody RecruiterWorkingHoursRequest request) {
+    @PostMapping("/recruiters/working-hours")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Set or update working hours", description = "Configure recruiter's working hours for a specific day of week (uses authenticated user)")
+    public ResponseEntity<RecruiterWorkingHoursResponse> setWorkingHours(
+                    @Valid @RequestBody RecruiterWorkingHoursRequest request) {
 
-                log.info("REST: Setting working hours for recruiter {}", recruiterId);
-                RecruiterWorkingHoursResponse response = calendarService.setWorkingHours(recruiterId, request);
-                return ResponseEntity.ok(response);
-        }
+            log.info("REST: Setting working hours for authenticated recruiter");
+            RecruiterWorkingHoursResponse response = calendarService.setWorkingHours(request);
+            return ResponseEntity.ok(response);
+    }    @GetMapping("/recruiters/working-hours")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Get working hours configuration", description = "Get all working hours configuration (7 days) for authenticated recruiter")
+    public ResponseEntity<List<RecruiterWorkingHoursResponse>> getWorkingHours() {
 
-        @GetMapping("/recruiters/{recruiterId}/working-hours")
-        @Operation(summary = "Get working hours configuration", description = "Get all working hours configuration (7 days) for recruiter")
-        public ResponseEntity<List<RecruiterWorkingHoursResponse>> getWorkingHours(
-                        @PathVariable Integer recruiterId) {
-
-                log.info("REST: Getting working hours for recruiter {}", recruiterId);
-                List<RecruiterWorkingHoursResponse> response = calendarService.getWorkingHours(recruiterId);
-                return ResponseEntity.ok(response);
-        }
-        
-        @PostMapping("/recruiters/working-hours/batch")
-        @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
+            log.info("REST: Getting working hours for authenticated recruiter");
+            List<RecruiterWorkingHoursResponse> response = calendarService.getWorkingHours();
+            return ResponseEntity.ok(response);
+    }        @PostMapping("/recruiters/working-hours/batch")
+        @PreAuthorize("hasRole('RECRUITER')")
         @Operation(summary = "Set working hours for multiple days", 
-                   description = "Batch operation to set working hours for multiple days at once. Reduces API calls for setting up weekly schedules.")
+                   description = "Batch operation to set working hours for multiple days at once. Uses authenticated user's recruiterId. Reduces API calls for setting up weekly schedules.")
         public ResponseEntity<BatchWorkingHoursResponse> setBatchWorkingHours(
                         @Valid @RequestBody BatchWorkingHoursRequest request) {
 
-                log.info("REST: Setting batch working hours for recruiter {}", request.getRecruiterId());
+                log.info("REST: Setting batch working hours for authenticated recruiter");
                 BatchWorkingHoursResponse response = ((InterviewCalendarServiceImpl) calendarService).setBatchWorkingHours(request);
                 return ResponseEntity.ok(response);
         }
@@ -88,60 +107,6 @@ public class InterviewCalendarController {
         // =====================================================
         // Time-Off Management
         // =====================================================
-
-        @PostMapping("/recruiters/{recruiterId}/time-off")
-        @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
-        @Operation(summary = "Request time-off", description = "Submit a time-off request (requires admin approval)")
-        public ResponseEntity<RecruiterTimeOffResponse> requestTimeOff(
-                        @PathVariable Integer recruiterId,
-                        @Valid @RequestBody TimeOffRequest request) {
-
-                log.info("REST: Requesting time-off for recruiter {}", recruiterId);
-                RecruiterTimeOffResponse response = calendarService.requestTimeOff(recruiterId, request);
-                return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        }
-
-        @GetMapping("/recruiters/{recruiterId}/time-off")
-        @Operation(summary = "Get time-off periods", description = "Get all time-off periods for recruiter (approved and pending)")
-        public ResponseEntity<List<RecruiterTimeOffResponse>> getTimeOffPeriods(
-                        @PathVariable Integer recruiterId,
-                        @RequestParam(required = false) Boolean approved) {
-
-                log.info("REST: Getting time-off periods for recruiter {}", recruiterId);
-                List<RecruiterTimeOffResponse> response = calendarService.getTimeOffPeriods(recruiterId);
-
-                // Filter by approval status if requested
-                if (approved != null) {
-                        response = response.stream()
-                                        .filter(t -> t.getIsApproved().equals(approved))
-                                        .toList();
-                }
-
-                return ResponseEntity.ok(response);
-        }
-
-        @PostMapping("/admin/time-off/{timeOffId}/approve")
-        @PreAuthorize("hasRole('ADMIN')")
-        @Operation(summary = "Approve time-off", description = "Admin approves a time-off request")
-        public ResponseEntity<RecruiterTimeOffResponse> approveTimeOff(
-                        @PathVariable Integer timeOffId,
-                        @RequestParam Integer adminId) {
-
-                log.info("REST: Approving time-off {} by admin {}", timeOffId, adminId);
-                RecruiterTimeOffResponse response = calendarService.approveTimeOff(timeOffId, adminId);
-                return ResponseEntity.ok(response);
-        }
-
-        @DeleteMapping("/time-off/{timeOffId}")
-        @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
-        @Operation(summary = "Cancel time-off", description = "Cancel a time-off request")
-        public ResponseEntity<Void> cancelTimeOff(@PathVariable Integer timeOffId) {
-                log.info("REST: Cancelling time-off {}", timeOffId);
-                calendarService.cancelTimeOff(timeOffId);
-                return ResponseEntity.noContent().build();
-        }
-
-        // =====================================================
         // Conflict Detection
         // =====================================================
 
@@ -155,6 +120,30 @@ public class InterviewCalendarController {
 
                 ConflictCheckResponse response = calendarService.checkConflict(
                                 request.getRecruiterId(),
+                                request.getCandidateId(),
+                                request.getProposedStartTime(),
+                                request.getDurationMinutes());
+
+                return ResponseEntity.ok(response);
+        }
+
+        /**
+         * JWT-based conflict check - recruiterId extracted from token.
+         * Recommended for frontend use - no need to pass recruiterId in body.
+         */
+        @PostMapping("/recruiter/check-conflict")
+        @PreAuthorize("hasRole('RECRUITER')")
+        @Operation(summary = "Check scheduling conflict (JWT)", 
+                   description = "Check if proposed interview time would create any conflicts. RecruiterId is extracted from JWT token.")
+        public ResponseEntity<ConflictCheckResponse> checkConflictFromToken(
+                        @Valid @RequestBody ConflictCheckRequestSimple request) {
+
+                Recruiter recruiter = getMyRecruiter();
+                log.info("REST: Checking conflict for recruiter {} (from JWT) at {}",
+                                recruiter.getId(), request.getProposedStartTime());
+
+                ConflictCheckResponse response = calendarService.checkConflict(
+                                recruiter.getId(),
                                 request.getCandidateId(),
                                 request.getProposedStartTime(),
                                 request.getDurationMinutes());
@@ -335,5 +324,96 @@ public class InterviewCalendarController {
                                 .build();
 
                 return ResponseEntity.ok(response);
+        }
+
+        // =====================================================
+        // JWT-Based Endpoints (ID extracted from JWT token)
+        // =====================================================
+
+        @GetMapping("/recruiter/available-slots")
+        @PreAuthorize("hasRole('RECRUITER')")
+        @Operation(summary = "Get available time slots", 
+                   description = "Get available time slots for the authenticated recruiter (ID from JWT)")
+        public ResponseEntity<AvailableSlotsResponse> getAvailableSlotsFromToken(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        @RequestParam @Parameter(description = "Interview duration in minutes", example = "60") Integer durationMinutes) {
+
+                Recruiter recruiter = getMyRecruiter();
+                log.info("REST: Getting available slots for recruiter {} on {} (from JWT)", recruiter.getId(), date);
+
+                List<LocalTime> slots = calendarService.getAvailableSlots(recruiter.getId(), date, durationMinutes);
+
+                return ResponseEntity.ok(AvailableSlotsResponse.builder()
+                                .recruiterId(recruiter.getId())
+                                .date(date)
+                                .durationMinutes(durationMinutes)
+                                .availableSlots(slots)
+                                .totalSlotsAvailable(slots.size())
+                                .build());
+        }
+
+        @GetMapping("/recruiter/daily")
+        @PreAuthorize("hasRole('RECRUITER')")
+        @Operation(summary = "Get daily calendar", 
+                   description = "Get daily calendar for authenticated recruiter (ID from JWT)")
+        public ResponseEntity<DailyCalendarResponse> getDailyCalendarFromToken(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+                Recruiter recruiter = getMyRecruiter();
+                log.info("REST: Getting daily calendar for recruiter {} on {} (from JWT)", recruiter.getId(), date);
+                
+                return ResponseEntity.ok(calendarService.getDailyCalendar(recruiter.getId(), date));
+        }
+
+        @GetMapping("/recruiter/weekly")
+        @PreAuthorize("hasRole('RECRUITER')")
+        @Operation(summary = "Get weekly calendar", 
+                   description = "Get weekly calendar for authenticated recruiter (ID from JWT)")
+        public ResponseEntity<WeeklyCalendarResponse> getWeeklyCalendarFromToken(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStartDate) {
+
+                Recruiter recruiter = getMyRecruiter();
+                log.info("REST: Getting weekly calendar for recruiter {} starting {} (from JWT)", recruiter.getId(), weekStartDate);
+                
+                return ResponseEntity.ok(calendarService.getWeeklyCalendar(recruiter.getId(), weekStartDate));
+        }
+
+        @GetMapping("/recruiter/monthly")
+        @PreAuthorize("hasRole('RECRUITER')")
+        @Operation(summary = "Get monthly calendar", 
+                   description = "Get monthly calendar for authenticated recruiter (ID from JWT)")
+        public ResponseEntity<MonthlyCalendarResponse> getMonthlyCalendarFromToken(
+                        @RequestParam Integer year,
+                        @RequestParam Integer month) {
+
+                Recruiter recruiter = getMyRecruiter();
+                log.info("REST: Getting monthly calendar for recruiter {} for {}-{} (from JWT)", recruiter.getId(), year, month);
+                
+                return ResponseEntity.ok(calendarService.getMonthlyCalendar(recruiter.getId(), year, month));
+        }
+
+        @GetMapping("/recruiter/available-dates")
+        @PreAuthorize("hasRole('RECRUITER')")
+        @Operation(summary = "Get available dates", 
+                   description = "Get available dates for authenticated recruiter (ID from JWT)")
+        public ResponseEntity<AvailableDatesResponse> getAvailableDatesFromToken(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+                        @RequestParam Integer durationMinutes) {
+
+                Recruiter recruiter = getMyRecruiter();
+                log.info("REST: Getting available dates for recruiter {} from {} to {} (from JWT)", 
+                        recruiter.getId(), startDate, endDate);
+
+                List<LocalDate> dates = calendarService.getAvailableDates(recruiter.getId(), startDate, endDate, durationMinutes);
+
+                return ResponseEntity.ok(AvailableDatesResponse.builder()
+                                .recruiterId(recruiter.getId())
+                                .startDate(startDate)
+                                .endDate(endDate)
+                                .durationMinutes(durationMinutes)
+                                .availableDates(dates)
+                                .totalDatesAvailable(dates.size())
+                                .build());
         }
 }

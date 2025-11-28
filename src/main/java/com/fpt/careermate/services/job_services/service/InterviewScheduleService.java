@@ -6,10 +6,12 @@ import com.fpt.careermate.services.job_services.service.dto.request.InterviewSch
 import com.fpt.careermate.services.job_services.service.dto.request.RescheduleInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.CompleteInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.RescheduleRequestResponse;
+import com.fpt.careermate.services.job_services.service.dto.request.UpdateInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.InterviewScheduleResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service interface for interview scheduling and management.
@@ -126,6 +128,17 @@ public interface InterviewScheduleService {
     InterviewScheduleResponse getInterviewByJobApply(Integer jobApplyId);
 
     /**
+     * Update an existing interview schedule.
+     * Allows updating date, time, type, location, and other details.
+     * Only non-null fields in the request will be updated.
+     * 
+     * @param interviewId The interview schedule ID
+     * @param request Contains fields to update
+     * @return InterviewScheduleResponse with updated details
+     */
+    InterviewScheduleResponse updateInterview(Integer interviewId, UpdateInterviewRequest request);
+
+    /**
      * Get upcoming interviews for a recruiter.
      * 
      * @param recruiterId The recruiter ID
@@ -148,6 +161,22 @@ public interface InterviewScheduleService {
      * @return List of past interviews (completed, no-show, cancelled)
      */
     List<InterviewScheduleResponse> getCandidatePastInterviews(Integer candidateId);
+
+    /**
+     * Get pending interviews for a recruiter (awaiting candidate confirmation).
+     * 
+     * @param recruiterId The recruiter ID
+     * @return List of pending interviews
+     */
+    List<InterviewScheduleResponse> getRecruiterPendingInterviews(Integer recruiterId);
+
+    /**
+     * Get interview statistics for a recruiter.
+     * 
+     * @param recruiterId The recruiter ID
+     * @return Map containing interview stats (total, confirmed, pending, completed, etc.)
+     */
+    Map<String, Object> getRecruiterInterviewStats(Integer recruiterId);
 
     /**
      * Send 24-hour reminder notifications.

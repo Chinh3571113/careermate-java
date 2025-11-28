@@ -26,4 +26,12 @@ public class JobApplyResponse {
     String coverLetter;
     String status;
     LocalDateTime createAt;
+    
+    // Recruiter contact info - only populated when status >= APPROVED
+    // These fields enable candidate to contact recruiter after being approved
+    String companyName;
+    String companyEmail;
+    String recruiterPhone;
+    String companyAddress;
+    String contactPerson;
 }

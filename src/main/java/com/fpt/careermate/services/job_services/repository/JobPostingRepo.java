@@ -16,6 +16,9 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Integer> {
 
     Optional<JobPosting> findByTitle(String title);
 
+    // Check duplicate title within same recruiter
+    Optional<JobPosting> findByTitleAndRecruiterId(String title, int recruiterId);
+
     Page<JobPosting> findAllByRecruiterId(int recruiterId, Pageable pageable);
 
     List<JobPosting> findByExpirationDateBeforeAndStatusNotIn(

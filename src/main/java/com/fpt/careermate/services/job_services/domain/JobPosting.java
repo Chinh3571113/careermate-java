@@ -26,7 +26,7 @@ public class JobPosting {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     String title;
 
     @NotBlank

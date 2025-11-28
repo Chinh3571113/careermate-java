@@ -1,23 +1,24 @@
 package com.fpt.careermate.services.job_services.service.impl;
 
+import com.fpt.careermate.common.exception.AppException;
+import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
-import com.fpt.careermate.services.job_services.domain.RecruiterTimeOff;
 import com.fpt.careermate.services.job_services.domain.RecruiterWorkingHours;
 import com.fpt.careermate.services.job_services.repository.InterviewScheduleRepo;
-import com.fpt.careermate.services.job_services.repository.RecruiterTimeOffRepo;
 import com.fpt.careermate.services.job_services.repository.RecruiterWorkingHoursRepo;
 import com.fpt.careermate.services.job_services.service.InterviewCalendarService;
 import com.fpt.careermate.services.job_services.service.dto.request.BatchWorkingHoursRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.RecruiterWorkingHoursRequest;
-import com.fpt.careermate.services.job_services.service.dto.request.TimeOffRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.*;
 import com.fpt.careermate.services.job_services.service.mapper.InterviewScheduleMapper;
-import com.fpt.careermate.services.job_services.service.mapper.RecruiterTimeOffMapper;
 import com.fpt.careermate.services.job_services.service.mapper.RecruiterWorkingHoursMapper;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,19 +33,19 @@ import java.util.stream.Collectors;
 public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
     private final RecruiterWorkingHoursRepo workingHoursRepo;
-    private final RecruiterTimeOffRepo timeOffRepo;
     private final InterviewScheduleRepo interviewScheduleRepo;
     private final RecruiterRepo recruiterRepo;
     private final RecruiterWorkingHoursMapper workingHoursMapper;
-    private final RecruiterTimeOffMapper timeOffMapper;
     private final InterviewScheduleMapper interviewScheduleMapper;
+    private final AuthenticationImp authenticationImp;
 
+    @PreAuthorize("hasRole('RECRUITER')")
     @Override
-    public RecruiterWorkingHoursResponse setWorkingHours(Integer recruiterId, RecruiterWorkingHoursRequest request) {
-        log.info("Setting working hours for recruiter {} on {}", recruiterId, request.getDayOfWeek());
+    public RecruiterWorkingHoursResponse setWorkingHours(RecruiterWorkingHoursRequest request) {
+        Recruiter recruiter = getMyRecruiter();
+        Integer recruiterId = recruiter.getId();
         
-        Recruiter recruiter = recruiterRepo.findById(recruiterId)
-                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + recruiterId));
+        log.info("Setting working hours for recruiter {} on {}", recruiterId, request.getDayOfWeek());
 
         RecruiterWorkingHours workingHours = workingHoursRepo
                 .findByRecruiterIdAndDayOfWeek(recruiterId, request.getDayOfWeek())
@@ -68,6 +69,23 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         RecruiterWorkingHours saved = workingHoursRepo.save(workingHours);
         return workingHoursMapper.toResponse(saved);
+    }
+    
+    /**
+     * Get current authenticated recruiter
+     * Same pattern as JobPostingImp.getMyRecruiter()
+     */
+    private Recruiter getMyRecruiter() {
+        Account currentAccount = authenticationImp.findByEmail();
+        Recruiter recruiter = recruiterRepo.findByAccount_Id(currentAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+
+        // Check if recruiter is verified (APPROVED status)
+        if (!"APPROVED".equals(recruiter.getVerificationStatus())) {
+            throw new AppException(ErrorCode.RECRUITER_NOT_VERIFIED);
+        }
+
+        return recruiter;
     }
     
     /**
@@ -109,9 +127,13 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         }
     }
 
+    @PreAuthorize("hasRole('RECRUITER')")
     @Override
     @Transactional(readOnly = true)
-    public List<RecruiterWorkingHoursResponse> getWorkingHours(Integer recruiterId) {
+    public List<RecruiterWorkingHoursResponse> getWorkingHours() {
+        Recruiter recruiter = getMyRecruiter();
+        Integer recruiterId = recruiter.getId();
+        
         log.info("Getting working hours for recruiter {}", recruiterId);
         
         List<RecruiterWorkingHours> workingHours = workingHoursRepo.findByRecruiterId(recruiterId);
@@ -124,12 +146,13 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
      * Set working hours for multiple days in one transaction
      * Production-ready batch operation to reduce API calls
      */
+    @PreAuthorize("hasRole('RECRUITER')")
     public BatchWorkingHoursResponse setBatchWorkingHours(BatchWorkingHoursRequest request) {
-        log.info("Setting batch working hours for recruiter {}", request.getRecruiterId());
+        // Get recruiter from JWT token
+        Recruiter recruiter = getMyRecruiter();
+        Integer recruiterId = recruiter.getId();
         
-        // Verify recruiter exists once
-        Recruiter recruiter = recruiterRepo.findById(request.getRecruiterId())
-                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + request.getRecruiterId()));
+        log.info("Setting batch working hours for recruiter {}", recruiterId);
         
         List<RecruiterWorkingHoursResponse> updatedConfigurations = new ArrayList<>();
         Map<String, String> errors = new HashMap<>();
@@ -139,7 +162,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         // Process each configuration
         for (RecruiterWorkingHoursRequest config : request.getWorkingHoursConfigurations()) {
             try {
-                RecruiterWorkingHoursResponse response = setWorkingHours(request.getRecruiterId(), config);
+                RecruiterWorkingHoursResponse response = setWorkingHoursInternal(recruiterId, config);
                 updatedConfigurations.add(response);
                 successCount++;
             } catch (Exception e) {
@@ -162,7 +185,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                                 .dayOfWeek(day)
                                 .isWorkingDay(false)
                                 .build();
-                        RecruiterWorkingHoursResponse response = setWorkingHours(request.getRecruiterId(), nonWorkingConfig);
+                        RecruiterWorkingHoursResponse response = setWorkingHoursInternal(recruiterId, nonWorkingConfig);
                         updatedConfigurations.add(response);
                         successCount++;
                     } catch (Exception e) {
@@ -173,13 +196,47 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         }
         
         return BatchWorkingHoursResponse.builder()
-                .recruiterId(request.getRecruiterId())
+                .recruiterId(recruiterId)
                 .totalConfigurations(request.getWorkingHoursConfigurations().size())
                 .successfulUpdates(successCount)
                 .failedUpdates(failCount)
                 .updatedConfigurations(updatedConfigurations)
                 .errors(errors.isEmpty() ? null : errors)
                 .build();
+    }
+    
+    /**
+     * Internal method for batch operations that accepts recruiterId
+     * This allows admin operations to set hours for any recruiter
+     */
+    private RecruiterWorkingHoursResponse setWorkingHoursInternal(Integer recruiterId, RecruiterWorkingHoursRequest request) {
+        log.info("Setting working hours for recruiter {} on {}", recruiterId, request.getDayOfWeek());
+        
+        Recruiter recruiter = recruiterRepo.findById(recruiterId)
+                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + recruiterId));
+
+        RecruiterWorkingHours workingHours = workingHoursRepo
+                .findByRecruiterIdAndDayOfWeek(recruiterId, request.getDayOfWeek())
+                .orElse(new RecruiterWorkingHours());
+
+        workingHours.setRecruiter(recruiter);
+        workingHours.setDayOfWeek(request.getDayOfWeek());
+        workingHours.setIsWorkingDay(request.getIsWorkingDay());
+        workingHours.setStartTime(request.getStartTime());
+        workingHours.setEndTime(request.getEndTime());
+        workingHours.setLunchBreakStart(request.getLunchBreakStart());
+        workingHours.setLunchBreakEnd(request.getLunchBreakEnd());
+        workingHours.setBufferMinutesBetweenInterviews(
+                request.getBufferMinutesBetweenInterviews() != null ? request.getBufferMinutesBetweenInterviews() : 15
+        );
+        workingHours.setMaxInterviewsPerDay(
+                request.getMaxInterviewsPerDay() != null ? request.getMaxInterviewsPerDay() : 8
+        );
+
+        validateWorkingHours(workingHours);
+
+        RecruiterWorkingHours saved = workingHoursRepo.save(workingHours);
+        return workingHoursMapper.toResponse(saved);
     }
 
     @Override
@@ -206,75 +263,10 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
             return false;
         }
 
-        boolean hasTimeOff = timeOffRepo.hasTimeOffOnDate(recruiterId, date);
-        if (hasTimeOff) {
-            return false;
-        }
-
         LocalDateTime endTime = dateTime.plusMinutes(durationMinutes);
         boolean hasConflict = interviewScheduleRepo.hasConflict(recruiterId, dateTime, endTime);
         
         return !hasConflict;
-    }
-
-    @Override
-    public RecruiterTimeOffResponse requestTimeOff(Integer recruiterId, TimeOffRequest request) {
-        log.info("Requesting time off for recruiter {} from {} to {}", 
-                recruiterId, request.getStartDate(), request.getEndDate());
-
-        Recruiter recruiter = recruiterRepo.findById(recruiterId)
-                .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + recruiterId));
-
-        if (request.getEndDate().isBefore(request.getStartDate())) {
-            throw new RuntimeException("End date must be on or after start date");
-        }
-
-        RecruiterTimeOff timeOff = new RecruiterTimeOff();
-        timeOff.setRecruiter(recruiter);
-        timeOff.setStartDate(request.getStartDate());
-        timeOff.setEndDate(request.getEndDate());
-        timeOff.setTimeOffType(request.getTimeOffType());
-        timeOff.setReason(request.getReason());
-        timeOff.setIsApproved(false);
-
-        RecruiterTimeOff saved = timeOffRepo.save(timeOff);
-        return timeOffMapper.toResponse(saved);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<RecruiterTimeOffResponse> getTimeOffPeriods(Integer recruiterId) {
-        log.info("Getting time-off periods for recruiter {}", recruiterId);
-        
-        List<RecruiterTimeOff> timeOffList = timeOffRepo.findByRecruiterId(recruiterId);
-        return timeOffList.stream()
-                .map(timeOffMapper::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public RecruiterTimeOffResponse approveTimeOff(Integer timeOffId, Integer adminId) {
-        log.info("Approving time-off {} by admin {}", timeOffId, adminId);
-
-        RecruiterTimeOff timeOff = timeOffRepo.findById(timeOffId)
-                .orElseThrow(() -> new RuntimeException("Time-off not found with id: " + timeOffId));
-
-        timeOff.setIsApproved(true);
-        timeOff.setApprovedByAdminId(adminId);
-        timeOff.setApprovedAt(LocalDateTime.now());
-
-        RecruiterTimeOff saved = timeOffRepo.save(timeOff);
-        return timeOffMapper.toResponse(saved);
-    }
-
-    @Override
-    public void cancelTimeOff(Integer timeOffId) {
-        log.info("Cancelling time-off {}", timeOffId);
-
-        RecruiterTimeOff timeOff = timeOffRepo.findById(timeOffId)
-                .orElseThrow(() -> new RuntimeException("Time-off not found with id: " + timeOffId));
-
-        timeOffRepo.delete(timeOff);
     }
 
     @Override
@@ -338,20 +330,6 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                         .conflictEnd(proposedEndTime)
                         .description(String.format("Maximum interviews per day reached (%d/%d)",
                                 interviewCount, workingHours.getMaxInterviewsPerDay()))
-                        .build());
-            }
-        }
-
-        boolean hasTimeOff = timeOffRepo.hasTimeOffOnDate(recruiterId, date);
-        if (hasTimeOff) {
-            List<RecruiterTimeOff> timeOffList = timeOffRepo.findTimeOffInRange(recruiterId, date, date);
-            for (RecruiterTimeOff timeOff : timeOffList) {
-                conflicts.add(ConflictCheckResponse.ConflictDetail.builder()
-                        .conflictType("TIME_OFF")
-                        .conflictStart(proposedStartTime)
-                        .conflictEnd(proposedEndTime)
-                        .description(String.format("Recruiter has approved time-off (%s: %s - %s)",
-                                timeOff.getTimeOffType(), timeOff.getStartDate(), timeOff.getEndDate()))
                         .build());
             }
         }
@@ -433,11 +411,6 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         }
 
         RecruiterWorkingHours workingHours = workingHoursOpt.get();
-
-        boolean hasTimeOff = timeOffRepo.hasTimeOffOnDate(recruiterId, date);
-        if (hasTimeOff) {
-            return Collections.emptyList();
-        }
 
         List<InterviewSchedule> existingInterviews = interviewScheduleRepo
                 .findByRecruiterIdAndDate(recruiterId, date);
@@ -534,16 +507,12 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         RecruiterWorkingHours workingHours = workingHoursOpt.orElse(null);
         boolean isWorkingDay = workingHours != null && Boolean.TRUE.equals(workingHours.getIsWorkingDay());
 
-        List<RecruiterTimeOff> timeOffList = timeOffRepo.findTimeOffInRange(recruiterId, date, date);
-        boolean hasTimeOff = !timeOffList.isEmpty();
-        String timeOffReason = hasTimeOff ? timeOffList.get(0).getReason() : null;
-
         List<InterviewSchedule> interviews = interviewScheduleRepo.findByRecruiterIdAndDate(recruiterId, date);
         List<InterviewScheduleResponse> interviewResponses = interviews.stream()
                 .map(interviewScheduleMapper::toResponse)
                 .collect(Collectors.toList());
 
-        List<LocalTime> availableSlots = isWorkingDay && !hasTimeOff 
+        List<LocalTime> availableSlots = isWorkingDay 
                 ? getAvailableSlots(recruiterId, date, 60)
                 : Collections.emptyList();
 
@@ -554,8 +523,6 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                 .isWorkingDay(isWorkingDay)
                 .workStartTime(workingHours != null ? workingHours.getStartTime() : null)
                 .workEndTime(workingHours != null ? workingHours.getEndTime() : null)
-                .hasTimeOff(hasTimeOff)
-                .timeOffReason(timeOffReason)
                 .totalInterviews(interviews.size())
                 .availableSlots(availableSlots.size())
                 .interviews(interviewResponses)
@@ -624,16 +591,6 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
             current = current.plusDays(1);
         }
 
-        List<RecruiterTimeOff> timeOffList = timeOffRepo.findTimeOffInRange(recruiterId, firstDay, lastDay);
-        Map<LocalDate, Boolean> timeOffDays = new HashMap<>();
-        for (RecruiterTimeOff timeOff : timeOffList) {
-            LocalDate date = timeOff.getStartDate();
-            while (!date.isAfter(timeOff.getEndDate())) {
-                timeOffDays.put(date, true);
-                date = date.plusDays(1);
-            }
-        }
-
         return MonthlyCalendarResponse.builder()
                 .recruiterId(recruiterId)
                 .year(year)
@@ -642,7 +599,6 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                 .totalInterviews(interviews.size())
                 .interviewCountByDate(interviewCountByDate)
                 .workingDays(workingDays)
-                .timeOffDays(timeOffDays)
                 .build();
     }
 

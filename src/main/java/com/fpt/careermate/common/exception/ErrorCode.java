@@ -168,6 +168,7 @@ public enum ErrorCode {
     CANNOT_CANCEL_COMPLETED_INTERVIEW(9111, "Cannot cancel a completed interview", HttpStatus.BAD_REQUEST),
     INVALID_DURATION(9112, "Invalid interview duration", HttpStatus.BAD_REQUEST),
     INTERVIEW_TOO_SHORT(9113, "Interview must last at least 50% of scheduled duration to complete early", HttpStatus.BAD_REQUEST),
+    INTERVIEW_CANNOT_BE_MODIFIED(9114, "Cannot modify completed, cancelled, or no-show interviews", HttpStatus.BAD_REQUEST),
 
     // Company Review Error Codes (9300-9399)
     REVIEW_NOT_FOUND(9300, "Company review not found", HttpStatus.NOT_FOUND),

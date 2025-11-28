@@ -120,4 +120,36 @@ public class JobApplyController {
                                 .message("Job application deleted successfully")
                                 .build();
         }
+
+        @GetMapping("/recruiter")
+        @Operation(summary = "Get Job Applications for Recruiter", 
+                   description = "Retrieve all job applications for all job postings belonging to the current recruiter")
+        public ApiResponse<List<JobApplyResponse>> getJobAppliesByRecruiter() {
+                return ApiResponse.<List<JobApplyResponse>>builder()
+                                .result(jobApplyImp.getJobAppliesByRecruiter())
+                                .message("Job applications retrieved successfully")
+                                .build();
+        }
+
+        @GetMapping("/recruiter/filter")
+        @Operation(summary = "Get Job Applications for Recruiter with Filter", 
+                   description = """
+                        Retrieve job applications for the current recruiter with optional status filter and pagination.
+                        
+                        Parameters:
+                        - status: Filter by application status (optional). Valid values: SUBMITTED, REVIEWING, INTERVIEW_SCHEDULED, INTERVIEWED, APPROVED, WORKING, REJECTED, etc.
+                        - page: Page number, starts from 0 (default: 0)
+                        - size: Number of items per page (default: 10)
+                        
+                        The results are sorted by creation date (newest first).
+                        """)
+        public ApiResponse<PageResponse<JobApplyResponse>> getJobAppliesByRecruiterWithFilter(
+                        @RequestParam(required = false) StatusJobApply status,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size) {
+                return ApiResponse.<PageResponse<JobApplyResponse>>builder()
+                                .result(jobApplyImp.getJobAppliesByRecruiterWithFilter(status, page, size))
+                                .message("Job applications retrieved successfully")
+                                .build();
+        }
 }

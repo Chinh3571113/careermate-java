@@ -1,10 +1,19 @@
 package com.fpt.careermate.services.job_services.web.rest;
 
+import com.fpt.careermate.common.exception.AppException;
+import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.services.account_services.domain.Account;
+import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.service.dto.request.CompleteInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.InterviewScheduleRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.RescheduleInterviewRequest;
+import com.fpt.careermate.services.job_services.service.dto.request.UpdateInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.InterviewScheduleResponse;
 import com.fpt.careermate.services.job_services.service.InterviewScheduleService;
+import com.fpt.careermate.services.profile_services.domain.Candidate;
+import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
+import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
+import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,6 +45,41 @@ import java.util.Map;
 public class InterviewScheduleController {
 
     InterviewScheduleService interviewScheduleService;
+    AuthenticationImp authenticationImp;
+    RecruiterRepo recruiterRepo;
+    CandidateRepo candidateRepo;
+    
+    /**
+     * Get current recruiter from JWT token.
+     * Uses JWT claims first (efficient), falls back to DB lookup if needed.
+     */
+    private Recruiter getMyRecruiter() {
+        Integer recruiterId = authenticationImp.getRecruiterIdFromToken();
+        if (recruiterId != null) {
+            return recruiterRepo.findById(recruiterId)
+                    .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+        }
+        // Fallback for old tokens without recruiterId claim
+        Account currentAccount = authenticationImp.findByEmail();
+        return recruiterRepo.findByAccount_Id(currentAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
+    }
+    
+    /**
+     * Get current candidate from JWT token.
+     * Uses JWT claims first (efficient), falls back to DB lookup if needed.
+     */
+    private Candidate getMyCandidate() {
+        Integer candidateId = authenticationImp.getCandidateIdFromToken();
+        if (candidateId != null) {
+            return candidateRepo.findById(candidateId)
+                    .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
+        }
+        // Fallback for old tokens without candidateId claim
+        Account currentAccount = authenticationImp.findByEmail();
+        return candidateRepo.findByAccount_Id(currentAccount.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
+    }
 
     /**
      * Schedule a new interview for a job application.
@@ -48,16 +92,72 @@ public class InterviewScheduleController {
     @PostMapping("/job-applies/{jobApplyId}/schedule-interview")
     @PreAuthorize("hasRole('RECRUITER')")
     @Operation(summary = "Schedule interview", 
-               description = "Recruiter schedules an interview for a job application")
+               description = "Recruiter schedules an interview for a job application. If createdByRecruiterId is not provided, it will be extracted from JWT token.")
     public ResponseEntity<InterviewScheduleResponse> scheduleInterview(
             @PathVariable Integer jobApplyId,
             @Valid @RequestBody InterviewScheduleRequest request) {
         
         log.info("Scheduling interview for job apply ID: {}", jobApplyId);
         
+        // Auto-fill recruiterId from JWT if not provided
+        if (request.getCreatedByRecruiterId() == null) {
+            Recruiter recruiter = getMyRecruiter();
+            request.setCreatedByRecruiterId(recruiter.getId());
+            log.info("Auto-filled recruiterId from JWT: {}", recruiter.getId());
+        }
+        
         InterviewScheduleResponse response = interviewScheduleService.scheduleInterview(jobApplyId, request);
         
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Get existing interview for a job application.
+     * Used for rescheduling - retrieves current interview details to pre-fill the form.
+     * 
+     * @param jobApplyId The job application ID
+     * @return Interview schedule response or 404 if no interview exists
+     */
+    @GetMapping("/job-applies/{jobApplyId}/interview")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Get interview by job application", 
+               description = "Get existing interview for a job application. Returns current interview details for rescheduling.")
+    public ResponseEntity<InterviewScheduleResponse> getInterviewByJobApply(
+            @PathVariable Integer jobApplyId) {
+        
+        log.info("Getting interview for job apply ID: {}", jobApplyId);
+        
+        InterviewScheduleResponse response = interviewScheduleService.getInterviewByJobApply(jobApplyId);
+        
+        if (response == null) {
+            throw new AppException(ErrorCode.INTERVIEW_NOT_FOUND);
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update an existing interview (for direct rescheduling by recruiter).
+     * Unlike reschedule request, this directly updates the interview without consent workflow.
+     * Suitable when recruiter needs to change interview details immediately.
+     * 
+     * @param interviewId The interview schedule ID
+     * @param request Update details (date, time, location, interviewer, etc.)
+     * @return Updated interview schedule response
+     */
+    @PutMapping("/interviews/{interviewId}")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Update interview", 
+               description = "Directly update interview details. For rescheduling without consent workflow.")
+    public ResponseEntity<InterviewScheduleResponse> updateInterview(
+            @PathVariable Integer interviewId,
+            @Valid @RequestBody UpdateInterviewRequest request) {
+        
+        log.info("Updating interview ID: {}", interviewId);
+        
+        InterviewScheduleResponse response = interviewScheduleService.updateInterview(interviewId, request);
+        
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -327,6 +427,114 @@ public class InterviewScheduleController {
         List<InterviewScheduleResponse> interviews = interviewScheduleService.getCandidatePastInterviews(candidateId);
         
         Map<String, Object> response = new HashMap<>();
+        response.put("count", interviews.size());
+        response.put("interviews", interviews);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    // ==================== JWT-Based Endpoints (Auto-detect ID from token) ====================
+
+    /**
+     * Get upcoming interviews for authenticated recruiter.
+     * Recruiter ID is automatically extracted from JWT token.
+     */
+    @GetMapping("/interviews/recruiter/upcoming")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Get recruiter's upcoming interviews", 
+               description = "Get upcoming interviews for the authenticated recruiter. ID extracted from JWT token.")
+    public ResponseEntity<Map<String, Object>> getRecruiterUpcomingInterviewsFromToken() {
+        Recruiter recruiter = getMyRecruiter();
+        log.info("Getting upcoming interviews for recruiter ID: {} (from JWT)", recruiter.getId());
+        
+        List<InterviewScheduleResponse> interviews = interviewScheduleService.getRecruiterUpcomingInterviews(recruiter.getId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("recruiterId", recruiter.getId());
+        response.put("count", interviews.size());
+        response.put("interviews", interviews);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get pending interviews for authenticated recruiter.
+     * Recruiter ID is automatically extracted from JWT token.
+     */
+    @GetMapping("/interviews/recruiter/pending")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Get recruiter's pending interviews", 
+               description = "Get pending interviews for the authenticated recruiter. ID extracted from JWT token.")
+    public ResponseEntity<Map<String, Object>> getRecruiterPendingInterviewsFromToken() {
+        Recruiter recruiter = getMyRecruiter();
+        log.info("Getting pending interviews for recruiter ID: {} (from JWT)", recruiter.getId());
+        
+        List<InterviewScheduleResponse> interviews = interviewScheduleService.getRecruiterPendingInterviews(recruiter.getId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("recruiterId", recruiter.getId());
+        response.put("count", interviews.size());
+        response.put("interviews", interviews);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get interview statistics for authenticated recruiter.
+     * Recruiter ID is automatically extracted from JWT token.
+     */
+    @GetMapping("/interviews/recruiter/stats")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Get recruiter's interview statistics", 
+               description = "Get interview statistics for the authenticated recruiter. ID extracted from JWT token.")
+    public ResponseEntity<Map<String, Object>> getRecruiterInterviewStatsFromToken() {
+        Recruiter recruiter = getMyRecruiter();
+        log.info("Getting interview statistics for recruiter ID: {} (from JWT)", recruiter.getId());
+        
+        Map<String, Object> stats = interviewScheduleService.getRecruiterInterviewStats(recruiter.getId());
+        stats.put("recruiterId", recruiter.getId());
+        
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Get upcoming interviews for authenticated candidate.
+     * Candidate ID is automatically extracted from JWT token.
+     */
+    @GetMapping("/interviews/candidate/upcoming")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(summary = "Get candidate's upcoming interviews", 
+               description = "Get upcoming interviews for the authenticated candidate. ID extracted from JWT token.")
+    public ResponseEntity<Map<String, Object>> getCandidateUpcomingInterviewsFromToken() {
+        Candidate candidate = getMyCandidate();
+        log.info("Getting upcoming interviews for candidate ID: {} (from JWT)", candidate.getCandidateId());
+        
+        List<InterviewScheduleResponse> interviews = interviewScheduleService.getCandidateUpcomingInterviews(candidate.getCandidateId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("candidateId", candidate.getCandidateId());
+        response.put("count", interviews.size());
+        response.put("interviews", interviews);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get past interviews for authenticated candidate.
+     * Candidate ID is automatically extracted from JWT token.
+     */
+    @GetMapping("/interviews/candidate/past")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(summary = "Get candidate's past interviews", 
+               description = "Get past interviews for the authenticated candidate. ID extracted from JWT token.")
+    public ResponseEntity<Map<String, Object>> getCandidatePastInterviewsFromToken() {
+        Candidate candidate = getMyCandidate();
+        log.info("Getting past interviews for candidate ID: {} (from JWT)", candidate.getCandidateId());
+        
+        List<InterviewScheduleResponse> interviews = interviewScheduleService.getCandidatePastInterviews(candidate.getCandidateId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("candidateId", candidate.getCandidateId());
         response.put("count", interviews.size());
         response.put("interviews", interviews);
         

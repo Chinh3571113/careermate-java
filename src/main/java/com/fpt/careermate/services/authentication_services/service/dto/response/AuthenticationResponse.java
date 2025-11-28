@@ -18,4 +18,11 @@ public class AuthenticationResponse {
     boolean authenticated;
     Long expiresIn;
     String tokenType;
+    
+    // User identification - CRITICAL for frontend API calls
+    Integer userId;           // Account ID
+    Integer recruiterId;      // Recruiter profile ID (null if not a recruiter)
+    Integer candidateId;      // Candidate profile ID (null if not a candidate)
+    String email;
+    String role;              // Primary role: ADMIN, RECRUITER, CANDIDATE
 }

@@ -20,4 +20,11 @@ public interface JobApplyService {
             StatusJobApply status,
             int page,
             int size);
+    
+    // Recruiter-specific methods
+    List<JobApplyResponse> getJobAppliesByRecruiter();
+    PageResponse<JobApplyResponse> getJobAppliesByRecruiterWithFilter(
+            StatusJobApply status,
+            int page,
+            int size);
 }

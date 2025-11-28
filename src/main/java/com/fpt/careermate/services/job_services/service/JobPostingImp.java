@@ -1,11 +1,13 @@
 package com.fpt.careermate.services.job_services.service;
 
+import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.common.constant.StatusJobPosting;
 import com.fpt.careermate.common.constant.StatusRecruiter;
 import com.fpt.careermate.common.util.CoachUtil;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.domain.SavedJob;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
+import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import com.fpt.careermate.services.job_services.repository.SavedJobRepo;
@@ -66,6 +68,7 @@ import java.util.stream.Collectors;
 public class JobPostingImp implements JobPostingService {
 
     JobPostingRepo jobPostingRepo;
+    JobApplyRepo jobApplyRepo;
     RecruiterRepo recruiterRepo;
     AdminRepo adminRepo;
     JdSkillRepo jdSkillRepo;
@@ -84,16 +87,17 @@ public class JobPostingImp implements JobPostingService {
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
     public void createJobPosting(JobPostingCreationRequest request) {
-        // Validate request
-        jobPostingValidator.checkDuplicateJobPostingTitle(request.getTitle());
+        // Get current recruiter first (needed for duplicate check)
+        Recruiter recruiter = getMyRecruiter();
+
+        // Validate request - check duplicate title within same recruiter only
+        jobPostingValidator.checkDuplicateJobPostingTitle(request.getTitle(), recruiter.getId());
         jobPostingValidator.validateExpirationDate(request.getExpirationDate());
 
         // Get work model and check exist
         Optional<WorkModel> exstingWorkModel = workModelRepo.findByName(request.getWorkModel());
         if (exstingWorkModel.isEmpty())
             throw new AppException(ErrorCode.WORK_MODEL_NOT_FOUND);
-
-        Recruiter recruiter = getMyRecruiter();
 
         JobPosting jobPosting = jobPostingMapper.toJobPosting(request);
         jobPosting.setCreateAt(LocalDate.now());
@@ -204,9 +208,9 @@ public class JobPostingImp implements JobPostingService {
         }
 
         // For PENDING or REJECTED postings allow full update
-        // Validate request
-        jobPostingValidator.checkDuplicateJobPostingTitleAndNotCurrentRecruiter(request.getTitle(),
-                jobPosting.getRecruiter().getId());
+        // Validate request - check duplicate title within same recruiter, excluding current job
+        jobPostingValidator.checkDuplicateJobPostingTitleForUpdate(request.getTitle(),
+                jobPosting.getRecruiter().getId(), jobPosting.getId());
         jobPostingValidator.validateExpirationDate(request.getExpirationDate());
 
         // Ensure expiration date is not before the creation date
@@ -274,6 +278,51 @@ public class JobPostingImp implements JobPostingService {
 
         jobPosting.setStatus(StatusJobPosting.PAUSED);
         jobPostingRepo.save(jobPosting);
+    }
+
+    // Get job posting stats for recruiter dashboard
+    @PreAuthorize("hasRole('RECRUITER')")
+    public JobPostingStatsResponse getJobPostingStats() {
+        Recruiter recruiter = getMyRecruiter();
+        int recruiterId = recruiter.getId();
+
+        // Count job postings by status
+        long totalJobPostings = jobPostingRepo.findAllByRecruiterId(recruiterId, PageRequest.of(0, 1)).getTotalElements();
+        long pendingJobPostings = jobPostingRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobPosting.PENDING);
+        long activeJobPostings = jobPostingRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobPosting.ACTIVE);
+        long rejectedJobPostings = jobPostingRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobPosting.REJECTED);
+        long pausedJobPostings = jobPostingRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobPosting.PAUSED);
+        long expiredJobPostings = jobPostingRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobPosting.EXPIRED);
+        long deletedJobPostings = jobPostingRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobPosting.DELETED);
+
+        // Count applications by status
+        long totalApplications = jobApplyRepo.countByRecruiterId(recruiterId);
+        long submittedApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.SUBMITTED);
+        long reviewingApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.REVIEWING);
+        long approvedApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.APPROVED);
+        long rejectedApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.REJECTED);
+        long interviewScheduledApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.INTERVIEW_SCHEDULED);
+        long hiredApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.WORKING) +
+                                 jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.ACCEPTED);
+        long withdrawnApplications = jobApplyRepo.countByRecruiterIdAndStatus(recruiterId, StatusJobApply.WITHDRAWN);
+
+        return JobPostingStatsResponse.builder()
+                .totalJobPostings(totalJobPostings)
+                .pendingJobPostings(pendingJobPostings)
+                .activeJobPostings(activeJobPostings)
+                .rejectedJobPostings(rejectedJobPostings)
+                .pausedJobPostings(pausedJobPostings)
+                .expiredJobPostings(expiredJobPostings)
+                .deletedJobPostings(deletedJobPostings)
+                .totalApplications(totalApplications)
+                .submittedApplications(submittedApplications)
+                .reviewingApplications(reviewingApplications)
+                .approvedApplications(approvedApplications)
+                .rejectedApplications(rejectedApplications)
+                .interviewScheduledApplications(interviewScheduledApplications)
+                .hiredApplications(hiredApplications)
+                .withdrawnApplications(withdrawnApplications)
+                .build();
     }
 
     private JobPosting findJobPostingEntityForRecruiterById(int id) {

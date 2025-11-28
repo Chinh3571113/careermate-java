@@ -15,6 +15,7 @@ import com.fpt.careermate.services.job_services.service.InterviewCalendarService
 import com.fpt.careermate.services.job_services.service.dto.request.CompleteInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.InterviewScheduleRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.RescheduleInterviewRequest;
+import com.fpt.careermate.services.job_services.service.dto.request.UpdateInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.ConflictCheckResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.InterviewScheduleResponse;
 import com.fpt.careermate.services.job_services.service.InterviewScheduleService;
@@ -53,6 +54,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     InterviewRescheduleRequestRepo rescheduleRequestRepo;
     InterviewScheduleMapper interviewMapper;
     InterviewCalendarService calendarService;
+    NotificationProducer notificationProducer;
 
     @Override
     @Transactional
@@ -363,6 +365,145 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     }
 
     @Override
+    @Transactional
+    public InterviewScheduleResponse updateInterview(Integer interviewId, UpdateInterviewRequest request) {
+        log.info("Updating interview ID: {}", interviewId);
+        
+        InterviewSchedule interview = findInterviewById(interviewId);
+        
+        // Cannot update completed, cancelled, or no-show interviews
+        if (interview.getStatus() == InterviewStatus.COMPLETED ||
+            interview.getStatus() == InterviewStatus.CANCELLED ||
+            interview.getStatus() == InterviewStatus.NO_SHOW) {
+            throw new AppException(ErrorCode.INTERVIEW_CANNOT_BE_MODIFIED);
+        }
+        
+        // If updating scheduled date, validate it's in the future and check for conflicts
+        if (request.getScheduledDate() != null) {
+            if (request.getScheduledDate().isBefore(LocalDateTime.now())) {
+                throw new AppException(ErrorCode.INVALID_SCHEDULE_DATE);
+            }
+            
+            // Check for scheduling conflicts
+            Integer recruiterId = interview.getJobApply().getJobPosting().getRecruiter().getId();
+            Integer candidateId = interview.getJobApply().getCandidate().getCandidateId();
+            Integer durationMinutes = request.getDurationMinutes() != null ? 
+                    request.getDurationMinutes() : interview.getDurationMinutes();
+            
+            ConflictCheckResponse conflictCheck = calendarService.checkConflict(
+                    recruiterId, 
+                    candidateId, 
+                    request.getScheduledDate(), 
+                    durationMinutes
+            );
+            
+            // Ignore conflict with the same interview (self)
+            if (conflictCheck.getHasConflict() && !isConflictWithSameInterview(conflictCheck, interviewId)) {
+                log.warn("Scheduling conflict detected: {}", conflictCheck.getConflictReason());
+                throw new AppException(ErrorCode.SCHEDULING_CONFLICT);
+            }
+            
+            interview.setScheduledDate(request.getScheduledDate());
+            
+            // Reset candidate confirmation when date changes
+            interview.setCandidateConfirmed(false);
+            interview.setCandidateConfirmedAt(null);
+            interview.setStatus(InterviewStatus.SCHEDULED);
+            
+            // Reset reminder flags
+            interview.setReminderSent24h(false);
+            interview.setReminderSent2h(false);
+        }
+        
+        // Update other fields if provided
+        if (request.getDurationMinutes() != null) {
+            interview.setDurationMinutes(request.getDurationMinutes());
+        }
+        if (request.getInterviewType() != null) {
+            interview.setInterviewType(request.getInterviewType());
+        }
+        if (request.getLocation() != null) {
+            interview.setLocation(request.getLocation());
+        }
+        if (request.getInterviewerName() != null) {
+            interview.setInterviewerName(request.getInterviewerName());
+        }
+        if (request.getInterviewerEmail() != null) {
+            interview.setInterviewerEmail(request.getInterviewerEmail());
+        }
+        if (request.getInterviewerPhone() != null) {
+            interview.setInterviewerPhone(request.getInterviewerPhone());
+        }
+        if (request.getPreparationNotes() != null) {
+            interview.setPreparationNotes(request.getPreparationNotes());
+        }
+        if (request.getMeetingLink() != null) {
+            interview.setMeetingLink(request.getMeetingLink());
+        }
+        if (request.getInterviewRound() != null) {
+            interview.setInterviewRound(request.getInterviewRound());
+        }
+        
+        interview = interviewRepo.save(interview);
+        
+        // Send notification to candidate about the update
+        if (request.getScheduledDate() != null) {
+            sendInterviewUpdateNotification(interview, request.getUpdateReason());
+        }
+        
+        log.info("Interview updated successfully");
+        return interviewMapper.toResponse(interview);
+    }
+    
+    /**
+     * Check if conflict is with the same interview being updated (not a real conflict)
+     */
+    private boolean isConflictWithSameInterview(ConflictCheckResponse conflictCheck, Integer interviewId) {
+        // Simple check - if the only conflict is INTERVIEW_OVERLAP, 
+        // it could be the same interview we're updating
+        return conflictCheck.getConflicts() != null && 
+               conflictCheck.getConflicts().size() == 1 &&
+               "INTERVIEW_OVERLAP".equals(conflictCheck.getConflicts().get(0).getConflictType());
+    }
+    
+    /**
+     * Send notification about interview update
+     */
+    private void sendInterviewUpdateNotification(InterviewSchedule interview, String updateReason) {
+        try {
+            JobApply jobApply = interview.getJobApply();
+            String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
+            
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
+            metadata.put("newScheduledDate", interview.getScheduledDate().format(
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+            metadata.put("interviewType", interview.getInterviewType().name());
+            metadata.put("updateReason", updateReason != null ? updateReason : "Interview details have been updated");
+            metadata.put("interviewId", interview.getId());
+            
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType("EMAIL")
+                    .recipientId(candidateId)
+                    .recipientEmail(candidateEmail)
+                    .subject("Interview Updated - " + jobApply.getJobPosting().getTitle())
+                    .title("Interview Schedule Updated")
+                    .message("Your interview has been updated. Please review the new details and confirm your attendance.")
+                    .category("INTERVIEW_UPDATE")
+                    .metadata(metadata)
+                    .priority(1) // High priority
+                    .build();
+            
+            notificationProducer.sendNotification("candidate-notifications", event);
+            log.info("Interview update notification sent to: {}", candidateEmail);
+        } catch (Exception e) {
+            log.error("Failed to send interview update notification: {}", e.getMessage());
+        }
+    }
+
+    @Override
     public List<InterviewScheduleResponse> getRecruiterUpcomingInterviews(Integer recruiterId) {
         List<InterviewSchedule> interviews = interviewRepo.findUpcomingInterviewsByRecruiterId(
                 recruiterId, 
@@ -410,7 +551,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         int sentCount = 0;
         for (InterviewSchedule interview : interviews) {
             try {
-                // TODO: notificationService.send24HourInterviewReminder(interview);
+                sendInterviewReminderNotification(interview, "24_HOUR");
                 interview.setReminderSent24h(true);
                 interviewRepo.save(interview);
                 sentCount++;
@@ -438,7 +579,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         int sentCount = 0;
         for (InterviewSchedule interview : interviews) {
             try {
-                // TODO: notificationService.send2HourInterviewReminder(interview);
+                sendInterviewReminderNotification(interview, "2_HOUR");
                 interview.setReminderSent2h(true);
                 interviewRepo.save(interview);
                 sentCount++;
@@ -451,8 +592,142 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         return sentCount;
     }
 
+    /**
+     * Sends interview reminder notifications to both candidate and recruiter.
+     * @param interview The interview to send reminders for
+     * @param reminderType Either "24_HOUR" or "2_HOUR"
+     */
+    private void sendInterviewReminderNotification(InterviewSchedule interview, String reminderType) {
+        JobApply jobApply = interview.getJobApply();
+        String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+        String recruiterEmail = jobApply.getJobPosting().getRecruiter().getAccount().getEmail();
+        
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy 'at' HH:mm");
+        String scheduledTime = interview.getScheduledDate().format(formatter);
+        String timeRemaining = "24_HOUR".equals(reminderType) ? "24 hours" : "2 hours";
+        
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("interviewId", interview.getId());
+        metadata.put("jobApplyId", jobApply.getId());
+        metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+        metadata.put("scheduledDate", scheduledTime);
+        metadata.put("interviewType", interview.getInterviewType());
+        metadata.put("location", interview.getLocation());
+        metadata.put("meetingLink", interview.getMeetingLink());
+        metadata.put("reminderType", reminderType);
+
+        // Send notification to candidate
+        String candidateMessage = String.format(
+                "⏰ Interview Reminder: Your interview for '%s' is in %s!\n\n" +
+                "📅 When: %s\n" +
+                "📍 Type: %s\n" +
+                "📍 Location: %s\n" +
+                (interview.getMeetingLink() != null ? "🔗 Meeting Link: %s\n" : "") +
+                "\nPlease be prepared and on time. Good luck!",
+                jobApply.getJobPosting().getTitle(),
+                timeRemaining,
+                scheduledTime,
+                interview.getInterviewType(),
+                interview.getLocation() != null ? interview.getLocation() : "To be confirmed",
+                interview.getMeetingLink()
+        );
+
+        NotificationEvent candidateEvent = NotificationEvent.builder()
+                .eventId(java.util.UUID.randomUUID().toString())
+                .recipientEmail(candidateEmail)
+                .recipientId(String.valueOf(jobApply.getCandidate().getCandidateId()))
+                .category("CANDIDATE")
+                .eventType("INTERVIEW_REMINDER_" + reminderType)
+                .title("Interview Reminder - " + timeRemaining + " remaining")
+                .subject("Interview Reminder: " + jobApply.getJobPosting().getTitle())
+                .message(candidateMessage)
+                .metadata(metadata)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        notificationProducer.sendNotification("candidate-notifications", candidateEvent);
+        log.info("Sent {} interview reminder to candidate: {}", reminderType, candidateEmail);
+
+        // Send notification to recruiter
+        String recruiterMessage = String.format(
+                "⏰ Interview Reminder: Your interview with %s for '%s' is in %s!\n\n" +
+                "📅 When: %s\n" +
+                "👤 Candidate: %s\n" +
+                "📍 Type: %s\n" +
+                "\nPlease review the candidate's application before the interview.",
+                jobApply.getFullName(),
+                jobApply.getJobPosting().getTitle(),
+                timeRemaining,
+                scheduledTime,
+                jobApply.getFullName(),
+                interview.getInterviewType()
+        );
+
+        NotificationEvent recruiterEvent = NotificationEvent.builder()
+                .eventId(java.util.UUID.randomUUID().toString())
+                .recipientEmail(recruiterEmail)
+                .recipientId(String.valueOf(jobApply.getJobPosting().getRecruiter().getId()))
+                .category("RECRUITER")
+                .eventType("INTERVIEW_REMINDER_" + reminderType)
+                .title("Interview Reminder - " + timeRemaining + " remaining")
+                .subject("Interview with " + jobApply.getFullName() + " - " + timeRemaining + " remaining")
+                .message(recruiterMessage)
+                .metadata(metadata)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        notificationProducer.sendNotification("recruiter-notifications", recruiterEvent);
+        log.info("Sent {} interview reminder to recruiter: {}", reminderType, recruiterEmail);
+    }
+
     private InterviewSchedule findInterviewById(Integer interviewId) {
         return interviewRepo.findById(interviewId)
                 .orElseThrow(() -> new AppException(ErrorCode.INTERVIEW_NOT_FOUND));
+    }
+
+    @Override
+    public List<InterviewScheduleResponse> getRecruiterPendingInterviews(Integer recruiterId) {
+        log.info("Getting pending interviews for recruiter ID: {}", recruiterId);
+        
+        // Get all interviews by recruiter and filter for pending status
+        List<InterviewSchedule> allInterviews = interviewRepo.findByRecruiterId(recruiterId);
+        
+        return allInterviews.stream()
+                .filter(interview -> interview.getStatus() == InterviewStatus.SCHEDULED)
+                .filter(interview -> interview.getScheduledDate().isAfter(LocalDateTime.now()))
+                .map(interviewMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Map<String, Object> getRecruiterInterviewStats(Integer recruiterId) {
+        log.info("Getting interview statistics for recruiter ID: {}", recruiterId);
+        
+        List<InterviewSchedule> allInterviews = interviewRepo.findByRecruiterId(recruiterId);
+        
+        long total = allInterviews.size();
+        long scheduled = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.SCHEDULED).count();
+        long confirmed = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.CONFIRMED).count();
+        long completed = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.COMPLETED).count();
+        long cancelled = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.CANCELLED).count();
+        long noShow = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.NO_SHOW).count();
+        long rescheduled = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.RESCHEDULED).count();
+        
+        long upcoming = allInterviews.stream()
+                .filter(i -> i.getScheduledDate().isAfter(LocalDateTime.now()))
+                .filter(i -> i.getStatus() == InterviewStatus.SCHEDULED || i.getStatus() == InterviewStatus.CONFIRMED)
+                .count();
+        
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", total);
+        stats.put("scheduled", scheduled);
+        stats.put("confirmed", confirmed);
+        stats.put("completed", completed);
+        stats.put("cancelled", cancelled);
+        stats.put("noShow", noShow);
+        stats.put("rescheduled", rescheduled);
+        stats.put("upcoming", upcoming);
+        
+        return stats;
     }
 }
