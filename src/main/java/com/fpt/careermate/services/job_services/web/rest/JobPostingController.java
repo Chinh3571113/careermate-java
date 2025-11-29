@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.job_services.web.rest;
 
+import com.fpt.careermate.common.constant.WorkModel;
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.job_services.service.JobPostingImp;
 import com.fpt.careermate.services.job_services.service.dto.request.JobPostingCreationRequest;
@@ -16,8 +17,6 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Validated
 @RestController
@@ -107,6 +106,17 @@ public class JobPostingController {
     ApiResponse<JobPostingStatsResponse> getJobPostingStats() {
         return ApiResponse.<JobPostingStatsResponse>builder()
                 .result(jobPostingImp.getJobPostingStats())
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @GetMapping("/work-model")
+    @Operation(summary = "Get all available work models",
+               description = "Returns a list of all available work model options for job posting creation")
+    ApiResponse<WorkModel[]> getWorkModels() {
+        return ApiResponse.<WorkModel[]>builder()
+                .result(WorkModel.values())
                 .code(200)
                 .message("success")
                 .build();

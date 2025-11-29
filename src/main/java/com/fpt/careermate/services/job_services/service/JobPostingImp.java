@@ -3,6 +3,7 @@ package com.fpt.careermate.services.job_services.service;
 import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.common.constant.StatusJobPosting;
 import com.fpt.careermate.common.constant.StatusRecruiter;
+import com.fpt.careermate.common.constant.WorkModel;
 import com.fpt.careermate.common.util.CoachUtil;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.domain.SavedJob;
@@ -12,8 +13,6 @@ import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import com.fpt.careermate.services.job_services.repository.SavedJobRepo;
 import com.fpt.careermate.services.job_services.service.dto.response.*;
-import com.fpt.careermate.services.profile_services.domain.WorkModel;
-import com.fpt.careermate.services.profile_services.repository.WorkModelRepo;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.admin_services.domain.Admin;
@@ -70,7 +69,6 @@ public class JobPostingImp implements JobPostingService {
     AdminRepo adminRepo;
     JdSkillRepo jdSkillRepo;
     JobDescriptionRepo jobDescriptionRepo;
-    WorkModelRepo workModelRepo;
     JobPostingMapper jobPostingMapper;
     AuthenticationImp authenticationImp;
     JobPostingValidator jobPostingValidator;
@@ -88,17 +86,11 @@ public class JobPostingImp implements JobPostingService {
         Recruiter recruiter = getMyRecruiter();
 
         // Validate request - check duplicate title within same recruiter only
-        jobPostingValidator.checkDuplicateJobPostingTitle(request.getTitle(), recruiter.getId());
         jobPostingValidator.validateExpirationDate(request.getExpirationDate());
-
-        // Get work model and check exist
-        Optional<WorkModel> exstingWorkModel = workModelRepo.findByName(request.getWorkModel());
-        if (exstingWorkModel.isEmpty())
-            throw new AppException(ErrorCode.WORK_MODEL_NOT_FOUND);
 
         JobPosting jobPosting = jobPostingMapper.toJobPosting(request);
         jobPosting.setCreateAt(LocalDate.now());
-        jobPosting.setWorkModel(exstingWorkModel.get().getName());
+        jobPosting.setWorkModel(request.getWorkModel().getDisplayName());
         jobPosting.setRecruiter(recruiter);
         jobPosting.setStatus(StatusJobPosting.PENDING);
 
