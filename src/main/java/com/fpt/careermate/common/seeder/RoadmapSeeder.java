@@ -26,10 +26,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -58,28 +55,55 @@ public class RoadmapSeeder implements CommandLineRunner {
                          ResourceLoader resourceLoader) {
         Storage tempStorage = null;
         try {
-            // Đọc service account từ classpath
-            Resource resource = resourceLoader.getResource("classpath:careermate-bucket.json");
+            GoogleCredentials credentials = null;
 
-            if (resource.exists()) {
-                try (InputStream serviceAccountStream = resource.getInputStream()) {
-                    GoogleCredentials credentials = GoogleCredentials.fromStream(serviceAccountStream);
+            // Priority 1: Try to get credentials from environment variable (for Cloud Run)
+            String credentialsJson = System.getenv("GOOGLE_CLOUD_CREDENTIALS_JSON");
 
-                    tempStorage = StorageOptions.newBuilder()
-                            .setCredentials(credentials)
-                            .build()
-                            .getService();
+            if (credentialsJson != null && !credentialsJson.isEmpty()) {
+                log.info("→ Using Google Cloud credentials from environment variable");
+                try (InputStream credentialStream = new ByteArrayInputStream(
+                        credentialsJson.getBytes(StandardCharsets.UTF_8))) {
+                    credentials = GoogleCredentials.fromStream(credentialStream);
                 }
-            } else {
-                log.error("✗ careermate-bucket.json not found in classpath");
-                log.info("Please ensure the file exists at: src/main/resources/careermate-bucket.json");
+            }
+            // Priority 2: Try to get credentials from Application Default Credentials (for Cloud Run)
+            else {
+                try {
+                    log.info("→ Attempting to use Application Default Credentials");
+                    credentials = GoogleCredentials.getApplicationDefault();
+                } catch (IOException e) {
+                    log.info("→ Application Default Credentials not available, trying local resource file");
+                    // Priority 3: Fall back to local resource file
+                    Resource resource = resourceLoader.getResource("classpath:careermate-bucket.json");
+
+                    if (resource.exists()) {
+                        log.info("→ Using Google Cloud credentials from local resource file");
+                        try (InputStream serviceAccountStream = resource.getInputStream()) {
+                            credentials = GoogleCredentials.fromStream(serviceAccountStream);
+                        }
+                    } else {
+                        log.error("✗ careermate-bucket.json not found in classpath");
+                        log.info("Please ensure the file exists at: src/main/resources/careermate-bucket.json");
+                    }
+                }
+            }
+
+            if (credentials != null) {
+                tempStorage = StorageOptions.newBuilder()
+                        .setCredentials(credentials)
+                        .build()
+                        .getService();
+                log.info("✓ Google Cloud Storage initialized successfully");
             }
         } catch (Exception e) {
             log.error("✗ Failed to initialize Google Cloud Storage: {}", e.getMessage());
             log.warn("Roadmap seeder will not run. Please check:");
-            log.warn("1. File 'google-cloud-account.json' exists in src/main/resources/");
-            log.warn("2. Service account has Storage Object Viewer role");
-            log.warn("3. Service account has access to bucket");
+            log.warn("1. Environment variable GOOGLE_CLOUD_CREDENTIALS_JSON is set (for Cloud Run)");
+            log.warn("2. OR Application Default Credentials are available");
+            log.warn("3. OR File 'careermate-bucket.json' exists in src/main/resources/ (for local)");
+            log.warn("4. Service account has Storage Object Viewer role");
+            log.warn("5. Service account has access to bucket");
         }
         this.storage = tempStorage;
         this.roadmapRepo = roadmapRepo;
