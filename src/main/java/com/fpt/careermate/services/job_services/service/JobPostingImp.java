@@ -35,9 +35,6 @@ import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.services.email_services.service.impl.EmailService;
 import com.fpt.careermate.services.kafka.dto.NotificationEvent;
 import com.fpt.careermate.services.kafka.producer.NotificationProducer;
-import io.weaviate.client.WeaviateClient;
-import io.weaviate.client.base.Result;
-import io.weaviate.client.v1.data.model.WeaviateObject;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -264,6 +261,9 @@ public class JobPostingImp implements JobPostingService {
 
         jobPosting.setStatus(StatusJobPosting.DELETED);
         jobPostingRepo.save(jobPosting);
+
+        // Delete from Weaviate
+        weaviateImp.deleteJobPosting(id);
     }
 
     // Recruiter pause job posting

@@ -105,6 +105,62 @@ public class WeaviateImp {
         }
     }
 
+    // Xóa job posting khỏi Weaviate
+    public void deleteJobPosting(Integer jobId) {
+        try {
+            // Query to get the object UUID by jobId
+            String query = String.format(
+                "{Get{JobPosting(where:{path:[\"jobId\"],operator:Equal,valueInt:%d}){_additional{id}}}}",
+                jobId
+            );
+
+            var result = weaviateClient.graphQL().raw()
+                    .withQuery(query)
+                    .run();
+
+            if (result.hasErrors()) {
+                log.warn("Error querying job posting for deletion in Weaviate: {}",
+                        result.getError().getMessages());
+                return;
+            }
+
+            var data = result.getResult();
+            if (data != null && data.getData() != null) {
+                var getData = (Map<String, Object>) data.getData();
+                var get = (Map<String, Object>) getData.get("Get");
+                if (get != null) {
+                    var jobPostings = (List<Map<String, Object>>) get.get("JobPosting");
+                    if (jobPostings != null && !jobPostings.isEmpty()) {
+                        for (Map<String, Object> jobPosting : jobPostings) {
+                            var additional = (Map<String, Object>) jobPosting.get("_additional");
+                            if (additional != null) {
+                                String uuid = (String) additional.get("id");
+                                if (uuid != null) {
+                                    // Delete the object by UUID
+                                    var deleteResult = weaviateClient.data().deleter()
+                                            .withClassName("JobPosting")
+                                            .withID(uuid)
+                                            .run();
+
+                                    if (deleteResult.hasErrors()) {
+                                        log.error("Error deleting job posting from Weaviate: {}",
+                                                deleteResult.getError().getMessages());
+                                    } else {
+                                        log.info("Successfully deleted job posting with jobId={} from Weaviate", jobId);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        log.info("Job posting with jobId={} not found in Weaviate", jobId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Exception while deleting job posting from Weaviate: {}", e.getMessage(), e);
+        }
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     public void resetJobPostingCollection() {
         String collectionName = "JobPosting";
