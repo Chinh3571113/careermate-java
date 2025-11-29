@@ -1,8 +1,7 @@
 server:
   port: {PORT:8080}
   address: 0.0.0.0
-  # Enable forward headers to detect correct scheme (http/https) and host
-  forward-headers-strategy: framework
+  forward-headers-strategy: native
 spring:
   #  main:
   #    web-application-type: none
@@ -136,15 +135,25 @@ app:
     roadmap:
       bucket-name: ${BUCKET_NAME:default}
       prefix: ${BUCKET_PREFIX:default}
+  swagger:
+    server:
+      # Leave empty for local development (will use localhost)
+      # Set this in production environment:
+      url: ${SWAGGER_SERVER_URL:}
 
 # Springdoc OpenAPI Configuration
 springdoc:
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
+    enabled: true
   swagger-ui:
     path: /swagger-ui.html
+    # Disable trying to fetch remote config
+    disable-swagger-default-url: true
+    # Set the base URL to use for API calls
+    url: /v3/api-docs
     # Enable forward headers to detect the correct server URL when behind a proxy/load balancer
-    use-root-path: true
+    use-root-path: false
   # Use forwarded headers (X-Forwarded-Host, X-Forwarded-Proto, X-Forwarded-Port)
   # This is important for Cloud Run and other cloud platforms
   use-fqn: true
