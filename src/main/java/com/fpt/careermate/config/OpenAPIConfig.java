@@ -9,12 +9,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.security.SecuritySchemes;
 import io.swagger.v3.oas.models.servers.Server;
+import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@Slf4j
 @Configuration
 @OpenAPIDefinition(
         info = @Info(
@@ -62,22 +64,24 @@ public class OpenAPIConfig {
     @Bean
     public OpenApiCustomizer openApiCustomizer() {
         return openApi -> {
-            // Clear any existing servers
             openApi.getServers().clear();
 
-            // If custom server URL is provided, use it (for production)
+            // If custom server URL is provided, add it first (for production)
             if (customServerUrl != null && !customServerUrl.isEmpty()) {
                 Server prodServer = new Server();
                 prodServer.setUrl(customServerUrl);
                 prodServer.setDescription("Production Server");
                 openApi.addServersItem(prodServer);
+            } else {
+                log.info("✗ No custom server URL provided");
             }
 
-            // Always add localhost as fallback
+            // Always add localhost as an option
             Server localServer = new Server();
             localServer.setUrl("http://localhost:" + serverPort);
             localServer.setDescription("Local Development");
             openApi.addServersItem(localServer);
+            log.info("========== Total servers configured: {} ==========", openApi.getServers().size());
         };
     }
 }
