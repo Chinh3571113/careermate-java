@@ -4,17 +4,13 @@ import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.common.constant.InterviewStatus;
 import com.fpt.careermate.common.constant.StatusJobApply;
-import com.fpt.careermate.services.job_services.domain.InterviewRescheduleRequest;
-import com.fpt.careermate.services.job_services.domain.InterviewRescheduleRequest.RescheduleStatus;
 import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
 import com.fpt.careermate.services.job_services.domain.JobApply;
-import com.fpt.careermate.services.job_services.repository.InterviewRescheduleRequestRepo;
 import com.fpt.careermate.services.job_services.repository.InterviewScheduleRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
 import com.fpt.careermate.services.job_services.service.InterviewCalendarService;
 import com.fpt.careermate.services.job_services.service.dto.request.CompleteInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.InterviewScheduleRequest;
-import com.fpt.careermate.services.job_services.service.dto.request.RescheduleInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.UpdateInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.ConflictCheckResponse;
 import com.fpt.careermate.services.job_services.service.dto.response.InterviewScheduleResponse;
@@ -51,7 +47,6 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
     InterviewScheduleRepo interviewRepo;
     JobApplyRepo jobApplyRepo;
-    InterviewRescheduleRequestRepo rescheduleRequestRepo;
     InterviewScheduleMapper interviewMapper;
     InterviewCalendarService calendarService;
     NotificationProducer notificationProducer;
@@ -138,90 +133,6 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         // TODO: Notify recruiter
 
         log.info("Interview confirmed successfully");
-        return interviewMapper.toResponse(interview);
-    }
-
-    @Override
-    @Transactional
-    public InterviewScheduleResponse requestReschedule(Integer interviewId, RescheduleInterviewRequest request) {
-        log.info("Requesting reschedule for interview ID: {}", interviewId);
-
-        InterviewSchedule interview = findInterviewById(interviewId);
-
-        if (interview.getStatus() == InterviewStatus.COMPLETED || 
-            interview.getStatus() == InterviewStatus.CANCELLED) {
-            throw new AppException(ErrorCode.CANNOT_RESCHEDULE_COMPLETED_INTERVIEW);
-        }
-
-        if (request.getNewRequestedDate().isBefore(LocalDateTime.now())) {
-            throw new AppException(ErrorCode.INVALID_SCHEDULE_DATE);
-        }
-
-        long hoursUntilInterview = Duration.between(LocalDateTime.now(), interview.getScheduledDate()).toHours();
-        if (hoursUntilInterview < 2) {
-            throw new AppException(ErrorCode.RESCHEDULE_TOO_LATE);
-        }
-
-        InterviewRescheduleRequest rescheduleRequest = InterviewRescheduleRequest.builder()
-                .interviewSchedule(interview)
-                .originalDate(interview.getScheduledDate())
-                .newRequestedDate(request.getNewRequestedDate())
-                .reason(request.getReason())
-                .requestedBy(request.getRequestedBy())
-                .requiresConsent(request.getRequiresConsent() != null ? request.getRequiresConsent() : true)
-                .status(RescheduleStatus.PENDING_CONSENT)
-                .expiresAt(LocalDateTime.now().plusDays(2))
-                .build();
-
-        rescheduleRequest = rescheduleRequestRepo.save(rescheduleRequest);
-
-        // TODO: Send notification to other party
-
-        log.info("Reschedule request created with ID: {}", rescheduleRequest.getId());
-        return interviewMapper.toResponse(interview);
-    }
-
-    @Override
-    @Transactional
-    public InterviewScheduleResponse respondToReschedule(Integer rescheduleRequestId, boolean accepted, String responseNotes) {
-        log.info("Responding to reschedule request ID: {} - Accepted: {}", rescheduleRequestId, accepted);
-
-        InterviewRescheduleRequest rescheduleRequest = rescheduleRequestRepo.findById(rescheduleRequestId.longValue())
-                .orElseThrow(() -> new AppException(ErrorCode.RESCHEDULE_REQUEST_NOT_FOUND));
-
-        InterviewSchedule interview = rescheduleRequest.getInterviewSchedule();
-
-        if (rescheduleRequest.getStatus() != RescheduleStatus.PENDING_CONSENT) {
-            throw new AppException(ErrorCode.RESCHEDULE_REQUEST_ALREADY_PROCESSED);
-        }
-
-        if (rescheduleRequest.getExpiresAt().isBefore(LocalDateTime.now())) {
-            rescheduleRequest.setStatus(RescheduleStatus.EXPIRED);
-            rescheduleRequestRepo.save(rescheduleRequest);
-            throw new AppException(ErrorCode.RESCHEDULE_REQUEST_EXPIRED);
-        }
-
-        if (accepted) {
-            interview.setScheduledDate(rescheduleRequest.getNewRequestedDate());
-            interview.setStatus(InterviewStatus.RESCHEDULED);
-            interviewRepo.save(interview);
-
-            rescheduleRequest.setStatus(RescheduleStatus.ACCEPTED);
-            rescheduleRequest.setConsentGiven(true);
-            rescheduleRequest.setConsentGivenAt(LocalDateTime.now());
-            rescheduleRequestRepo.save(rescheduleRequest);
-
-            log.info("Reschedule accepted - Interview moved to {}", interview.getScheduledDate());
-        } else {
-            rescheduleRequest.setStatus(RescheduleStatus.REJECTED);
-            rescheduleRequest.setConsentGiven(false);
-            rescheduleRequestRepo.save(rescheduleRequest);
-
-            log.info("Reschedule rejected");
-        }
-
-        // TODO: Send notification
-
         return interviewMapper.toResponse(interview);
     }
 

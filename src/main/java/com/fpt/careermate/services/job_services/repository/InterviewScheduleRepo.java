@@ -167,34 +167,37 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
     
     /**
      * Find all interviews for recruiter on specific date (for daily calendar view)
+     * Uses native query for proper PostgreSQL date comparison
      */
-    @Query("SELECT i FROM interview_schedule i " +
-           "WHERE i.createdByRecruiter.id = :recruiterId " +
+    @Query(value = "SELECT * FROM interview_schedule i " +
+           "WHERE i.created_by_recruiter_id = :recruiterId " +
            "AND i.status NOT IN ('CANCELLED') " +
-           "AND DATE(i.scheduledDate) = :date " +
-           "ORDER BY i.scheduledDate ASC")
+           "AND DATE(i.scheduled_date) = :date " +
+           "ORDER BY i.scheduled_date ASC", nativeQuery = true)
     List<InterviewSchedule> findByRecruiterIdAndDate(@Param("recruiterId") Integer recruiterId,
                                                       @Param("date") LocalDate date);
     
     /**
      * Find all interviews for recruiter in date range (for weekly/monthly calendar view)
+     * Uses native query for proper PostgreSQL date comparison
      */
-    @Query("SELECT i FROM interview_schedule i " +
-           "WHERE i.createdByRecruiter.id = :recruiterId " +
+    @Query(value = "SELECT * FROM interview_schedule i " +
+           "WHERE i.created_by_recruiter_id = :recruiterId " +
            "AND i.status NOT IN ('CANCELLED') " +
-           "AND DATE(i.scheduledDate) BETWEEN :startDate AND :endDate " +
-           "ORDER BY i.scheduledDate ASC")
+           "AND DATE(i.scheduled_date) BETWEEN :startDate AND :endDate " +
+           "ORDER BY i.scheduled_date ASC", nativeQuery = true)
     List<InterviewSchedule> findByRecruiterIdAndDateRange(@Param("recruiterId") Integer recruiterId,
                                                            @Param("startDate") LocalDate startDate,
                                                            @Param("endDate") LocalDate endDate);
     
     /**
      * Count active interviews for recruiter on specific date
+     * Uses native query for proper PostgreSQL date comparison
      */
-    @Query("SELECT COUNT(i) FROM interview_schedule i " +
-           "WHERE i.createdByRecruiter.id = :recruiterId " +
+    @Query(value = "SELECT COUNT(*) FROM interview_schedule i " +
+           "WHERE i.created_by_recruiter_id = :recruiterId " +
            "AND i.status NOT IN ('CANCELLED', 'NO_SHOW') " +
-           "AND DATE(i.scheduledDate) = :date")
+           "AND DATE(i.scheduled_date) = :date", nativeQuery = true)
     Long countInterviewsOnDate(@Param("recruiterId") Integer recruiterId, @Param("date") LocalDate date);
     
     /**
@@ -227,12 +230,14 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
     
     /**
      * Find candidate's interviews on specific date
+     * Uses native query for proper PostgreSQL date comparison
      */
-    @Query("SELECT i FROM interview_schedule i " +
-           "WHERE i.jobApply.candidate.id = :candidateId " +
+    @Query(value = "SELECT i.* FROM interview_schedule i " +
+           "JOIN job_apply ja ON i.job_apply_id = ja.id " +
+           "WHERE ja.candidate_id = :candidateId " +
            "AND i.status NOT IN ('CANCELLED') " +
-           "AND DATE(i.scheduledDate) = :date " +
-           "ORDER BY i.scheduledDate ASC")
+           "AND DATE(i.scheduled_date) = :date " +
+           "ORDER BY i.scheduled_date ASC", nativeQuery = true)
     List<InterviewSchedule> findByCandidateIdAndDate(@Param("candidateId") Integer candidateId,
                                                       @Param("date") LocalDate date);
 }

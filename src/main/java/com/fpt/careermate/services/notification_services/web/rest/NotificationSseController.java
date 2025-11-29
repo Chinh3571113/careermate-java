@@ -143,7 +143,7 @@ public class NotificationSseController {
             ```javascript
             const token = localStorage.getItem('token');
             const eventSource = new EventSource(
-                `http://localhost:8080/api/notifications/stream?token=${token}`
+                `http://localhost:8080/api/notifications/stream?token=$${token}`
             );
 
             eventSource.addEventListener('notification', (event) => {

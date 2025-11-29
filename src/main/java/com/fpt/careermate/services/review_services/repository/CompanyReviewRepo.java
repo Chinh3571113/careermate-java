@@ -40,17 +40,19 @@ public interface CompanyReviewRepo extends JpaRepository<CompanyReview, Integer>
     
     /**
      * Get average rating for a company
+     * Uses native query for proper enum comparison
      */
-    @Query("SELECT AVG(cr.overallRating) FROM company_review cr " +
-           "WHERE cr.recruiter.id = :recruiterId AND cr.status = 'ACTIVE'")
+    @Query(value = "SELECT AVG(cr.overall_rating) FROM company_review cr " +
+           "WHERE cr.recruiter_id = :recruiterId AND cr.status = 'ACTIVE'", nativeQuery = true)
     Double getAverageRatingByRecruiterId(Integer recruiterId);
     
     /**
      * Get average rating by review type
+     * Uses native query for proper enum comparison
      */
-    @Query("SELECT AVG(cr.overallRating) FROM company_review cr " +
-           "WHERE cr.recruiter.id = :recruiterId AND cr.reviewType = :reviewType AND cr.status = 'ACTIVE'")
-    Double getAverageRatingByRecruiterIdAndType(Integer recruiterId, ReviewType reviewType);
+    @Query(value = "SELECT AVG(cr.overall_rating) FROM company_review cr " +
+           "WHERE cr.recruiter_id = :recruiterId AND cr.review_type = :reviewType AND cr.status = 'ACTIVE'", nativeQuery = true)
+    Double getAverageRatingByRecruiterIdAndType(Integer recruiterId, String reviewType);
     
     /**
      * Count reviews for a company
@@ -74,15 +76,16 @@ public interface CompanyReviewRepo extends JpaRepository<CompanyReview, Integer>
     
     /**
      * Check for potential duplicate review (same candidate, company, similar timestamp)
+     * Uses native query for proper enum comparison
      */
-    @Query("SELECT cr FROM company_review cr " +
-           "WHERE cr.candidate.candidateId = :candidateId " +
-           "AND cr.recruiter.id = :recruiterId " +
-           "AND cr.reviewType = :reviewType " +
-           "AND cr.createdAt > :since " +
-           "AND cr.status = 'ACTIVE'")
+    @Query(value = "SELECT * FROM company_review cr " +
+           "WHERE cr.candidate_id = :candidateId " +
+           "AND cr.recruiter_id = :recruiterId " +
+           "AND cr.review_type = :reviewType " +
+           "AND cr.created_at > :since " +
+           "AND cr.status = 'ACTIVE'", nativeQuery = true)
     List<CompanyReview> findPotentialDuplicates(
-        Integer candidateId, Integer recruiterId, ReviewType reviewType, LocalDateTime since
+        Integer candidateId, Integer recruiterId, String reviewType, LocalDateTime since
     );
     
     /**

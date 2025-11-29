@@ -4,9 +4,10 @@ import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
+import com.fpt.careermate.services.job_services.domain.JobApply;
+import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
 import com.fpt.careermate.services.job_services.service.dto.request.CompleteInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.InterviewScheduleRequest;
-import com.fpt.careermate.services.job_services.service.dto.request.RescheduleInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.UpdateInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.InterviewScheduleResponse;
 import com.fpt.careermate.services.job_services.service.InterviewScheduleService;
@@ -24,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -48,6 +51,7 @@ public class InterviewScheduleController {
     AuthenticationImp authenticationImp;
     RecruiterRepo recruiterRepo;
     CandidateRepo candidateRepo;
+    JobApplyRepo jobApplyRepo;
     
     /**
      * Get current recruiter from JWT token.
@@ -113,19 +117,35 @@ public class InterviewScheduleController {
 
     /**
      * Get existing interview for a job application.
-     * Used for rescheduling - retrieves current interview details to pre-fill the form.
+     * - Recruiter: Can view interview for any job application they manage
+     * - Candidate: Can only view interview for their own job applications
      * 
      * @param jobApplyId The job application ID
      * @return Interview schedule response or 404 if no interview exists
      */
     @GetMapping("/job-applies/{jobApplyId}/interview")
-    @PreAuthorize("hasRole('RECRUITER')")
+    @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
     @Operation(summary = "Get interview by job application", 
-               description = "Get existing interview for a job application. Returns current interview details for rescheduling.")
+               description = "Get existing interview for a job application. Candidate can only view their own applications.")
     public ResponseEntity<InterviewScheduleResponse> getInterviewByJobApply(
             @PathVariable Integer jobApplyId) {
         
         log.info("Getting interview for job apply ID: {}", jobApplyId);
+        
+        // Ownership validation for candidate role
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isCandidate = authentication.getAuthorities().stream()
+                .anyMatch(auth -> auth.getAuthority().equals("ROLE_CANDIDATE"));
+        
+        if (isCandidate) {
+            Candidate candidate = getMyCandidate();
+            JobApply jobApply = jobApplyRepo.findById(jobApplyId)
+                    .orElseThrow(() -> new AppException(ErrorCode.JOB_APPLY_NOT_FOUND));
+            
+            if (jobApply.getCandidate().getCandidateId() != candidate.getCandidateId()) {
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+            }
+        }
         
         InterviewScheduleResponse response = interviewScheduleService.getInterviewByJobApply(jobApplyId);
         
@@ -177,55 +197,6 @@ public class InterviewScheduleController {
         log.info("Candidate confirming interview ID: {}", interviewId);
         
         InterviewScheduleResponse response = interviewScheduleService.confirmInterview(interviewId);
-        
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Request to reschedule an interview.
-     * Either recruiter or candidate can request, may need consent from other party.
-     * 
-     * @param interviewId The interview schedule ID
-     * @param request Reschedule details (new date, reason, requested by)
-     * @return Interview schedule response with reschedule request
-     */
-    @PostMapping("/interviews/{interviewId}/reschedule")
-    @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
-    @Operation(summary = "Request interview reschedule", 
-               description = "Request to reschedule an interview to a different date/time")
-    public ResponseEntity<InterviewScheduleResponse> requestReschedule(
-            @PathVariable Integer interviewId,
-            @Valid @RequestBody RescheduleInterviewRequest request) {
-        
-        log.info("Reschedule requested for interview ID: {}", interviewId);
-        
-        InterviewScheduleResponse response = interviewScheduleService.requestReschedule(interviewId, request);
-        
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
-    }
-
-    /**
-     * Respond to a reschedule request (accept or reject).
-     * Updates interview date if accepted, or rejects the request.
-     * 
-     * @param rescheduleRequestId The reschedule request ID
-     * @param accepted Whether to accept (true) or reject (false)
-     * @param responseNotes Optional notes for the response
-     * @return Interview schedule response with updated details
-     */
-    @PostMapping("/interviews/reschedule-requests/{rescheduleRequestId}/respond")
-    @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
-    @Operation(summary = "Respond to reschedule request", 
-               description = "Accept or reject an interview reschedule request")
-    public ResponseEntity<InterviewScheduleResponse> respondToReschedule(
-            @PathVariable Integer rescheduleRequestId,
-            @RequestParam boolean accepted,
-            @RequestParam(required = false) String responseNotes) {
-        
-        log.info("Responding to reschedule request ID: {}, accepted: {}", rescheduleRequestId, accepted);
-        
-        InterviewScheduleResponse response = interviewScheduleService.respondToReschedule(
-                rescheduleRequestId, accepted, responseNotes);
         
         return ResponseEntity.ok(response);
     }

@@ -385,10 +385,19 @@ public class AuthenticationImp implements AuthenticationService {
         if (auth != null && auth.getCredentials() != null) {
             try {
                 String token = auth.getCredentials().toString();
-                SignedJWT signedJWT = SignedJWT.parse(token);
-                Object recruiterId = signedJWT.getJWTClaimsSet().getClaim("recruiterId");
-                if (recruiterId instanceof Number) {
-                    return ((Number) recruiterId).intValue();
+                // Strip "Bearer " prefix if present
+                if (token.toLowerCase().startsWith("bearer ")) {
+                    token = token.substring(7);
+                }
+                // Validate token has exactly 3 parts (header.payload.signature)
+                if (token.split("\\.").length != 3) {
+                    log.warn("Invalid JWT format - expected 3 parts");
+                } else {
+                    SignedJWT signedJWT = SignedJWT.parse(token);
+                    Object recruiterId = signedJWT.getJWTClaimsSet().getClaim("recruiterId");
+                    if (recruiterId instanceof Number) {
+                        return ((Number) recruiterId).intValue();
+                    }
                 }
             } catch (ParseException e) {
                 log.warn("Failed to parse recruiterId from token", e);
@@ -411,10 +420,19 @@ public class AuthenticationImp implements AuthenticationService {
         if (auth != null && auth.getCredentials() != null) {
             try {
                 String token = auth.getCredentials().toString();
-                SignedJWT signedJWT = SignedJWT.parse(token);
-                Object candidateId = signedJWT.getJWTClaimsSet().getClaim("candidateId");
-                if (candidateId instanceof Number) {
-                    return ((Number) candidateId).intValue();
+                // Strip "Bearer " prefix if present
+                if (token.toLowerCase().startsWith("bearer ")) {
+                    token = token.substring(7);
+                }
+                // Validate token has exactly 3 parts (header.payload.signature)
+                if (token.split("\\.").length != 3) {
+                    log.warn("Invalid JWT format - expected 3 parts");
+                } else {
+                    SignedJWT signedJWT = SignedJWT.parse(token);
+                    Object candidateId = signedJWT.getJWTClaimsSet().getClaim("candidateId");
+                    if (candidateId instanceof Number) {
+                        return ((Number) candidateId).intValue();
+                    }
                 }
             } catch (ParseException e) {
                 log.warn("Failed to parse candidateId from token", e);

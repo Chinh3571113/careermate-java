@@ -1,15 +1,10 @@
 package com.fpt.careermate.services.job_services.service;
 
-import com.fpt.careermate.common.constant.InterviewStatus;
-import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
 import com.fpt.careermate.services.job_services.service.dto.request.InterviewScheduleRequest;
-import com.fpt.careermate.services.job_services.service.dto.request.RescheduleInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.request.CompleteInterviewRequest;
-import com.fpt.careermate.services.job_services.service.dto.request.RescheduleRequestResponse;
 import com.fpt.careermate.services.job_services.service.dto.request.UpdateInterviewRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.InterviewScheduleResponse;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -39,27 +34,6 @@ public interface InterviewScheduleService {
      * @return InterviewScheduleResponse with confirmation details
      */
     InterviewScheduleResponse confirmInterview(Integer interviewId);
-
-    /**
-     * Request to reschedule an interview.
-     * Creates a reschedule request that may require consent from the other party.
-     * 
-     * @param interviewId The interview schedule ID
-     * @param request Contains new date, reason, requested by (RECRUITER or CANDIDATE)
-     * @return InterviewScheduleResponse with reschedule request details
-     */
-    InterviewScheduleResponse requestReschedule(Integer interviewId, RescheduleInterviewRequest request);
-
-    /**
-     * Respond to a reschedule request (accept or reject).
-     * If accepted, updates interview scheduled date and marks request as ACCEPTED.
-     * 
-     * @param rescheduleRequestId The reschedule request ID
-     * @param accepted Whether to accept or reject the request
-     * @param responseNotes Optional notes for the response
-     * @return InterviewScheduleResponse with updated details
-     */
-    InterviewScheduleResponse respondToReschedule(Integer rescheduleRequestId, boolean accepted, String responseNotes);
 
     /**
      * Mark interview as completed after it occurs.

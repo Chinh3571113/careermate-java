@@ -4,7 +4,7 @@
 
 This guide divides the complete candidate application flow into development phases with specific API endpoints and implementation details.
 
-**Last Updated:** November 28, 2025
+**Last Updated:** November 29, 2025
 
 ---
 
@@ -55,11 +55,11 @@ POST /api/job-applies/{jobApplyId}/schedule-interview
 
 ```typescript
 // These still need the ID from previous API responses:
-GET  /api/job-applies/{jobApplyId}/interview  // Get interview by job application
-PUT  /api/interviews/{interviewId}            // Update interview
-POST /api/interviews/{interviewId}/confirm    // Confirm interview
-POST /api/interviews/{interviewId}/complete   // Complete interview
-POST /api/interviews/{interviewId}/cancel     // Cancel interview
+GET  /api/job-applies/{jobApplyId}/interview  // Get interview by job application (CANDIDATE/RECRUITER)
+PUT  /api/interviews/{interviewId}            // Update/Reschedule interview (RECRUITER only)
+POST /api/interviews/{interviewId}/confirm    // Confirm interview (CANDIDATE only)
+POST /api/interviews/{interviewId}/complete   // Complete interview (RECRUITER only)
+POST /api/interviews/{interviewId}/cancel     // Cancel interview (RECRUITER only)
 ```
 
 ### Frontend Implementation Pattern
@@ -163,20 +163,20 @@ const handleSubmit = async () => {
 | Interview Scheduling | ✅ Ready | Full lifecycle with conflict detection |
 | Interview Reminders | ✅ Ready | 24h and 2h automated notifications |
 | Calendar/Working Hours | ✅ Ready | Daily/Weekly/Monthly views |
-| Rescheduling Flow | ✅ Ready | Request/respond with consent |
-| **Direct Interview Update** | ✅ Ready | **NEW: PUT /api/interviews/{id} for direct rescheduling** |
-| **Get Interview by JobApply** | ✅ Ready | **NEW: GET /api/job-applies/{id}/interview** |
+| **Interview Direct Update** | ✅ Ready | `PUT /api/interviews/{id}` for rescheduling after negotiation |
+| **Get Interview by JobApply** | ✅ Ready | `GET /api/job-applies/{id}/interview` |
 | Contact Visibility | ✅ Ready | Shows only when status >= APPROVED |
 | Company Reviews | ✅ Ready | Eligibility-based with multiple review types |
 | Notifications | ✅ Ready | Real-time SSE + Kafka |
 | Employment Tracking | ✅ Ready | Start/terminate with verification |
 | Auto-Withdraw on Hire | ✅ Ready | Withdraws other pending applications |
-| **JWT with User IDs** | ✅ Ready | **userId, recruiterId, candidateId embedded in JWT** |
-| **Auto-ID Endpoints** | ✅ Ready | **Endpoints that extract ID from JWT token** |
+| **JWT with User IDs** | ✅ Ready | userId, recruiterId, candidateId embedded in JWT |
+| **Auto-ID Endpoints** | ✅ Ready | Endpoints that extract ID from JWT token |
+| **AI Interview Practice** | ✅ Ready | Gemini-powered mock interviews for candidates |
 
 ---
 
-## 🔐 Authentication & JWT Structure (UPDATED)
+## 🔐 Authentication & JWT Structure
 
 ### Login Response
 ```typescript
@@ -195,7 +195,7 @@ interface AuthenticationResponse {
 
 ### JWT Token Claims (Decoded)
 ```typescript
-// The JWT token now contains these claims:
+// The JWT token contains these claims:
 interface JWTClaims {
   sub: string;           // Email
   iss: string;           // "careermate.com"
@@ -603,16 +603,8 @@ PUT /api/job-apply/{id}
 Body: "WITHDRAWN"
 ```
 
-### 3.5 Request Reschedule
-```
-POST /api/interviews/{interviewId}/reschedule
-Body: {
-  newRequestedDate: string,   // ISO DateTime
-  reason: string,             // 10-1000 chars
-  requestedBy: 'CANDIDATE',
-  requiresConsent?: boolean   // Default: true
-}
-```
+### 3.5 Request Reschedule (Contact Recruiter Directly)
+> **Note**: There is no API endpoint for reschedule requests. Candidates should contact the recruiter directly using the `interviewerEmail` or `interviewerPhone` from the interview details. After negotiating a new time, the recruiter updates the interview using `PUT /api/interviews/{id}` (see Phase 7).
 
 ### 3.6 Get Past Interviews (Path Parameter)
 ```
@@ -637,7 +629,7 @@ Response: { candidateId: number, count: number, interviews: InterviewScheduleRes
 ### `/candidate/interviews/[id]` - Interview Detail
 - Full interview info
 - Confirm button (if not confirmed)
-- Request reschedule button
+- Contact info for rescheduling (email/phone to contact recruiter)
 - Withdraw option
 - Add to calendar button (Google, Outlook, iCal)
 
@@ -953,56 +945,206 @@ async function handleHire(applicationId: number) {
 
 ---
 
-# 📦 PHASE 7: Rescheduling Flow
+# 📦 PHASE 7: Interview Rescheduling (Direct Update)
 
 ## Overview
-Either party can request reschedule, other party responds.
+**Simplified rescheduling flow**: When a candidate needs to reschedule, they contact the recruiter directly (using interviewer email/phone from interview details). After negotiating a new time, the recruiter uses `PUT /api/interviews/{id}` to update the interview directly. No consent-request workflow needed.
+
+## How Rescheduling Works
+
+```
+┌─────────────┐     Contact via email/phone     ┌─────────────┐
+│  Candidate  │ ─────────────────────────────▶  │  Recruiter  │
+└─────────────┘                                 └──────┬──────┘
+                                                       │
+                   They negotiate new time             │
+                   ◀─────────────────────────         │
+                                                       │
+                                               PUT /api/interviews/{id}
+                                                       │
+                                                       ▼
+                                               ┌─────────────┐
+                                               │  Updated!   │
+                                               └─────────────┘
+```
+
+1. **Candidate wants to reschedule** → Uses contact info from interview details (interviewerEmail, interviewerPhone)
+2. **Direct communication** → Candidate and recruiter negotiate via email/phone
+3. **Recruiter updates interview** → Uses `PUT /api/interviews/{id}` to change date/time
+4. **Candidate gets notified** → Notification sent about the schedule change
+5. **Candidate re-confirms** → If date was changed, `candidateConfirmed` is reset to false
 
 ## API Endpoints
 
-### 7.1 Request Reschedule
+### 7.1 Get Existing Interview by Job Application
 ```
-POST /api/interviews/{interviewId}/reschedule
-Body: {
-  newRequestedDate: string,
-  reason: string,
-  requestedBy: 'RECRUITER' | 'CANDIDATE',
-  requiresConsent: boolean
-}
+GET /api/job-applies/{jobApplyId}/interview
+Auth: Bearer token (CANDIDATE or RECRUITER role required)
+Response: InterviewScheduleResponse (or 404 if no interview exists)
 ```
 
-### 7.2 Respond to Reschedule Request
+**Use Cases**: 
+- **Recruiter**: When clicking "Reschedule" on a candidate with `INTERVIEW_SCHEDULED` status, fetch the existing interview to pre-populate the form.
+- **Candidate**: When viewing their application with `INTERVIEW_SCHEDULED` status, fetch interview details to see schedule, location, interviewer contact info.
+
+**Note**: Candidates can only access interviews for their own job applications. Attempting to access another candidate's interview returns `UNAUTHORIZED` error.
+
+### 7.2 Update Interview (Direct Reschedule)
 ```
-POST /api/interviews/reschedule-requests/{rescheduleRequestId}/respond
-Query: approved=true|false, rejectionReason?
+PUT /api/interviews/{interviewId}
+Auth: Bearer token (RECRUITER role required)
+Body: UpdateInterviewRequest
 ```
 
-## Frontend Pages
-
-### `/candidate/interviews/[id]/reschedule` - Request Reschedule
-- Calendar date picker
-- Reason input (required)
-- Show available slots for new date
-
-### `/recruiter/reschedule-requests` - Pending Requests
-- List of pending reschedule requests
-- Approve/Reject buttons
-- View proposed time
-
-## Implementation Notes
-
+**Request Body**:
 ```typescript
-interface RescheduleRequest {
-  newRequestedDate: string;
-  reason: string;
-  requestedBy: 'RECRUITER' | 'CANDIDATE';
-  requiresConsent?: boolean;
+interface UpdateInterviewRequest {
+  scheduledDate?: string;        // ISO DateTime - if changed, triggers re-confirmation
+  durationMinutes?: number;      // Positive integer
+  interviewType?: InterviewType; // 'IN_PERSON' | 'VIDEO_CALL' | 'PHONE' | 'ONLINE_ASSESSMENT'
+  location?: string;
+  interviewerName?: string;
+  interviewerEmail?: string;
+  interviewerPhone?: string;
+  preparationNotes?: string;
+  meetingLink?: string;
+  interviewRound?: number;
+  updateReason?: string;         // Optional reason shown in notification to candidate
 }
+```
 
-// Cannot reschedule within 2 hours of interview
-function canRequestReschedule(interview: InterviewScheduleResponse): boolean {
-  const hoursUntil = interview.hoursUntilInterview;
-  return hoursUntil !== null && hoursUntil > 2;
+**Important Notes**:
+- All fields are **optional** - only update what's provided
+- If `scheduledDate` is changed:
+  - Validates it's in the future
+  - Checks for scheduling conflicts
+  - Resets `candidateConfirmed` to `false`
+  - Resets reminder flags
+  - Sends notification to candidate about the change
+- Cannot update interviews with status: `COMPLETED`, `CANCELLED`, `NO_SHOW`
+
+**Response**: `InterviewScheduleResponse` with updated details
+
+### 7.3 Get Interview by ID
+```
+GET /api/interviews/{interviewId}
+Auth: Bearer token (RECRUITER or CANDIDATE role)
+Response: InterviewScheduleResponse
+```
+
+## Frontend Implementation
+
+### Reschedule Button on Application Card (Recruiter)
+```typescript
+function CandidateCard({ application }: { application: JobApplyResponse }) {
+  const handleReschedule = async () => {
+    router.push(`/recruiter/schedule-interview?jobApplyId=${application.id}&mode=reschedule`);
+  };
+
+  return (
+    <Card>
+      <h3>{application.fullName}</h3>
+      <Badge>{application.status}</Badge>
+      
+      {application.status === 'INTERVIEW_SCHEDULED' && (
+        <Button onClick={handleReschedule}>
+          Reschedule Interview
+        </Button>
+      )}
+    </Card>
+  );
+}
+```
+
+### Contact Info on Interview Detail (Candidate Side)
+```typescript
+function InterviewDetail({ interview }: { interview: InterviewScheduleResponse }) {
+  return (
+    <div>
+      <h2>Interview Details</h2>
+      <p>Date: {formatDateTime(interview.scheduledDate)}</p>
+      <p>Duration: {interview.durationMinutes} minutes</p>
+      <p>Type: {interview.interviewType}</p>
+      
+      {/* Contact info for rescheduling - candidate contacts recruiter directly */}
+      <div className="contact-section">
+        <h3>Need to Reschedule?</h3>
+        <p>Contact the interviewer directly to negotiate a new time:</p>
+        {interview.interviewerEmail && (
+          <p>📧 Email: <a href={`mailto:${interview.interviewerEmail}`}>{interview.interviewerEmail}</a></p>
+        )}
+        {interview.interviewerPhone && (
+          <p>📞 Phone: <a href={`tel:${interview.interviewerPhone}`}>{interview.interviewerPhone}</a></p>
+        )}
+      </div>
+      
+      {!interview.candidateConfirmed && (
+        <Button onClick={() => confirmInterview(interview.id)}>
+          Confirm Attendance
+        </Button>
+      )}
+    </div>
+  );
+}
+```
+
+### Schedule/Reschedule Page (Recruiter)
+```typescript
+export default function ScheduleInterviewPage() {
+  const searchParams = useSearchParams();
+  const jobApplyId = searchParams.get('jobApplyId');
+  const mode = searchParams.get('mode'); // 'new' or 'reschedule'
+  
+  const [existingInterview, setExistingInterview] = useState<InterviewScheduleResponse | null>(null);
+  const [formData, setFormData] = useState<UpdateInterviewRequest>({});
+
+  // Fetch existing interview if reschedule mode
+  useEffect(() => {
+    if (mode === 'reschedule' && jobApplyId) {
+      fetchExistingInterview(parseInt(jobApplyId));
+    }
+  }, [mode, jobApplyId]);
+
+  const fetchExistingInterview = async (jobApplyId: number) => {
+    const response = await api.get(`/api/job-applies/${jobApplyId}/interview`);
+    setExistingInterview(response.data);
+    // Pre-fill form with existing data
+    setFormData({
+      scheduledDate: response.data.scheduledDate,
+      durationMinutes: response.data.durationMinutes,
+      interviewType: response.data.interviewType,
+      location: response.data.location,
+      // ... other fields
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (mode === 'reschedule' && existingInterview) {
+      await api.put(`/api/interviews/${existingInterview.id}`, {
+        ...formData,
+        updateReason: 'Interview rescheduled after discussion with candidate'
+      });
+      toast.success('Interview rescheduled successfully');
+    } else {
+      await api.post(`/api/job-applies/${jobApplyId}/schedule-interview`, formData);
+      toast.success('Interview scheduled successfully');
+    }
+    router.push('/recruiter/applications');
+  };
+
+  return (
+    <div>
+      <h1>{mode === 'reschedule' ? 'Reschedule Interview' : 'Schedule Interview'}</h1>
+      
+      {existingInterview?.candidateConfirmed && (
+        <Alert type="warning">
+          ⚠️ Candidate has confirmed. Changing the date will require re-confirmation.
+        </Alert>
+      )}
+      
+      <InterviewForm data={formData} onChange={setFormData} onSubmit={handleSubmit} />
+    </div>
+  );
 }
 ```
 
@@ -1519,14 +1661,14 @@ function getBlockedTimeSlots(workingHours: RecruiterWorkingHoursResponse[]) {
 1. **Contact Visibility**: Recruiter contact only visible when status >= APPROVED
 2. **Auto-Withdraw**: When hired, all other pending applications are auto-withdrawn
 3. **Interview Reminders**: Automatic at 24h and 2h before interview
-4. **Rescheduling**: Cannot reschedule within 2 hours of interview
+4. **Rescheduling**: Candidate contacts recruiter via email/phone, recruiter updates directly using `PUT /api/interviews/{id}`
 5. **Review Eligibility**: Based on qualification level and time requirements
 6. **Candidate Control**: Candidate can update their own employment status without recruiter approval
 7. **Status Transitions**: Validated - only allowed transitions are permitted
 
 ---
 
-# 🆕 NEW: JWT-Based API Endpoints Summary
+# 🆕 JWT-Based API Endpoints Summary
 
 The following endpoints automatically extract user IDs from JWT token claims. **No need to pass IDs in URL or store them in localStorage**.
 
@@ -1601,356 +1743,572 @@ All JWT-based endpoints include the extracted ID in the response:
 
 ---
 
-# 📦 PHASE 12: Interview Reschedule (Direct Update)
+# 📦 PHASE 12: AI Interview Practice
 
 ## Overview
-Recruiter can directly reschedule an interview by updating existing interview details. Unlike the consent-based reschedule workflow (Phase 7), this allows immediate changes when the recruiter needs to modify the interview schedule.
 
-## Use Cases
-1. **Pre-fill Reschedule Form**: Get existing interview data to populate the schedule form
-2. **Direct Update**: Immediately update interview date/time without candidate consent workflow
-3. **Update Interview Details**: Modify location, interviewer, meeting link, etc.
+The **AI Interview Practice** feature allows candidates to practice mock interviews powered by **Gemini AI**. The system generates interview questions based on the job description, evaluates candidate answers in real-time, and provides comprehensive feedback with scores.
+
+> **Note**: This is separate from the real interview scheduling system (Phase 3-7). This is a practice/quiz feature for candidates to prepare for actual interviews.
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        AI INTERVIEW PRACTICE FLOW                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+1. Start Session
+   ┌──────────┐  POST /api/interviews/start   ┌──────────────┐
+   │ Candidate │ ─────────────────────────────▶│ Create Session│
+   └──────────┘  (with job description)        └──────┬───────┘
+                                                      │
+                                                      ▼
+                                               ┌──────────────┐
+                                               │ Gemini AI    │
+                                               │ Generates    │
+                                               │ Questions    │
+                                               └──────┬───────┘
+                                                      │
+2. Answer Questions                                   ▼
+   ┌──────────┐  POST .../questions/{id}/answer ┌─────────────┐
+   │ Candidate │ ────────────────────────────────│ AI Evaluates│
+   └──────────┘  (submit answer)                 │ Response    │
+       │                                         └──────┬──────┘
+       │                                                │
+       │ GET .../next-question                          ▼
+       │◀────────────────────────────────────────[Score + Feedback]
+       │
+3. Complete Session
+   ┌──────────┐  POST .../complete              ┌─────────────┐
+   │ Candidate │ ─────────────────────────────▶ │ Final Report│
+   └──────────┘                                 │ Generated   │
+                                                └─────────────┘
+```
+
+## TypeScript Interfaces
+
+```typescript
+// Request Types
+interface StartInterviewRequest {
+  jobDescription: string; // Required - description of the job to practice for
+}
+
+interface AnswerQuestionRequest {
+  answer: string; // Required - candidate's answer to the question
+}
+
+// Response Types
+interface InterviewQuestionResponse {
+  questionId: number;
+  questionNumber: number;
+  question: string;
+  candidateAnswer: string | null;
+  score: number | null;         // 0-100, null if not yet answered
+  feedback: string | null;      // AI feedback, null if not yet answered
+  askedAt: string;              // ISO datetime
+  answeredAt: string | null;    // ISO datetime, null if not yet answered
+}
+
+interface InterviewSessionResponse {
+  sessionId: number;
+  candidateId: number;
+  jobDescription: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+  createdAt: string;            // ISO datetime
+  completedAt: string | null;   // ISO datetime
+  finalReport: string | null;   // AI-generated comprehensive feedback
+  averageScore: number | null;  // Average of all question scores
+  questions: InterviewQuestionResponse[];
+}
+```
 
 ## API Endpoints
 
-### 12.1 Get Existing Interview by Job Application
-```
-GET /api/job-applies/{jobApplyId}/interview
-Auth: Bearer token (RECRUITER role required)
-Response: InterviewScheduleResponse (or 404 if no interview exists)
-```
+### 12.1 Start New Interview Session
 
-**Use Case**: When recruiter clicks "Reschedule" on a candidate with `INTERVIEW_SCHEDULED` status, fetch the existing interview to pre-populate the form.
+**POST** `/api/interviews/start`
 
-### 12.2 Update Interview (Direct Reschedule)
-```
-PUT /api/interviews/{interviewId}
-Auth: Bearer token (RECRUITER role required)
-Body: UpdateInterviewRequest
-```
+Starts a new AI interview practice session. Gemini AI will generate relevant interview questions based on the provided job description.
 
-**Request Body**:
-```typescript
-interface UpdateInterviewRequest {
-  scheduledDate?: string;        // ISO DateTime - if changed, triggers re-confirmation
-  durationMinutes?: number;      // Positive integer
-  interviewType?: InterviewType; // 'IN_PERSON' | 'VIDEO_CALL' | 'PHONE' | 'ONLINE_ASSESSMENT'
-  location?: string;
-  interviewerName?: string;
-  interviewerEmail?: string;
-  interviewerPhone?: string;
-  preparationNotes?: string;
-  meetingLink?: string;
-  interviewRound?: number;
-  updateReason?: string;         // Optional reason shown in notification to candidate
+**Request:**
+```json
+{
+  "jobDescription": "Senior Java Developer position requiring 5+ years experience with Spring Boot, microservices architecture, and cloud deployment (AWS/Azure). Strong problem-solving skills and team collaboration required."
 }
 ```
 
-**Important Notes**:
-- All fields are **optional** - only update what's provided
-- If `scheduledDate` is changed:
-  - Validates it's in the future
-  - Checks for scheduling conflicts
-  - Resets `candidateConfirmed` to `false`
-  - Resets reminder flags
-  - Sends notification to candidate about the change
-- Cannot update interviews with status: `COMPLETED`, `CANCELLED`, `NO_SHOW`
-
-**Response**: `InterviewScheduleResponse` with updated details
-
-### 12.3 Get Interview by ID (For verification)
-```
-GET /api/interviews/{interviewId}
-Auth: Bearer token (RECRUITER or CANDIDATE role)
-Response: InterviewScheduleResponse
-```
-
-## Frontend Implementation
-
-### Reschedule Button on Application Card
-```typescript
-// On candidate card with status INTERVIEW_SCHEDULED
-interface CandidateCardProps {
-  application: JobApplyResponse;
-}
-
-function CandidateCard({ application }: CandidateCardProps) {
-  const handleReschedule = async () => {
-    // Navigate to schedule form with jobApplyId
-    router.push(`/recruiter/schedule-interview?jobApplyId=${application.id}&mode=reschedule`);
-  };
-
-  return (
-    <Card>
-      <h3>{application.fullName}</h3>
-      <Badge>{application.status}</Badge>
-      
-      {application.status === 'INTERVIEW_SCHEDULED' && (
-        <Button onClick={handleReschedule}>
-          Reschedule Interview
-        </Button>
-      )}
-    </Card>
-  );
-}
-```
-
-### Schedule Interview Page with Reschedule Mode
-```typescript
-// /recruiter/schedule-interview/page.tsx
-import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-
-export default function ScheduleInterviewPage() {
-  const searchParams = useSearchParams();
-  const jobApplyId = searchParams.get('jobApplyId');
-  const mode = searchParams.get('mode'); // 'new' or 'reschedule'
-  
-  const [existingInterview, setExistingInterview] = useState<InterviewScheduleResponse | null>(null);
-  const [formData, setFormData] = useState<InterviewScheduleRequest | UpdateInterviewRequest>({});
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Fetch existing interview if reschedule mode
-  useEffect(() => {
-    if (mode === 'reschedule' && jobApplyId) {
-      fetchExistingInterview(parseInt(jobApplyId));
+**Response:**
+```json
+{
+  "sessionId": 1,
+  "candidateId": 456,
+  "jobDescription": "Senior Java Developer position...",
+  "status": "IN_PROGRESS",
+  "createdAt": "2025-11-29T10:00:00",
+  "completedAt": null,
+  "finalReport": null,
+  "averageScore": null,
+  "questions": [
+    {
+      "questionId": 1,
+      "questionNumber": 1,
+      "question": "Can you explain the key principles of microservices architecture and how you've implemented them in your previous projects?",
+      "candidateAnswer": null,
+      "score": null,
+      "feedback": null,
+      "askedAt": "2025-11-29T10:00:00",
+      "answeredAt": null
     }
-  }, [mode, jobApplyId]);
+  ]
+}
+```
 
-  const fetchExistingInterview = async (jobApplyId: number) => {
+### 12.2 Submit Answer to Question
+
+**POST** `/api/interviews/sessions/{sessionId}/questions/{questionId}/answer`
+
+Submit an answer to a specific question. AI will evaluate the answer and provide score + feedback.
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| sessionId | number | The interview session ID |
+| questionId | number | The question ID to answer |
+
+**Request:**
+```json
+{
+  "answer": "Microservices architecture is about breaking down a monolithic application into smaller, independently deployable services. Key principles include single responsibility, loose coupling, and high cohesion. In my previous project, I designed a payment processing system with separate services for authentication, order management, payment gateway integration, and notification. Each service had its own database and communicated via REST APIs and message queues for async operations."
+}
+```
+
+**Response:**
+```json
+{
+  "questionId": 1,
+  "questionNumber": 1,
+  "question": "Can you explain the key principles of microservices architecture...",
+  "candidateAnswer": "Microservices architecture is about breaking down...",
+  "score": 85.0,
+  "feedback": "Excellent answer! You correctly identified the core principles of microservices. Your practical example demonstrates real-world application. To improve, you could mention service discovery, API gateway patterns, and containerization technologies like Docker/Kubernetes.",
+  "askedAt": "2025-11-29T10:00:00",
+  "answeredAt": "2025-11-29T10:05:00"
+}
+```
+
+### 12.3 Get Next Question
+
+**GET** `/api/interviews/sessions/{sessionId}/next-question`
+
+Retrieves the next unanswered question in the session.
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| sessionId | number | The interview session ID |
+
+**Response:**
+```json
+{
+  "questionId": 2,
+  "questionNumber": 2,
+  "question": "How do you handle database transactions in a distributed microservices environment?",
+  "candidateAnswer": null,
+  "score": null,
+  "feedback": null,
+  "askedAt": "2025-11-29T10:00:00",
+  "answeredAt": null
+}
+```
+
+**Note:** Returns `404` if all questions have been answered.
+
+### 12.4 Complete Interview Session
+
+**POST** `/api/interviews/sessions/{sessionId}/complete`
+
+Completes the interview session and generates a comprehensive final report with overall assessment.
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| sessionId | number | The interview session ID |
+
+**Response:**
+```json
+{
+  "sessionId": 1,
+  "candidateId": 456,
+  "jobDescription": "Senior Java Developer position...",
+  "status": "COMPLETED",
+  "createdAt": "2025-11-29T10:00:00",
+  "completedAt": "2025-11-29T10:30:00",
+  "finalReport": "## Interview Performance Summary\n\n**Overall Score: 82/100**\n\n### Strengths:\n- Strong understanding of microservices architecture\n- Good practical examples from real projects\n- Clear communication style\n\n### Areas for Improvement:\n- Deepen knowledge of distributed transaction patterns\n- Learn more about cloud-native technologies\n\n### Recommendations:\n- Study the Saga pattern and event sourcing\n- Get hands-on with Kubernetes\n- Practice system design questions",
+  "averageScore": 82.0,
+  "questions": [
+    {
+      "questionId": 1,
+      "questionNumber": 1,
+      "question": "...",
+      "candidateAnswer": "...",
+      "score": 85.0,
+      "feedback": "...",
+      "askedAt": "2025-11-29T10:00:00",
+      "answeredAt": "2025-11-29T10:05:00"
+    },
+    {
+      "questionId": 2,
+      "questionNumber": 2,
+      "question": "...",
+      "candidateAnswer": "...",
+      "score": 79.0,
+      "feedback": "...",
+      "askedAt": "2025-11-29T10:00:00",
+      "answeredAt": "2025-11-29T10:15:00"
+    }
+  ]
+}
+```
+
+### 12.5 Get Session Details
+
+**GET** `/api/interviews/sessions/{sessionId}`
+
+Retrieves complete details of an interview session including all questions and answers.
+
+**Path Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| sessionId | number | The interview session ID |
+
+**Response:** Same as Complete Interview Session response.
+
+### 12.6 Get All Sessions (Candidate)
+
+**GET** `/api/interviews/sessions`
+
+Retrieves all interview practice sessions for the authenticated candidate.
+
+**Response:**
+```json
+[
+  {
+    "sessionId": 1,
+    "candidateId": 456,
+    "jobDescription": "Senior Java Developer...",
+    "status": "COMPLETED",
+    "createdAt": "2025-11-29T10:00:00",
+    "completedAt": "2025-11-29T10:30:00",
+    "finalReport": "...",
+    "averageScore": 82.0,
+    "questions": [...]
+  },
+  {
+    "sessionId": 2,
+    "candidateId": 456,
+    "jobDescription": "Full Stack Engineer...",
+    "status": "IN_PROGRESS",
+    "createdAt": "2025-11-29T14:00:00",
+    "completedAt": null,
+    "finalReport": null,
+    "averageScore": null,
+    "questions": [...]
+  }
+]
+```
+
+## Frontend Implementation Example
+
+### Interview Practice Page
+
+```typescript
+// pages/InterviewPractice.tsx
+import React, { useState } from 'react';
+import api from '../services/api';
+
+interface Question {
+  questionId: number;
+  questionNumber: number;
+  question: string;
+  candidateAnswer: string | null;
+  score: number | null;
+  feedback: string | null;
+}
+
+interface Session {
+  sessionId: number;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+  jobDescription: string;
+  finalReport: string | null;
+  averageScore: number | null;
+  questions: Question[];
+}
+
+const InterviewPractice: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [answer, setAnswer] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [jobDescription, setJobDescription] = useState('');
+
+  // Start new session
+  const startSession = async () => {
+    setLoading(true);
     try {
-      setIsLoading(true);
-      const response = await api.get(`/api/job-applies/${jobApplyId}/interview`);
-      const interview = response.data;
-      
-      setExistingInterview(interview);
-      
-      // Pre-fill form with existing data
-      setFormData({
-        scheduledDate: interview.scheduledDate,
-        durationMinutes: interview.durationMinutes,
-        interviewType: interview.interviewType,
-        location: interview.location,
-        interviewerName: interview.interviewerName,
-        interviewerEmail: interview.interviewerEmail,
-        interviewerPhone: interview.interviewerPhone,
-        preparationNotes: interview.preparationNotes,
-        meetingLink: interview.meetingLink,
-        interviewRound: interview.interviewRound,
+      const response = await api.post('/api/interviews/start', {
+        jobDescription
       });
+      setSession(response.data);
+      setCurrentQuestion(response.data.questions[0]);
     } catch (error) {
-      if (error.response?.status === 404) {
-        // No existing interview - this shouldn't happen in reschedule mode
-        toast.error('No existing interview found');
-        router.push('/recruiter/applications');
-      }
+      console.error('Failed to start session:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleSubmit = async () => {
+  // Submit answer
+  const submitAnswer = async () => {
+    if (!session || !currentQuestion) return;
+    
+    setLoading(true);
     try {
-      setIsLoading(true);
+      // Submit answer
+      const answerResponse = await api.post(
+        `/api/interviews/sessions/${session.sessionId}/questions/${currentQuestion.questionId}/answer`,
+        { answer }
+      );
       
-      if (mode === 'reschedule' && existingInterview) {
-        // UPDATE existing interview
-        await api.put(`/api/interviews/${existingInterview.id}`, {
-          ...formData,
-          updateReason: 'Interview rescheduled by recruiter'
-        });
-        toast.success('Interview rescheduled successfully');
-      } else {
-        // CREATE new interview
-        await api.post(`/api/job-applies/${jobApplyId}/schedule-interview`, formData);
-        toast.success('Interview scheduled successfully');
+      // Update current question with feedback
+      setCurrentQuestion({
+        ...currentQuestion,
+        candidateAnswer: answer,
+        score: answerResponse.data.score,
+        feedback: answerResponse.data.feedback
+      });
+      
+      // Try to get next question
+      try {
+        const nextResponse = await api.get(
+          `/api/interviews/sessions/${session.sessionId}/next-question`
+        );
+        setCurrentQuestion(nextResponse.data);
+        setAnswer('');
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          // No more questions - show complete button
+          setCurrentQuestion(null);
+        }
       }
-      
-      router.push('/recruiter/applications');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to schedule interview');
+      console.error('Failed to submit answer:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
+  // Complete session
+  const completeSession = async () => {
+    if (!session) return;
+    
+    setLoading(true);
+    try {
+      const response = await api.post(
+        `/api/interviews/sessions/${session.sessionId}/complete`
+      );
+      setSession(response.data);
+    } catch (error) {
+      console.error('Failed to complete session:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render start form
+  if (!session) {
+    return (
+      <div className="interview-practice">
+        <h1>🎯 AI Interview Practice</h1>
+        <p>Practice your interview skills with AI-powered mock interviews!</p>
+        
+        <div className="start-form">
+          <label>Paste the job description you want to practice for:</label>
+          <textarea
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+            placeholder="e.g., Senior Java Developer with 5+ years experience..."
+            rows={6}
+          />
+          <button 
+            onClick={startSession} 
+            disabled={loading || !jobDescription.trim()}
+          >
+            {loading ? 'Starting...' : 'Start Practice Interview'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render completed session
+  if (session.status === 'COMPLETED') {
+    return (
+      <div className="interview-complete">
+        <h1>🎉 Interview Complete!</h1>
+        <div className="score-display">
+          <h2>Your Score: {session.averageScore?.toFixed(0)}/100</h2>
+        </div>
+        <div className="final-report">
+          <h3>AI Feedback Report</h3>
+          <div dangerouslySetInnerHTML={{ __html: session.finalReport || '' }} />
+        </div>
+        <div className="questions-review">
+          <h3>Question Review</h3>
+          {session.questions.map((q) => (
+            <div key={q.questionId} className="question-review-item">
+              <p><strong>Q{q.questionNumber}:</strong> {q.question}</p>
+              <p><em>Your answer:</em> {q.candidateAnswer}</p>
+              <p><strong>Score:</strong> {q.score}/100</p>
+              <p><strong>Feedback:</strong> {q.feedback}</p>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setSession(null)}>Start New Practice</button>
+      </div>
+    );
+  }
+
+  // Render question (in progress)
   return (
-    <div>
-      <h1>{mode === 'reschedule' ? 'Reschedule Interview' : 'Schedule Interview'}</h1>
+    <div className="interview-in-progress">
+      <h1>🎤 Interview in Progress</h1>
       
-      {existingInterview && (
-        <Alert>
-          <p>Current interview scheduled for: {formatDate(existingInterview.scheduledDate)}</p>
-          <p>Status: {existingInterview.status}</p>
-          {existingInterview.candidateConfirmed && (
-            <p className="text-amber-600">
-              ⚠️ Candidate has confirmed. Changing the date will require re-confirmation.
-            </p>
+      {currentQuestion ? (
+        <div className="question-card">
+          <h2>Question {currentQuestion.questionNumber}</h2>
+          <p className="question-text">{currentQuestion.question}</p>
+          
+          {currentQuestion.score !== null ? (
+            // Show feedback for answered question
+            <div className="feedback-section">
+              <p><strong>Score:</strong> {currentQuestion.score}/100</p>
+              <p><strong>Feedback:</strong> {currentQuestion.feedback}</p>
+              <button onClick={() => setCurrentQuestion(null)}>
+                Next Question
+              </button>
+            </div>
+          ) : (
+            // Show answer form
+            <div className="answer-form">
+              <textarea
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+                placeholder="Type your answer here..."
+                rows={8}
+              />
+              <button 
+                onClick={submitAnswer} 
+                disabled={loading || !answer.trim()}
+              >
+                {loading ? 'Submitting...' : 'Submit Answer'}
+              </button>
+            </div>
           )}
-        </Alert>
+        </div>
+      ) : (
+        // All questions answered
+        <div className="complete-section">
+          <p>You've answered all questions!</p>
+          <button onClick={completeSession} disabled={loading}>
+            {loading ? 'Generating Report...' : 'Get Final Report'}
+          </button>
+        </div>
       )}
-      
-      <InterviewForm
-        data={formData}
-        onChange={setFormData}
-        onSubmit={handleSubmit}
-        isLoading={isLoading}
-        submitLabel={mode === 'reschedule' ? 'Update Interview' : 'Schedule Interview'}
-      />
     </div>
   );
-}
+};
+
+export default InterviewPractice;
 ```
 
-### Interview Form Component
-```typescript
-interface InterviewFormProps {
-  data: UpdateInterviewRequest;
-  onChange: (data: UpdateInterviewRequest) => void;
-  onSubmit: () => void;
-  isLoading: boolean;
-  submitLabel: string;
-}
+### Session History Page
 
-function InterviewForm({ data, onChange, onSubmit, isLoading, submitLabel }: InterviewFormProps) {
+```typescript
+// pages/InterviewHistory.tsx
+import React, { useEffect, useState } from 'react';
+import api from '../services/api';
+
+const InterviewHistory: React.FC = () => {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const response = await api.get('/api/interviews/sessions');
+        setSessions(response.data);
+      } catch (error) {
+        console.error('Failed to fetch sessions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSessions();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
-      {/* Date/Time Picker */}
-      <DateTimePicker
-        value={data.scheduledDate}
-        onChange={(date) => onChange({ ...data, scheduledDate: date })}
-        minDate={new Date()} // Must be in future
-        label="Interview Date & Time"
-      />
+    <div className="interview-history">
+      <h1>📚 Practice History</h1>
       
-      {/* Duration */}
-      <Select
-        value={data.durationMinutes}
-        onChange={(v) => onChange({ ...data, durationMinutes: parseInt(v) })}
-        label="Duration"
-        options={[
-          { value: 30, label: '30 minutes' },
-          { value: 45, label: '45 minutes' },
-          { value: 60, label: '1 hour' },
-          { value: 90, label: '1.5 hours' },
-          { value: 120, label: '2 hours' },
-        ]}
-      />
-      
-      {/* Interview Type */}
-      <Select
-        value={data.interviewType}
-        onChange={(v) => onChange({ ...data, interviewType: v as InterviewType })}
-        label="Interview Type"
-        options={[
-          { value: 'IN_PERSON', label: 'In Person' },
-          { value: 'VIDEO_CALL', label: 'Video Call' },
-          { value: 'PHONE', label: 'Phone' },
-          { value: 'ONLINE_ASSESSMENT', label: 'Online Assessment' },
-        ]}
-      />
-      
-      {/* Location (for in-person) */}
-      {data.interviewType === 'IN_PERSON' && (
-        <Input
-          value={data.location}
-          onChange={(v) => onChange({ ...data, location: v })}
-          label="Location"
-          placeholder="Office address"
-        />
+      {sessions.length === 0 ? (
+        <p>No practice sessions yet. Start your first one!</p>
+      ) : (
+        <div className="sessions-list">
+          {sessions.map((session) => (
+            <div key={session.sessionId} className="session-card">
+              <div className="session-header">
+                <span className={`status ${session.status.toLowerCase()}`}>
+                  {session.status}
+                </span>
+                <span className="date">
+                  {new Date(session.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="job-desc">{session.jobDescription.slice(0, 100)}...</p>
+              {session.averageScore && (
+                <p className="score">Score: {session.averageScore.toFixed(0)}/100</p>
+              )}
+              <button onClick={() => window.location.href = `/practice/${session.sessionId}`}>
+                View Details
+              </button>
+            </div>
+          ))}
+        </div>
       )}
-      
-      {/* Meeting Link (for video calls) */}
-      {data.interviewType === 'VIDEO_CALL' && (
-        <Input
-          value={data.meetingLink}
-          onChange={(v) => onChange({ ...data, meetingLink: v })}
-          label="Meeting Link"
-          placeholder="https://zoom.us/j/..."
-        />
-      )}
-      
-      {/* Interviewer Details */}
-      <Input
-        value={data.interviewerName}
-        onChange={(v) => onChange({ ...data, interviewerName: v })}
-        label="Interviewer Name"
-      />
-      
-      <Input
-        value={data.interviewerEmail}
-        onChange={(v) => onChange({ ...data, interviewerEmail: v })}
-        label="Interviewer Email"
-        type="email"
-      />
-      
-      <Input
-        value={data.interviewerPhone}
-        onChange={(v) => onChange({ ...data, interviewerPhone: v })}
-        label="Interviewer Phone"
-        type="tel"
-      />
-      
-      {/* Preparation Notes */}
-      <Textarea
-        value={data.preparationNotes}
-        onChange={(v) => onChange({ ...data, preparationNotes: v })}
-        label="Preparation Notes for Candidate"
-        placeholder="What should the candidate prepare for this interview?"
-      />
-      
-      {/* Interview Round */}
-      <Input
-        value={data.interviewRound}
-        onChange={(v) => onChange({ ...data, interviewRound: parseInt(v) })}
-        label="Interview Round"
-        type="number"
-        min={1}
-      />
-      
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? 'Saving...' : submitLabel}
-      </Button>
-    </form>
+    </div>
   );
-}
+};
+
+export default InterviewHistory;
 ```
 
 ## Error Handling
 
-```typescript
-// Error codes for interview update
-const INTERVIEW_ERRORS = {
-  9100: 'Interview not found',
-  9102: 'Scheduled date must be in the future',
-  9109: 'Scheduling conflict detected - time slot not available',
-  9114: 'Cannot modify completed, cancelled, or no-show interviews',
-};
-
-// Handle errors in form submission
-try {
-  await api.put(`/api/interviews/${interviewId}`, updateRequest);
-} catch (error) {
-  const errorCode = error.response?.data?.code;
-  const message = INTERVIEW_ERRORS[errorCode] || error.response?.data?.message;
-  toast.error(message);
-}
-```
-
-## Workflow Comparison
-
-| Feature | Direct Update (Phase 12) | Consent Reschedule (Phase 7) |
-|---------|-------------------------|------------------------------|
-| Endpoint | `PUT /api/interviews/{id}` | `POST /api/interviews/{id}/reschedule` |
-| Requires consent | No | Yes (default) |
-| When to use | Recruiter needs immediate change | Either party requests |
-| Candidate notified | Yes (via notification) | Yes + must respond |
-| Confirmation reset | Yes (if date changed) | Yes (if accepted) |
+| Status Code | Scenario | Action |
+|-------------|----------|--------|
+| 400 | Invalid request (empty job description/answer) | Show validation error |
+| 401 | Not authenticated | Redirect to login |
+| 403 | Accessing another candidate's session | Show access denied |
+| 404 | Session/question not found, or no more questions | Handle gracefully |
+| 500 | AI service error | Show retry option |
 
 ## Best Practices
 
-1. **Always check interview status** before showing reschedule button
-2. **Show warning** if candidate has already confirmed
-3. **Include conflict check** in date selection UI
-4. **Provide update reason** for candidate notification
-5. **Handle 404** gracefully when no interview exists
+1. **Save Answers Locally**: Auto-save answer drafts to localStorage in case of connection issues
+2. **Loading States**: Show clear loading indicators during AI processing (can take 2-5 seconds)
+3. **Progressive Display**: Stream the feedback if possible for better UX
+4. **Session Recovery**: Allow resuming in-progress sessions
+5. **Markdown Rendering**: The `finalReport` is in Markdown format - render it properly
