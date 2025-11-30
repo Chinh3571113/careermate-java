@@ -119,9 +119,6 @@ public class JobPostingImp implements JobPostingService {
         // Save to postgres
         JobPosting savedPostgres = jobPostingRepo.save(jobPosting);
 
-        // Add to weaviate
-        weaviateImp.addJobPostingToWeaviate(savedPostgres);
-
         // Send notification to admin about new job posting pending approval
         sendJobPostingPendingNotification(savedPostgres);
 
@@ -445,7 +442,6 @@ public class JobPostingImp implements JobPostingService {
 
             // Send approval notification to recruiter
             sendJobPostingApprovedNotification(jobPosting);
-
         } else if (newStatus.equals("REJECTED")) {
             // Reject: Require rejection reason
             if (request.getRejectionReason() == null || request.getRejectionReason().trim().isEmpty()) {
@@ -463,7 +459,12 @@ public class JobPostingImp implements JobPostingService {
             throw new AppException(ErrorCode.INVALID_APPROVAL_STATUS);
         }
 
-        jobPostingRepo.save(jobPosting);
+        JobPosting savedPostgres = jobPostingRepo.save(jobPosting);
+
+        if(savedPostgres.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            // Add to weaviate
+            weaviateImp.addJobPostingToWeaviate(savedPostgres);
+        }
     }
 
     // Admin get all pending job postings (for quick review)
