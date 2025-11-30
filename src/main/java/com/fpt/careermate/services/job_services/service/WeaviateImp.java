@@ -6,6 +6,7 @@ import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
+import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.schema.model.Property;
 import io.weaviate.client.v1.schema.model.WeaviateClass;
 import lombok.AccessLevel;
@@ -20,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.time.ZoneOffset;
 
 @Service
 @RequiredArgsConstructor
@@ -62,13 +64,23 @@ public class WeaviateImp {
         jobPostingMap.put("description", source.getDescription());
         jobPostingMap.put("skills", skills);
         jobPostingMap.put("address", source.getAddress());
+        // Convert LocalDate to an ISO instant string (RFC3339) to avoid Gson reflection issues
+        if (source.getExpirationDate() != null) {
+            String expirationIso = source.getExpirationDate().atStartOfDay(ZoneOffset.UTC).toInstant().toString();
+            jobPostingMap.put("expirationDate", expirationIso);
+        } else {
+            jobPostingMap.put("expirationDate", null);
+        }
 
-        weaviateClient.data().creator()
+        Result<WeaviateObject> result = weaviateClient.data().creator()
                 .withClassName("JobPosting")
                 .withProperties(jobPostingMap)
                 .run();
 
-        log.info("Indexed job posting '{}' (id={}) to Weaviate with {} skills", source.getTitle(), source.getId(), skills.size());
+        if(result.hasErrors()) {
+            log.error("Error indexing job posting '{}' (id={}) to Weaviate: {}",
+                    source.getTitle(), source.getId(), result.getError().getMessages());
+        }
     }
 
     // Kiểm tra xem job posting đã tồn tại trong Weaviate chưa
