@@ -1,15 +1,11 @@
-package com.fpt.careermate.common.seeder;
+package com.fpt.careermate.services.coach_services.service;
 
 import com.fpt.careermate.services.coach_services.domain.Roadmap;
 import com.fpt.careermate.services.coach_services.domain.Subtopic;
 import com.fpt.careermate.services.coach_services.domain.Topic;
 import com.fpt.careermate.services.coach_services.repository.RoadmapRepo;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageException;
-import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.*;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
 import io.weaviate.client.v1.data.model.WeaviateObject;
@@ -38,8 +34,7 @@ import java.util.Map;
 
 @Component
 @Slf4j
-@Order(1)
-public class RoadmapSeeder implements CommandLineRunner {
+public class AdminRoadmapImp {
 
     private final Storage storage;
     private final RoadmapRepo roadmapRepo;
@@ -52,9 +47,9 @@ public class RoadmapSeeder implements CommandLineRunner {
     private String prefix;
 
     @Autowired
-    public RoadmapSeeder(RoadmapRepo roadmapRepo,
-                         WeaviateClient weaviateClient,
-                         ResourceLoader resourceLoader) {
+    public AdminRoadmapImp(RoadmapRepo roadmapRepo,
+                           WeaviateClient weaviateClient,
+                           ResourceLoader resourceLoader) {
         Storage tempStorage = null;
         try {
             GoogleCredentials credentials = null;
@@ -117,8 +112,7 @@ public class RoadmapSeeder implements CommandLineRunner {
         this.weaviateClient = weaviateClient;
     }
 
-    @Override
-    public void run(String... args) throws Exception {
+    public void run() {
         log.info("=== RoadmapSeeder.run() started ===");
         log.info("Bucket name: {}", bucketName);
         log.info("Prefix: {}", prefix);

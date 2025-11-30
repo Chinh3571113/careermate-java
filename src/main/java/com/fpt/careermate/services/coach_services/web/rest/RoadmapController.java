@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.coach_services.web.rest;
 
 import com.fpt.careermate.common.response.ApiResponse;
+import com.fpt.careermate.services.coach_services.service.AdminRoadmapImp;
 import com.fpt.careermate.services.coach_services.service.CourseImp;
 import com.fpt.careermate.services.coach_services.service.RoadmapImp;
 import com.fpt.careermate.services.coach_services.service.dto.request.CourseCreationRequest;
@@ -26,6 +27,7 @@ import java.util.List;
 public class RoadmapController {
 
     RoadmapImp roadmapImp;
+    AdminRoadmapImp adminRoadmapImp;
 
     @GetMapping()
     @Operation(description = """
@@ -102,6 +104,23 @@ public class RoadmapController {
     public ApiResponse<Void> resetRoadmapCollection()
     {
         roadmapImp.resetRoadmapCollection();
+        return ApiResponse.<Void>builder()
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @PostMapping("/creation")
+    @Operation(description = """
+            Add roadmap from google bucket
+            input: none
+            output: success
+            Need login as ADMIN to access this API
+            DO NOT USE IN PRODUCTION
+            """)
+    public ApiResponse<Void> addRoadmap()
+    {
+        adminRoadmapImp.run();
         return ApiResponse.<Void>builder()
                 .code(200)
                 .message("success")
