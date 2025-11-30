@@ -97,7 +97,7 @@ public class CandidateController {
     @GetMapping("/profiles/current")
     @Operation(summary = "Get current candidate profile", description = "Retrieve the currently authenticated candidate's profile")
     public ApiResponse<CandidateProfileResponse> getCandidateProfileById() {
-        CandidateProfileResponse response = candidateProfileImp.getCandidateProfileById();
+        CandidateProfileResponse response = candidateProfileImp.getCandidateProfile();
         return ApiResponse.<CandidateProfileResponse>builder()
                 .code(200)
                 .message("Successfully retrieved candidate profile")
@@ -116,5 +116,15 @@ public class CandidateController {
                 .build();
     }
 
+    @GetMapping("/profiles/{id}")
+    @Operation(summary = "Get candidate profile by ID", description = "Retrieve a candidate profile by ID (Admin/Recruiter only)")
+    public ApiResponse<CandidateProfileResponse> getCandidateProfileById(@PathVariable int id) {
+        CandidateProfileResponse response = candidateProfileImp.getCandidateProfileById(id);
+        return ApiResponse.<CandidateProfileResponse>builder()
+                .code(200)
+                .message("Successfully retrieved candidate profile")
+                .result(response)
+                .build();
+    }
 
 }

@@ -12,9 +12,10 @@ public interface CandidateProfileService {
     CandidateProfileResponse updateCandidateProfile(CandidateProfileRequest request);
     void deleteProfile(int id);
     GeneralInfoResponse saveCandidateGeneralInfo(GeneralInfoRequest request);
-    CandidateProfileResponse getCandidateProfileById();
+    CandidateProfileResponse getCandidateProfile();
     GeneralInfoResponse getCandidateGeneralInfoById();
     GeneralInfoResponse updateCandidateGeneralInfo(GeneralInfoRequest request);
     CandidateProfileResponse saveCandidateProfile(CandidateProfileRequest request);
+    CandidateProfileResponse getCandidateProfileById(int id);
 
 }
