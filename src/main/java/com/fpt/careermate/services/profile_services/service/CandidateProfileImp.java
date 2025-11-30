@@ -126,7 +126,7 @@ public class CandidateProfileImp implements CandidateProfileService {
 
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public CandidateProfileResponse getCandidateProfileById() {
+    public CandidateProfileResponse getCandidateProfile() {
         return candidateMapper.toCandidateProfileResponse(generateProfile());
     }
 
@@ -207,6 +207,14 @@ public class CandidateProfileImp implements CandidateProfileService {
         // Save and return response
         Candidate savedCandidate = candidateRepo.save(candidate);
         return candidateMapper.toCandidateProfileResponse(savedCandidate);
+    }
+
+    @Override
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
+    public CandidateProfileResponse getCandidateProfileById(int id) {
+        Candidate candidate = candidateRepo.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
+        return candidateMapper.toCandidateProfileResponse(candidate);
     }
 
 
