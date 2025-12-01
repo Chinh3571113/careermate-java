@@ -86,6 +86,7 @@ public class JobPostingImp implements JobPostingService {
         Recruiter recruiter = getMyRecruiter();
 
         // Validate request - check duplicate title within same recruiter only
+        jobPostingValidator.checkDuplicateJobPostingTitle(request.getTitle(), recruiter.getId());
         jobPostingValidator.validateExpirationDate(request.getExpirationDate());
 
         JobPosting jobPosting = jobPostingMapper.toJobPosting(request);
@@ -189,7 +190,13 @@ public class JobPostingImp implements JobPostingService {
                 jobPosting.setStatus(StatusJobPosting.ACTIVE);
             }
 
-            jobPostingRepo.save(jobPosting);
+            JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+            // Sync with Weaviate: delete old entry and add updated job
+            if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+                weaviateImp.deleteJobPosting(id);
+                weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
+            }
             return;
         }
 
@@ -232,7 +239,13 @@ public class JobPostingImp implements JobPostingService {
         });
         jobPosting.setJobDescriptions(newJobDescriptions);
 
-        jobPostingRepo.save(jobPosting);
+        JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Sync with Weaviate: delete old entry and add updated job if it's active
+        if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            weaviateImp.deleteJobPosting(id);
+            weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
+        }
     }
 
     // Recruiter delete job posting
@@ -267,6 +280,9 @@ public class JobPostingImp implements JobPostingService {
 
         jobPosting.setStatus(StatusJobPosting.PAUSED);
         jobPostingRepo.save(jobPosting);
+
+        // Delete from Weaviate
+        weaviateImp.deleteJobPosting(id);
     }
 
     // Get job posting stats for recruiter dashboard
