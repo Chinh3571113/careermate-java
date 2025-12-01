@@ -41,4 +41,4 @@ src/main/resources/firebase-service-account.json
 postgre_data/
 src/main/resources/application.yml
 /careermate_docker/
-/src/main/resources/careermate-bucket.json
+/src/main/resources/

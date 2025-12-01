@@ -137,7 +137,7 @@ public class JdSkillSeeder implements CommandLineRunner {
             }
         }
 
-        log.info("🌱 JdSkillSeeder completed: Added {} new skills, {} skills already existed",
+        log.info("JdSkillSeeder completed: Added {} new skills, {} skills already existed",
                 addedCount, existingCount);
     }
 

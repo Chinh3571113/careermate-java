@@ -10,10 +10,14 @@ import com.google.firebase.messaging.*;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +37,7 @@ public class FcmPushNotificationService {
 
     /**
      * Initialize Firebase Admin SDK on application startup.
-     * Uses service account credentials from resources folder.
+     * Uses service account credentials from environment variable or classpath.
      */
     @PostConstruct
     public void initializeFirebase() {
@@ -44,13 +48,24 @@ public class FcmPushNotificationService {
                 return;
             }
 
-            // Load service account credentials
-            String credentialsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-            if (credentialsPath == null || credentialsPath.isEmpty()) {
-                credentialsPath = "src/main/resources/firebase-service-account.json";
-            }
+            InputStream serviceAccount;
 
-            FileInputStream serviceAccount = new FileInputStream(credentialsPath);
+            // Try to get credentials from environment variable first (for Cloud Run)
+            String credentialsJson = System.getenv("FIREBASE_CREDENTIALS_JSON");
+
+            if (credentialsJson != null && !credentialsJson.isEmpty()) {
+                // Environment variable contains JSON string (Cloud Run with Secret Manager)
+                serviceAccount = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
+                log.info("Using Firebase credentials from FIREBASE_CREDENTIALS_JSON environment variable");
+            } else {
+                // Fallback to classpath
+                ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
+                if (!resource.exists()) {
+                    log.error("Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
+                }
+                serviceAccount = resource.getInputStream();
+                log.info("Using Firebase credentials from classpath");
+            }
 
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
@@ -58,10 +73,9 @@ public class FcmPushNotificationService {
 
             FirebaseApp.initializeApp(options);
 
-            log.info("✅ Firebase Cloud Messaging initialized successfully");
+            log.info("Firebase Cloud Messaging initialized successfully");
         } catch (IOException e) {
-            log.error("❌ Failed to initialize Firebase: {}", e.getMessage());
-            log.warn("⚠️ Push notifications will not work until Firebase is properly configured");
+            log.error("Failed to initialize Firebase: {}", e.getMessage());
         }
     }
 
