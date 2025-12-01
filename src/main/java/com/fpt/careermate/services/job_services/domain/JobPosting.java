@@ -1,8 +1,6 @@
 package com.fpt.careermate.services.job_services.domain;
 
-import com.fpt.careermate.services.profile_services.domain.WorkModel;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
-import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.admin_services.domain.Admin;
 
 import jakarta.persistence.*;
@@ -21,6 +19,7 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
 @Entity(name = "job_posting")
+@Table(name = "job_posting", uniqueConstraints = @UniqueConstraint(columnNames = {"recruiter_id", "title"}))
 public class JobPosting {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
