@@ -190,7 +190,13 @@ public class JobPostingImp implements JobPostingService {
                 jobPosting.setStatus(StatusJobPosting.ACTIVE);
             }
 
-            jobPostingRepo.save(jobPosting);
+            JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+            // Sync with Weaviate: delete old entry and add updated job
+            if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+                weaviateImp.deleteJobPosting(id);
+                weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
+            }
             return;
         }
 
@@ -233,7 +239,13 @@ public class JobPostingImp implements JobPostingService {
         });
         jobPosting.setJobDescriptions(newJobDescriptions);
 
-        jobPostingRepo.save(jobPosting);
+        JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Sync with Weaviate: delete old entry and add updated job if it's active
+        if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            weaviateImp.deleteJobPosting(id);
+            weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
+        }
     }
 
     // Recruiter delete job posting
