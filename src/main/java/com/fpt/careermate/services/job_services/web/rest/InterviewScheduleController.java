@@ -139,8 +139,12 @@ public class InterviewScheduleController {
         
         if (isCandidate) {
             Candidate candidate = getMyCandidate();
-            JobApply jobApply = jobApplyRepo.findById(jobApplyId)
+            // Use eager fetch to avoid lazy loading issues
+            JobApply jobApply = jobApplyRepo.findByIdWithCandidate(jobApplyId)
                     .orElseThrow(() -> new AppException(ErrorCode.JOB_APPLY_NOT_FOUND));
+            
+            log.info("Checking ownership: jobApply.candidateId={}, loggedIn.candidateId={}", 
+                    jobApply.getCandidate().getCandidateId(), candidate.getCandidateId());
             
             if (jobApply.getCandidate().getCandidateId() != candidate.getCandidateId()) {
                 throw new AppException(ErrorCode.UNAUTHORIZED);
@@ -314,6 +318,8 @@ public class InterviewScheduleController {
 
     /**
      * Get interview schedule by ID.
+     * - Recruiter: Can view any interview they created
+     * - Candidate: Can only view interviews for their own job applications
      * 
      * @param interviewId The interview schedule ID
      * @return Interview schedule details
@@ -321,11 +327,39 @@ public class InterviewScheduleController {
     @GetMapping("/interviews/{interviewId}")
     @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
     @Operation(summary = "Get interview details", 
-               description = "Get full details of an interview schedule")
+               description = "Get full details of an interview schedule. Candidate can only view their own interviews.")
     public ResponseEntity<InterviewScheduleResponse> getInterviewById(
             @PathVariable Integer interviewId) {
         
         log.info("Getting interview ID: {}", interviewId);
+        
+        // Ownership validation for candidate role
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isCandidate = authentication.getAuthorities().stream()
+                .anyMatch(auth -> auth.getAuthority().equals("ROLE_CANDIDATE"));
+        
+        if (isCandidate) {
+            Candidate candidate = getMyCandidate();
+            // Get the interview and check if it belongs to this candidate's job application
+            InterviewScheduleResponse interview = interviewScheduleService.getInterviewById(interviewId);
+            
+            if (interview == null) {
+                throw new AppException(ErrorCode.INTERVIEW_NOT_FOUND);
+            }
+            
+            // Verify ownership through job apply
+            JobApply jobApply = jobApplyRepo.findByIdWithCandidate(interview.getJobApplyId())
+                    .orElseThrow(() -> new AppException(ErrorCode.JOB_APPLY_NOT_FOUND));
+            
+            log.info("Checking ownership for interview {}: jobApply.candidateId={}, loggedIn.candidateId={}", 
+                    interviewId, jobApply.getCandidate().getCandidateId(), candidate.getCandidateId());
+            
+            if (jobApply.getCandidate().getCandidateId() != candidate.getCandidateId()) {
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+            }
+            
+            return ResponseEntity.ok(interview);
+        }
         
         InterviewScheduleResponse response = interviewScheduleService.getInterviewById(interviewId);
         
@@ -419,6 +453,30 @@ public class InterviewScheduleController {
         log.info("Getting upcoming interviews for recruiter ID: {} (from JWT)", recruiter.getId());
         
         List<InterviewScheduleResponse> interviews = interviewScheduleService.getRecruiterUpcomingInterviews(recruiter.getId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("recruiterId", recruiter.getId());
+        response.put("count", interviews.size());
+        response.put("interviews", interviews);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get all scheduled/confirmed interviews for authenticated recruiter.
+     * Includes both future and past interviews that haven't been completed yet.
+     * This is used for Interview Management page where recruiters need to 
+     * see and complete interviews even after the scheduled time has passed.
+     */
+    @GetMapping("/interviews/recruiter/scheduled")
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Operation(summary = "Get recruiter's scheduled interviews (all)", 
+               description = "Get all scheduled/confirmed interviews including past ones that need completion. ID extracted from JWT token.")
+    public ResponseEntity<Map<String, Object>> getRecruiterScheduledInterviewsFromToken() {
+        Recruiter recruiter = getMyRecruiter();
+        log.info("Getting all scheduled interviews for recruiter ID: {} (from JWT)", recruiter.getId());
+        
+        List<InterviewScheduleResponse> interviews = interviewScheduleService.getRecruiterScheduledInterviews(recruiter.getId());
         
         Map<String, Object> response = new HashMap<>();
         response.put("recruiterId", recruiter.getId());

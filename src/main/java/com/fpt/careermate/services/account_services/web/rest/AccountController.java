@@ -129,6 +129,25 @@ public class AccountController {
                 .build();
     }
 
+    @PutMapping("/{id}/status")
+    @Operation(
+        summary = "Update Account Status",
+        description = """
+            Update the status of an account. Admin only.
+            Valid statuses: ACTIVE, INACTIVE, LOCKED, BANNED
+            """
+    )
+    ApiResponse<AccountResponse> updateUserStatus(
+            @PathVariable int id,
+            @RequestParam String status) {
+        AccountResponse account = accountImp.updateAccountStatus(id, status);
+        return ApiResponse.<AccountResponse>builder()
+                .code(200)
+                .message("Account status updated successfully")
+                .result(account)
+                .build();
+    }
+
     @PostMapping("/verify-email/{email}")
     @Operation(summary = "Forget Password", description = "Handle forget password request")
     ApiResponse<String> forgetPassword(@PathVariable String email) {

@@ -56,7 +56,8 @@ public class Notification {
     Map<String, Object> metadata;
 
     @Column(nullable = false)
-    Integer priority; // 1=HIGH, 2=MEDIUM, 3=LOW
+    @Builder.Default
+    Integer priority = 2; // 1=HIGH, 2=MEDIUM, 3=LOW (default MEDIUM)
 
     @Column(name = "is_read", nullable = false)
     @Builder.Default
@@ -75,6 +76,9 @@ public class Notification {
         }
         if (isRead == null) {
             isRead = false;
+        }
+        if (priority == null) {
+            priority = 2; // Default to MEDIUM priority
         }
     }
 }

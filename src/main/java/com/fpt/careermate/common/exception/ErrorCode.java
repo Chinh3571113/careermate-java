@@ -110,6 +110,8 @@ public enum ErrorCode {
     FILE_STORAGE_ERROR(1019, "Could not store file", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_ROLE(1020, "Invalid role. Only CANDIDATE or RECRUITER allowed during registration",
             HttpStatus.BAD_REQUEST),
+    INVALID_STATUS(1022, "Invalid status. Valid statuses are: ACTIVE, INACTIVE, LOCKED, BANNED",
+            HttpStatus.BAD_REQUEST),
     ROLE_CONFLICT(1021,
             "This email is already registered with a different role. Please use a different email or login with the correct role.",
             HttpStatus.CONFLICT),

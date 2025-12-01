@@ -19,6 +19,8 @@ public class DailyCalendarResponse {
     Boolean isWorkingDay;
     LocalTime workStartTime;
     LocalTime workEndTime;
+    LocalTime lunchBreakStart;
+    LocalTime lunchBreakEnd;
     Boolean hasTimeOff;
     String timeOffReason;
     Integer totalInterviews;

@@ -4,6 +4,7 @@ import com.fpt.careermate.services.kafka.dto.NotificationEvent;
 import com.fpt.careermate.services.kafka.producer.NotificationProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -17,16 +18,23 @@ import java.util.concurrent.ConcurrentHashMap;
  * Monitors system health and sends critical alerts to admins
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class HealthMonitoringScheduler {
 
     private final HealthService healthService;
     private final NotificationProducer notificationProducer;
     
+    @Value("${app.admin.notification-email:}")
+    private String adminNotificationEmail;
+    
     // Track last notification time to avoid spam (component -> last notification time)
     private final Map<String, Instant> lastNotificationTimes = new ConcurrentHashMap<>();
     private static final long NOTIFICATION_COOLDOWN_SECONDS = 300; // 5 minutes
+    
+    public HealthMonitoringScheduler(HealthService healthService, NotificationProducer notificationProducer) {
+        this.healthService = healthService;
+        this.notificationProducer = notificationProducer;
+    }
 
     /**
      * Check critical components health every 2 minutes
@@ -80,13 +88,25 @@ public class HealthMonitoringScheduler {
             metadata.put("timestamp", Instant.now().toString());
             metadata.put("severity", "CRITICAL");
             metadata.putAll(details);
+            
+            // Determine if we have a valid admin email
+            // If not configured or invalid, use null to skip email (only SSE/in-app notification)
+            String emailToUse = null;
+            if (adminNotificationEmail != null && !adminNotificationEmail.isBlank() 
+                    && adminNotificationEmail.contains("@")) {
+                emailToUse = adminNotificationEmail;
+            } else {
+                // Mark in metadata that email should be skipped
+                metadata.put("skipEmail", true);
+                log.debug("Admin notification email not configured - will only send SSE/in-app notification");
+            }
 
             NotificationEvent event = NotificationEvent.builder()
                     .eventId(java.util.UUID.randomUUID().toString())
                     .eventType("SYSTEM_HEALTH_CRITICAL")
                     .timestamp(LocalDateTime.now())
-                    .recipientId("admin-team") // Can be enhanced to get all admin IDs
-                    .recipientEmail("admin-team") // Set proper email
+                    .recipientId("admin-team") // For SSE/in-app notification routing
+                    .recipientEmail(emailToUse) // null if not configured (skips email)
                     .title(String.format("🚨 Critical: %s is DOWN", component))
                     .message(String.format(
                             "System component '%s' is experiencing issues. Status: DOWN\\n\\nDetails: %s\\n\\nPlease investigate immediately.",
@@ -96,7 +116,8 @@ public class HealthMonitoringScheduler {
                     .build();
 
             notificationProducer.sendAdminNotification(event);
-            log.warn("🚨 Critical health alert sent for component: {}", component);
+            log.warn("🚨 Critical health alert sent for component: {} (email: {})", component, 
+                    emailToUse != null ? emailToUse : "skipped");
             
         } catch (Exception e) {
             log.error("Failed to send critical health alert for component: {}", component, e);

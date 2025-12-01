@@ -25,6 +25,29 @@ public class InterviewScheduleResponse {
     
     Integer jobApplyId;
     
+    // Candidate information for recruiter view
+    Integer candidateId;
+    
+    String candidateName;
+    
+    String candidatePhone;
+    
+    String candidateEmail;
+    
+    String candidateImage;
+    
+    // Job information
+    String jobTitle;
+    
+    // Company information for candidate view
+    Integer companyId;
+    
+    String companyName;
+    
+    String companyLogo;
+    
+    String companyWebsite;
+    
     Integer interviewRound;
     
     LocalDateTime scheduledDate;

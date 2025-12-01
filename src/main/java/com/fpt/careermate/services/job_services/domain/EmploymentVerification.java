@@ -23,51 +23,52 @@ import java.time.temporal.ChronoUnit;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity(name = "employment_verification")
 @Table(indexes = {
-    @Index(name = "idx_job_apply_id", columnList = "job_apply_id"),
-    @Index(name = "idx_is_active", columnList = "is_active")
+        @Index(name = "idx_job_apply_id", columnList = "job_apply_id"),
+        @Index(name = "idx_is_active", columnList = "is_active")
 })
 public class EmploymentVerification {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
-    
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_apply_id", nullable = false, unique = true)
     JobApply jobApply;
-    
+
     @Column(nullable = false)
     LocalDate startDate;
-    
-    LocalDate endDate;  // NULL = currently employed
-    
+
+    LocalDate endDate; // NULL = currently employed
+
     @Column(nullable = false)
     @Builder.Default
     Boolean isActive = true;
-    
-    Integer daysEmployed;  // Auto-calculated
-    
+
+    Integer daysEmployed; // Auto-calculated
+
     @Column(nullable = false)
     LocalDateTime createdAt;
-    
+
     LocalDateTime updatedAt;
-    
+
     /**
      * Calculate days employed
      */
     public Integer calculateDaysEmployed() {
-        if (startDate == null) return null;
+        if (startDate == null)
+            return null;
         LocalDate endDateOrNow = endDate != null ? endDate : LocalDate.now();
         return (int) ChronoUnit.DAYS.between(startDate, endDateOrNow);
     }
-    
+
     /**
      * Check if employment is still active
      */
     public boolean isCurrentlyEmployed() {
         return isActive && endDate == null;
     }
-    
+
     /**
      * Check if candidate is eligible for work experience review (30+ days employed)
      */

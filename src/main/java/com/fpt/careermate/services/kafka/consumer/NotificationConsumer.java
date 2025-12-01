@@ -222,6 +222,52 @@ public class NotificationConsumer {
             case "ANNOUNCEMENT":
                 log.info("📢 Announcement notification processed for: {}", event.getRecipientId());
                 break;
+            // Interview notification types
+            case "INTERVIEW_INVITATION":
+                log.info("🎉 Interview invitation notification processed for candidate: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_SCHEDULED":
+                log.info("📅 Interview scheduled confirmation processed for recruiter: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_CONFIRMED":
+                log.info("✅ Interview confirmed notification processed for recruiter: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_UPDATE":
+                log.info("🔄 Interview update notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_CANCELLED":
+                log.info("❌ Interview cancelled notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_SECOND_ROUND":
+                log.info("🔁 Second round interview notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_OUTCOME_PASS":
+                log.info("🎉 Interview passed notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_OUTCOME_FAIL":
+                log.info("📋 Interview result notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_OUTCOME_PENDING":
+                log.info("⏳ Interview pending decision notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_NO_SHOW":
+                log.info("⚠️ Interview no-show notification processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_REMINDER_24_HOUR":
+                log.info("⏰ 24-hour interview reminder processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_REMINDER_2_HOUR":
+                log.info("⏰ 2-hour interview reminder processed for: {}", event.getRecipientId());
+                break;
+            case "INTERVIEW_AUTO_CANCELLED":
+                log.info("🗓️ Interview auto-cancelled notification processed for: {}", event.getRecipientId());
+                break;
+            case "APPLICATION_AUTO_WITHDRAWN":
+                log.info("📤 Application auto-withdrawn notification processed for: {}", event.getRecipientId());
+                break;
+            case "APPLICATIONS_AUTO_WITHDRAWN":
+                log.info("📤 Applications auto-withdrawn summary processed for: {}", event.getRecipientId());
+                break;
             default:
                 log.info("📧 Generic notification processed for: {}", event.getRecipientId());
         }
@@ -230,10 +276,6 @@ public class NotificationConsumer {
         if (shouldSendEmail(event)) {
             sendEmailNotification(event);
         }
-
-        // TODO: Future enhancement - Push notifications
-        // Example: pushNotificationService.send(event.getRecipientId(),
-        // event.getTitle(), event.getMessage());
     }
 
     /**
@@ -243,9 +285,22 @@ public class NotificationConsumer {
      */
     private void sendEmailNotification(NotificationEvent event) {
         try {
-            // Validate email address exists
+            // Validate email address exists and is valid format
             if (event.getRecipientEmail() == null || event.getRecipientEmail().trim().isEmpty()) {
                 log.warn("⚠️ Skipping email for eventId {} - no recipient email", event.getEventId());
+                return;
+            }
+
+            // Basic email format validation (must contain @)
+            if (!event.getRecipientEmail().contains("@")) {
+                log.warn("⚠️ Skipping email for eventId {} - invalid email format: {}",
+                        event.getEventId(), event.getRecipientEmail());
+                return;
+            }
+
+            // Check if metadata requests to skip email
+            if (event.getMetadata() != null && Boolean.TRUE.equals(event.getMetadata().get("skipEmail"))) {
+                log.debug("⏭️ Skipping email for eventId {} - skipEmail flag set", event.getEventId());
                 return;
             }
 
@@ -294,7 +349,24 @@ public class NotificationConsumer {
                 "JOB_POSTING_REJECTED", // Recruiter needs to know and take action
                 "PROFILE_UPDATE_APPROVED", // User needs to know their update was approved
                 "PROFILE_UPDATE_REJECTED", // User needs to know and possibly resubmit
-                "APPLICATION_RECEIVED" // Recruiter should know about new applications
+                "APPLICATION_RECEIVED", // Recruiter should know about new applications
+                // Interview notifications - critical for scheduling
+                "INTERVIEW_INVITATION", // Candidate MUST know about interview invite
+                "INTERVIEW_SCHEDULED", // Recruiter confirmation of scheduled interview
+                "INTERVIEW_CONFIRMED", // Recruiter knows candidate confirmed
+                "INTERVIEW_UPDATE", // Candidate knows interview was updated
+                "INTERVIEW_CANCELLED", // Candidate knows interview was cancelled
+                "INTERVIEW_SECOND_ROUND", // Candidate knows another round needed
+                "INTERVIEW_OUTCOME_PASS", // Candidate knows they passed
+                "INTERVIEW_OUTCOME_FAIL", // Candidate knows the result
+                "INTERVIEW_OUTCOME_PENDING", // Candidate knows decision pending
+                "INTERVIEW_NO_SHOW", // Candidate knows they were marked no-show
+                "INTERVIEW_REMINDER_24_HOUR", // 24-hour reminder
+                "INTERVIEW_REMINDER_2_HOUR", // 2-hour reminder
+                "INTERVIEW_AUTO_CANCELLED", // Recruiter knows interview was auto-cancelled
+                // Application withdrawal notifications
+                "APPLICATION_AUTO_WITHDRAWN", // Recruiter knows app was auto-withdrawn
+                "APPLICATIONS_AUTO_WITHDRAWN" // Candidate summary of auto-withdrawals
         );
 
         return emailRequiredEvents.contains(event.getEventType());

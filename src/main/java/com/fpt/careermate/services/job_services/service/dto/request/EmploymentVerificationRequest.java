@@ -17,7 +17,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class EmploymentVerificationRequest {
-    
+
     @NotNull(message = "Start date is required")
     LocalDate startDate;
 }

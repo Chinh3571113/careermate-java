@@ -15,25 +15,25 @@ import java.time.Instant;
 @Entity
 @Table(name = "notification_heartbeat")
 public class NotificationHeartbeat {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int id;
-    
+
     @Column(unique = true, nullable = false)
     String name;
-    
+
     @Column(name = "last_processed_at", nullable = false)
     Instant lastProcessedAt;
-    
+
     @Column(name = "message_count")
     @Builder.Default
     long messageCount = 0L;
-    
+
     @Column(name = "error_count")
     @Builder.Default
     long errorCount = 0L;
-    
-    @Column(name = "last_error_message")
+
+    @Column(name = "last_error_message", columnDefinition = "TEXT")
     String lastErrorMessage;
 }

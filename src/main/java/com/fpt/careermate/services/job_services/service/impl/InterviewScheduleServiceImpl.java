@@ -2,6 +2,7 @@ package com.fpt.careermate.services.job_services.service.impl;
 
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
+import com.fpt.careermate.common.constant.InterviewOutcome;
 import com.fpt.careermate.common.constant.InterviewStatus;
 import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
@@ -59,7 +60,15 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         JobApply jobApply = jobApplyRepo.findById(jobApplyId)
                 .orElseThrow(() -> new AppException(ErrorCode.JOB_APPLY_NOT_FOUND));
 
-        if (interviewRepo.existsByJobApplyId(jobApplyId)) {
+        // Only block if there's an ACTIVE interview (SCHEDULED or CONFIRMED)
+        // Allow scheduling new interview if previous was COMPLETED, RESCHEDULED,
+        // CANCELLED, or NO_SHOW
+        boolean hasActiveInterview = interviewRepo.findByJobApplyId(jobApplyId)
+                .map(interview -> interview.getStatus() == InterviewStatus.SCHEDULED ||
+                        interview.getStatus() == InterviewStatus.CONFIRMED)
+                .orElse(false);
+
+        if (hasActiveInterview) {
             throw new AppException(ErrorCode.INTERVIEW_ALREADY_SCHEDULED);
         }
 
@@ -67,25 +76,13 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             throw new AppException(ErrorCode.INVALID_SCHEDULE_DATE);
         }
 
-        // Check for scheduling conflicts using calendar service
-        Integer recruiterId = jobApply.getJobPosting().getRecruiter().getId();
-        Integer candidateId = jobApply.getCandidate().getCandidateId();
-        Integer durationMinutes = request.getDurationMinutes() != null ? request.getDurationMinutes() : 60;
-        
-        ConflictCheckResponse conflictCheck = calendarService.checkConflict(
-                recruiterId, 
-                candidateId, 
-                request.getScheduledDate(), 
-                durationMinutes
-        );
-        
-        if (conflictCheck.getHasConflict()) {
-            log.warn("Scheduling conflict detected: {}", conflictCheck.getConflictReason());
-            throw new AppException(ErrorCode.SCHEDULING_CONFLICT);
-        }
+        // SIMPLIFIED: No conflict checking - allow overlapping interviews
+        // Companies may have multiple interviewers, so overlaps are allowed
+        log.info("Scheduling interview without conflict check - overlapping interviews allowed");
 
         InterviewSchedule interview = InterviewSchedule.builder()
                 .jobApply(jobApply)
+                .createdByRecruiter(jobApply.getJobPosting().getRecruiter())
                 .interviewRound(request.getInterviewRound() != null ? request.getInterviewRound() : 1)
                 .scheduledDate(request.getScheduledDate())
                 .durationMinutes(request.getDurationMinutes() != null ? request.getDurationMinutes() : 60)
@@ -107,7 +104,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         jobApply.setStatus(StatusJobApply.INTERVIEW_SCHEDULED);
         jobApplyRepo.save(jobApply);
 
-        // TODO: Send notification to candidate
+        // Send interview invitation notification to candidate
+        sendInterviewScheduledNotification(interview, jobApply);
 
         log.info("Interview scheduled successfully with ID: {}", interview.getId());
         return interviewMapper.toResponse(interview);
@@ -130,7 +128,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
-        // TODO: Notify recruiter
+        // Notify recruiter that candidate confirmed the interview
+        sendInterviewConfirmedNotificationToRecruiter(interview);
 
         log.info("Interview confirmed successfully");
         return interviewMapper.toResponse(interview);
@@ -148,6 +147,31 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             throw new AppException(ErrorCode.INTERVIEW_NOT_YET_COMPLETED);
         }
 
+        // Handle NEEDS_SECOND_ROUND differently - reset for rescheduling
+        if (request.getOutcome() == InterviewOutcome.NEEDS_SECOND_ROUND) {
+            interview.setStatus(InterviewStatus.RESCHEDULED);
+            interview.setCandidateConfirmed(false); // Reset confirmation for new schedule
+            interview.setCandidateConfirmedAt(null);
+            interview.setInterviewerNotes(request.getInterviewerNotes());
+            interview.setOutcome(request.getOutcome());
+            // Don't set interviewCompletedAt since it's not completed
+
+            interview = interviewRepo.save(interview);
+
+            // Set job application back to REVIEWING for new interview scheduling
+            JobApply jobApply = interview.getJobApply();
+            jobApply.setStatus(StatusJobApply.REVIEWING);
+            jobApplyRepo.save(jobApply);
+
+            log.info("Interview marked for second round - status: RESCHEDULED, job application: REVIEWING");
+
+            // Notify candidate about new interview round needed
+            sendSecondRoundNotification(interview);
+
+            return interviewMapper.toResponse(interview);
+        }
+
+        // Standard completion flow for PASS, FAIL, PENDING
         interview.setStatus(InterviewStatus.COMPLETED);
         interview.setInterviewCompletedAt(LocalDateTime.now());
         interview.setInterviewerNotes(request.getInterviewerNotes());
@@ -155,14 +179,40 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
+        // Update job application status based on interview outcome
         JobApply jobApply = interview.getJobApply();
-        jobApply.setStatus(StatusJobApply.INTERVIEWED);
+        StatusJobApply newStatus = determineJobApplyStatusFromOutcome(request.getOutcome());
+        jobApply.setStatus(newStatus);
         jobApplyRepo.save(jobApply);
 
-        // TODO: Send notification
+        log.info("Interview completed with outcome: {} -> Job application status: {}",
+                request.getOutcome(), newStatus);
+
+        // Send notification to candidate based on interview outcome
+        sendInterviewOutcomeNotification(interview, request.getOutcome());
 
         log.info("Interview completed successfully");
         return interviewMapper.toResponse(interview);
+    }
+
+    /**
+     * Determine the job application status based on interview outcome.
+     * Note: NEEDS_SECOND_ROUND is handled separately in completeInterview()
+     * 
+     * @param outcome The interview outcome
+     * @return The appropriate job application status
+     */
+    private StatusJobApply determineJobApplyStatusFromOutcome(InterviewOutcome outcome) {
+        if (outcome == null) {
+            return StatusJobApply.INTERVIEWED; // Default if no outcome specified
+        }
+
+        return switch (outcome) {
+            case PASS -> StatusJobApply.APPROVED; // Passed - recruiter can mark WORKING when candidate starts
+            case FAIL -> StatusJobApply.REJECTED; // Failed interview, reject application
+            case PENDING -> StatusJobApply.INTERVIEWED; // Still deciding, interview done
+            case NEEDS_SECOND_ROUND -> StatusJobApply.REVIEWING; // Back to reviewing for new schedule
+        };
     }
 
     @Override
@@ -185,7 +235,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         jobApply.setStatus(StatusJobApply.REJECTED);
         jobApplyRepo.save(jobApply);
 
-        // TODO: Send notification
+        // Send no-show notification to candidate
+        sendNoShowNotification(interview);
 
         log.info("Interview marked as NO_SHOW");
         return interviewMapper.toResponse(interview);
@@ -207,7 +258,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
-        // TODO: Send notification
+        // Send cancellation notification to candidate
+        sendInterviewCancelledNotification(interview, reason);
 
         log.info("Interview cancelled successfully");
         return interviewMapper.toResponse(interview);
@@ -247,6 +299,25 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             throw new AppException(ErrorCode.INTERVIEW_TOO_SHORT);
         }
 
+        // Handle NEEDS_SECOND_ROUND differently - reset for rescheduling
+        if (request.getOutcome() == InterviewOutcome.NEEDS_SECOND_ROUND) {
+            interview.setStatus(InterviewStatus.RESCHEDULED);
+            interview.setCandidateConfirmed(false);
+            interview.setCandidateConfirmedAt(null);
+            interview.setInterviewerNotes("Early decision - needs second round: " + request.getInterviewerNotes());
+            interview.setOutcome(request.getOutcome());
+
+            interview = interviewRepo.save(interview);
+
+            JobApply jobApply = interview.getJobApply();
+            jobApply.setStatus(StatusJobApply.REVIEWING);
+            jobApplyRepo.save(jobApply);
+
+            log.info("Interview marked for second round early after {} minutes", minutesSinceStart);
+            return interviewMapper.toResponse(interview);
+        }
+
+        // Standard completion flow
         interview.setStatus(InterviewStatus.COMPLETED);
         interview.setInterviewCompletedAt(LocalDateTime.now());
         interview.setInterviewerNotes("Completed early: " + request.getInterviewerNotes());
@@ -254,11 +325,14 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
+        // Update job application status based on interview outcome
         JobApply jobApply = interview.getJobApply();
-        jobApply.setStatus(StatusJobApply.INTERVIEWED);
+        StatusJobApply newStatus = determineJobApplyStatusFromOutcome(request.getOutcome());
+        jobApply.setStatus(newStatus);
         jobApplyRepo.save(jobApply);
 
-        log.info("Interview completed early after {} minutes", minutesSinceStart);
+        log.info("Interview completed early after {} minutes with outcome: {} -> Job status: {}",
+                minutesSinceStart, request.getOutcome(), newStatus);
         return interviewMapper.toResponse(interview);
     }
 
@@ -279,53 +353,38 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     @Transactional
     public InterviewScheduleResponse updateInterview(Integer interviewId, UpdateInterviewRequest request) {
         log.info("Updating interview ID: {}", interviewId);
-        
+
         InterviewSchedule interview = findInterviewById(interviewId);
-        
+
         // Cannot update completed, cancelled, or no-show interviews
         if (interview.getStatus() == InterviewStatus.COMPLETED ||
-            interview.getStatus() == InterviewStatus.CANCELLED ||
-            interview.getStatus() == InterviewStatus.NO_SHOW) {
+                interview.getStatus() == InterviewStatus.CANCELLED ||
+                interview.getStatus() == InterviewStatus.NO_SHOW) {
             throw new AppException(ErrorCode.INTERVIEW_CANNOT_BE_MODIFIED);
         }
-        
-        // If updating scheduled date, validate it's in the future and check for conflicts
+
+        // If updating scheduled date, validate it's in the future
+        // SIMPLIFIED: No conflict checking - allow overlapping interviews
         if (request.getScheduledDate() != null) {
             if (request.getScheduledDate().isBefore(LocalDateTime.now())) {
                 throw new AppException(ErrorCode.INVALID_SCHEDULE_DATE);
             }
-            
-            // Check for scheduling conflicts
-            Integer recruiterId = interview.getJobApply().getJobPosting().getRecruiter().getId();
-            Integer candidateId = interview.getJobApply().getCandidate().getCandidateId();
-            Integer durationMinutes = request.getDurationMinutes() != null ? 
-                    request.getDurationMinutes() : interview.getDurationMinutes();
-            
-            ConflictCheckResponse conflictCheck = calendarService.checkConflict(
-                    recruiterId, 
-                    candidateId, 
-                    request.getScheduledDate(), 
-                    durationMinutes
-            );
-            
-            // Ignore conflict with the same interview (self)
-            if (conflictCheck.getHasConflict() && !isConflictWithSameInterview(conflictCheck, interviewId)) {
-                log.warn("Scheduling conflict detected: {}", conflictCheck.getConflictReason());
-                throw new AppException(ErrorCode.SCHEDULING_CONFLICT);
-            }
-            
+
+            // SIMPLIFIED: No conflict checking - companies may have multiple interviewers
+            log.info("Updating interview schedule without conflict check - overlapping allowed");
+
             interview.setScheduledDate(request.getScheduledDate());
-            
+
             // Reset candidate confirmation when date changes
             interview.setCandidateConfirmed(false);
             interview.setCandidateConfirmedAt(null);
             interview.setStatus(InterviewStatus.SCHEDULED);
-            
+
             // Reset reminder flags
             interview.setReminderSent24h(false);
             interview.setReminderSent2h(false);
         }
-        
+
         // Update other fields if provided
         if (request.getDurationMinutes() != null) {
             interview.setDurationMinutes(request.getDurationMinutes());
@@ -354,29 +413,30 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         if (request.getInterviewRound() != null) {
             interview.setInterviewRound(request.getInterviewRound());
         }
-        
+
         interview = interviewRepo.save(interview);
-        
+
         // Send notification to candidate about the update
         if (request.getScheduledDate() != null) {
             sendInterviewUpdateNotification(interview, request.getUpdateReason());
         }
-        
+
         log.info("Interview updated successfully");
         return interviewMapper.toResponse(interview);
     }
-    
+
     /**
-     * Check if conflict is with the same interview being updated (not a real conflict)
+     * Check if conflict is with the same interview being updated (not a real
+     * conflict)
      */
     private boolean isConflictWithSameInterview(ConflictCheckResponse conflictCheck, Integer interviewId) {
-        // Simple check - if the only conflict is INTERVIEW_OVERLAP, 
+        // Simple check - if the only conflict is INTERVIEW_OVERLAP,
         // it could be the same interview we're updating
-        return conflictCheck.getConflicts() != null && 
-               conflictCheck.getConflicts().size() == 1 &&
-               "INTERVIEW_OVERLAP".equals(conflictCheck.getConflicts().get(0).getConflictType());
+        return conflictCheck.getConflicts() != null &&
+                conflictCheck.getConflicts().size() == 1 &&
+                "INTERVIEW_OVERLAP".equals(conflictCheck.getConflicts().get(0).getConflictType());
     }
-    
+
     /**
      * Send notification about interview update
      */
@@ -385,7 +445,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             JobApply jobApply = interview.getJobApply();
             String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
             String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
-            
+
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
             metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
@@ -394,19 +454,20 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             metadata.put("interviewType", interview.getInterviewType().name());
             metadata.put("updateReason", updateReason != null ? updateReason : "Interview details have been updated");
             metadata.put("interviewId", interview.getId());
-            
+
             NotificationEvent event = NotificationEvent.builder()
                     .eventType("EMAIL")
                     .recipientId(candidateId)
                     .recipientEmail(candidateEmail)
                     .subject("Interview Updated - " + jobApply.getJobPosting().getTitle())
                     .title("Interview Schedule Updated")
-                    .message("Your interview has been updated. Please review the new details and confirm your attendance.")
+                    .message(
+                            "Your interview has been updated. Please review the new details and confirm your attendance.")
                     .category("INTERVIEW_UPDATE")
                     .metadata(metadata)
                     .priority(1) // High priority
                     .build();
-            
+
             notificationProducer.sendNotification("candidate-notifications", event);
             log.info("Interview update notification sent to: {}", candidateEmail);
         } catch (Exception e) {
@@ -417,9 +478,19 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     @Override
     public List<InterviewScheduleResponse> getRecruiterUpcomingInterviews(Integer recruiterId) {
         List<InterviewSchedule> interviews = interviewRepo.findUpcomingInterviewsByRecruiterId(
-                recruiterId, 
-                LocalDateTime.now()
-        );
+                recruiterId,
+                LocalDateTime.now());
+        return interviews.stream()
+                .map(interviewMapper::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<InterviewScheduleResponse> getRecruiterScheduledInterviews(Integer recruiterId) {
+        // Returns all SCHEDULED/CONFIRMED interviews regardless of date
+        // This allows recruiters to complete interviews even after scheduled time has
+        // passed
+        List<InterviewSchedule> interviews = interviewRepo.findScheduledInterviewsByRecruiterId(recruiterId);
         return interviews.stream()
                 .map(interviewMapper::toResponse)
                 .collect(Collectors.toList());
@@ -428,9 +499,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     @Override
     public List<InterviewScheduleResponse> getCandidateUpcomingInterviews(Integer candidateId) {
         List<InterviewSchedule> interviews = interviewRepo.findUpcomingInterviewsByCandidateId(
-                candidateId, 
-                LocalDateTime.now()
-        );
+                candidateId,
+                LocalDateTime.now());
         return interviews.stream()
                 .map(interviewMapper::toResponse)
                 .collect(Collectors.toList());
@@ -439,9 +509,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     @Override
     public List<InterviewScheduleResponse> getCandidatePastInterviews(Integer candidateId) {
         List<InterviewSchedule> interviews = interviewRepo.findPastInterviewsByCandidateId(
-                candidateId, 
-                LocalDateTime.now()
-        );
+                candidateId,
+                LocalDateTime.now());
         return interviews.stream()
                 .map(interviewMapper::toResponse)
                 .collect(Collectors.toList());
@@ -456,7 +525,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         List<InterviewSchedule> interviews = interviewRepo.findInterviewsNeedingReminder(
                 targetTime.minusMinutes(30),
                 targetTime.plusMinutes(30),
-                true  // is24hReminder
+                true // is24hReminder
         );
 
         int sentCount = 0;
@@ -484,7 +553,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         List<InterviewSchedule> interviews = interviewRepo.findInterviewsNeedingReminder(
                 targetTime.minusMinutes(15),
                 targetTime.plusMinutes(15),
-                false  // is24hReminder (false = 2h reminder)
+                false // is24hReminder (false = 2h reminder)
         );
 
         int sentCount = 0;
@@ -505,18 +574,19 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
     /**
      * Sends interview reminder notifications to both candidate and recruiter.
-     * @param interview The interview to send reminders for
+     * 
+     * @param interview    The interview to send reminders for
      * @param reminderType Either "24_HOUR" or "2_HOUR"
      */
     private void sendInterviewReminderNotification(InterviewSchedule interview, String reminderType) {
         JobApply jobApply = interview.getJobApply();
         String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
         String recruiterEmail = jobApply.getJobPosting().getRecruiter().getAccount().getEmail();
-        
+
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy 'at' HH:mm");
         String scheduledTime = interview.getScheduledDate().format(formatter);
         String timeRemaining = "24_HOUR".equals(reminderType) ? "24 hours" : "2 hours";
-        
+
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("interviewId", interview.getId());
         metadata.put("jobApplyId", jobApply.getId());
@@ -530,18 +600,17 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         // Send notification to candidate
         String candidateMessage = String.format(
                 "⏰ Interview Reminder: Your interview for '%s' is in %s!\n\n" +
-                "📅 When: %s\n" +
-                "📍 Type: %s\n" +
-                "📍 Location: %s\n" +
-                (interview.getMeetingLink() != null ? "🔗 Meeting Link: %s\n" : "") +
-                "\nPlease be prepared and on time. Good luck!",
+                        "📅 When: %s\n" +
+                        "📍 Type: %s\n" +
+                        "📍 Location: %s\n" +
+                        (interview.getMeetingLink() != null ? "🔗 Meeting Link: %s\n" : "") +
+                        "\nPlease be prepared and on time. Good luck!",
                 jobApply.getJobPosting().getTitle(),
                 timeRemaining,
                 scheduledTime,
                 interview.getInterviewType(),
                 interview.getLocation() != null ? interview.getLocation() : "To be confirmed",
-                interview.getMeetingLink()
-        );
+                interview.getMeetingLink());
 
         NotificationEvent candidateEvent = NotificationEvent.builder()
                 .eventId(java.util.UUID.randomUUID().toString())
@@ -562,17 +631,16 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         // Send notification to recruiter
         String recruiterMessage = String.format(
                 "⏰ Interview Reminder: Your interview with %s for '%s' is in %s!\n\n" +
-                "📅 When: %s\n" +
-                "👤 Candidate: %s\n" +
-                "📍 Type: %s\n" +
-                "\nPlease review the candidate's application before the interview.",
+                        "📅 When: %s\n" +
+                        "👤 Candidate: %s\n" +
+                        "📍 Type: %s\n" +
+                        "\nPlease review the candidate's application before the interview.",
                 jobApply.getFullName(),
                 jobApply.getJobPosting().getTitle(),
                 timeRemaining,
                 scheduledTime,
                 jobApply.getFullName(),
-                interview.getInterviewType()
-        );
+                interview.getInterviewType());
 
         NotificationEvent recruiterEvent = NotificationEvent.builder()
                 .eventId(java.util.UUID.randomUUID().toString())
@@ -599,10 +667,10 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     @Override
     public List<InterviewScheduleResponse> getRecruiterPendingInterviews(Integer recruiterId) {
         log.info("Getting pending interviews for recruiter ID: {}", recruiterId);
-        
+
         // Get all interviews by recruiter and filter for pending status
         List<InterviewSchedule> allInterviews = interviewRepo.findByRecruiterId(recruiterId);
-        
+
         return allInterviews.stream()
                 .filter(interview -> interview.getStatus() == InterviewStatus.SCHEDULED)
                 .filter(interview -> interview.getScheduledDate().isAfter(LocalDateTime.now()))
@@ -613,9 +681,9 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     @Override
     public Map<String, Object> getRecruiterInterviewStats(Integer recruiterId) {
         log.info("Getting interview statistics for recruiter ID: {}", recruiterId);
-        
+
         List<InterviewSchedule> allInterviews = interviewRepo.findByRecruiterId(recruiterId);
-        
+
         long total = allInterviews.size();
         long scheduled = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.SCHEDULED).count();
         long confirmed = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.CONFIRMED).count();
@@ -623,12 +691,12 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         long cancelled = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.CANCELLED).count();
         long noShow = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.NO_SHOW).count();
         long rescheduled = allInterviews.stream().filter(i -> i.getStatus() == InterviewStatus.RESCHEDULED).count();
-        
+
         long upcoming = allInterviews.stream()
                 .filter(i -> i.getScheduledDate().isAfter(LocalDateTime.now()))
                 .filter(i -> i.getStatus() == InterviewStatus.SCHEDULED || i.getStatus() == InterviewStatus.CONFIRMED)
                 .count();
-        
+
         Map<String, Object> stats = new HashMap<>();
         stats.put("total", total);
         stats.put("scheduled", scheduled);
@@ -638,7 +706,459 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         stats.put("noShow", noShow);
         stats.put("rescheduled", rescheduled);
         stats.put("upcoming", upcoming);
-        
+
         return stats;
+    }
+
+    // ==================== INTERVIEW NOTIFICATION METHODS ====================
+
+    /**
+     * Send interview invitation notification to candidate when interview is
+     * scheduled.
+     * This is the most important notification - it's the candidate's "invite to
+     * interview" email.
+     */
+    private void sendInterviewScheduledNotification(InterviewSchedule interview, JobApply jobApply) {
+        try {
+            String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
+            String recruiterEmail = jobApply.getJobPosting().getRecruiter().getAccount().getEmail();
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm");
+            String scheduledTime = interview.getScheduledDate().format(formatter);
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("interviewId", interview.getId());
+            metadata.put("jobApplyId", jobApply.getId());
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
+            metadata.put("scheduledDate", scheduledTime);
+            metadata.put("durationMinutes", interview.getDurationMinutes());
+            metadata.put("interviewType", interview.getInterviewType().name());
+            metadata.put("location", interview.getLocation());
+            metadata.put("meetingLink", interview.getMeetingLink());
+            metadata.put("interviewerName", interview.getInterviewerName());
+            metadata.put("preparationNotes", interview.getPreparationNotes());
+
+            String message = String.format(
+                    "🎉 Congratulations! You've been invited to an interview!\n\n" +
+                            "📋 Job Position: %s\n" +
+                            "🏢 Company: %s\n" +
+                            "📅 Date & Time: %s\n" +
+                            "⏱️ Duration: %d minutes\n" +
+                            "📍 Type: %s\n" +
+                            "%s" +
+                            "%s" +
+                            "%s" +
+                            "\n%s" +
+                            "\n\n⚡ Please confirm your attendance as soon as possible.\n\n" +
+                            "Good luck with your interview!\n\n" +
+                            "Best regards,\n" +
+                            "CareerMate Team",
+                    jobApply.getJobPosting().getTitle(),
+                    jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                    scheduledTime,
+                    interview.getDurationMinutes(),
+                    interview.getInterviewType().name(),
+                    interview.getLocation() != null ? "📍 Location: " + interview.getLocation() + "\n" : "",
+                    interview.getMeetingLink() != null ? "🔗 Meeting Link: " + interview.getMeetingLink() + "\n" : "",
+                    interview.getInterviewerName() != null ? "👤 Interviewer: " + interview.getInterviewerName() + "\n"
+                            : "",
+                    interview.getPreparationNotes() != null
+                            ? "\n📝 Preparation Notes:\n" + interview.getPreparationNotes()
+                            : "");
+
+            // Send to candidate
+            NotificationEvent candidateEvent = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(candidateEmail)
+                    .recipientId(candidateId)
+                    .category("CANDIDATE")
+                    .eventType("INTERVIEW_INVITATION")
+                    .title("Interview Invitation - " + jobApply.getJobPosting().getTitle())
+                    .subject("🎉 Interview Scheduled: " + jobApply.getJobPosting().getTitle() + " at "
+                            + jobApply.getJobPosting().getRecruiter().getCompanyName())
+                    .message(message)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(1) // High priority
+                    .build();
+
+            notificationProducer.sendNotification("candidate-notifications", candidateEvent);
+            log.info("✅ Sent interview invitation to candidate: {}", candidateEmail);
+
+            // Also send confirmation to recruiter
+            String recruiterMessage = String.format(
+                    "✅ Interview has been scheduled successfully!\n\n" +
+                            "📋 Job Position: %s\n" +
+                            "👤 Candidate: %s\n" +
+                            "📅 Date & Time: %s\n" +
+                            "⏱️ Duration: %d minutes\n" +
+                            "📍 Type: %s\n\n" +
+                            "The candidate has been notified and will confirm their attendance.",
+                    jobApply.getJobPosting().getTitle(),
+                    jobApply.getFullName(),
+                    scheduledTime,
+                    interview.getDurationMinutes(),
+                    interview.getInterviewType().name());
+
+            NotificationEvent recruiterEvent = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(recruiterEmail)
+                    .recipientId(String.valueOf(jobApply.getJobPosting().getRecruiter().getId()))
+                    .category("RECRUITER")
+                    .eventType("INTERVIEW_SCHEDULED")
+                    .title("Interview Scheduled - " + jobApply.getFullName())
+                    .subject("Interview Scheduled with " + jobApply.getFullName())
+                    .message(recruiterMessage)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(2)
+                    .build();
+
+            notificationProducer.sendNotification("recruiter-notifications", recruiterEvent);
+            log.info("✅ Sent interview confirmation to recruiter: {}", recruiterEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send interview scheduled notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Send notification to recruiter when candidate confirms the interview.
+     */
+    private void sendInterviewConfirmedNotificationToRecruiter(InterviewSchedule interview) {
+        try {
+            JobApply jobApply = interview.getJobApply();
+            String recruiterEmail = jobApply.getJobPosting().getRecruiter().getAccount().getEmail();
+            String recruiterId = String.valueOf(jobApply.getJobPosting().getRecruiter().getId());
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm");
+            String scheduledTime = interview.getScheduledDate().format(formatter);
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("interviewId", interview.getId());
+            metadata.put("jobApplyId", jobApply.getId());
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("candidateName", jobApply.getFullName());
+            metadata.put("scheduledDate", scheduledTime);
+
+            String message = String.format(
+                    "✅ Good news! The candidate has confirmed the interview!\n\n" +
+                            "📋 Job Position: %s\n" +
+                            "👤 Candidate: %s\n" +
+                            "📅 Date & Time: %s\n" +
+                            "⏱️ Duration: %d minutes\n" +
+                            "📍 Type: %s\n\n" +
+                            "The interview is now confirmed. Please prepare accordingly.",
+                    jobApply.getJobPosting().getTitle(),
+                    jobApply.getFullName(),
+                    scheduledTime,
+                    interview.getDurationMinutes(),
+                    interview.getInterviewType().name());
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(recruiterEmail)
+                    .recipientId(recruiterId)
+                    .category("RECRUITER")
+                    .eventType("INTERVIEW_CONFIRMED")
+                    .title("Interview Confirmed - " + jobApply.getFullName())
+                    .subject("✅ Interview Confirmed: " + jobApply.getFullName() + " - "
+                            + jobApply.getJobPosting().getTitle())
+                    .message(message)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(2)
+                    .build();
+
+            notificationProducer.sendNotification("recruiter-notifications", event);
+            log.info("✅ Sent interview confirmation notification to recruiter: {}", recruiterEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send interview confirmation notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Send notification to candidate when they need a second round interview.
+     */
+    private void sendSecondRoundNotification(InterviewSchedule interview) {
+        try {
+            JobApply jobApply = interview.getJobApply();
+            String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("interviewId", interview.getId());
+            metadata.put("jobApplyId", jobApply.getId());
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
+            metadata.put("interviewRound", interview.getInterviewRound());
+            metadata.put("notes", interview.getInterviewerNotes());
+
+            String message = String.format(
+                    "📋 Your Interview Update\n\n" +
+                            "Position: %s\n" +
+                            "Company: %s\n\n" +
+                            "The recruiter has requested a second round interview. " +
+                            "This is typically a positive sign - they want to learn more about you!\n\n" +
+                            "%s" +
+                            "\nYou will receive a new interview invitation soon with the updated schedule.\n\n" +
+                            "Keep up the great work!\n\n" +
+                            "Best regards,\n" +
+                            "CareerMate Team",
+                    jobApply.getJobPosting().getTitle(),
+                    jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                    interview.getInterviewerNotes() != null ? "📝 Feedback: " + interview.getInterviewerNotes() + "\n"
+                            : "");
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(candidateEmail)
+                    .recipientId(candidateId)
+                    .category("CANDIDATE")
+                    .eventType("INTERVIEW_SECOND_ROUND")
+                    .title("Second Round Interview Required")
+                    .subject("Second Interview Round - " + jobApply.getJobPosting().getTitle())
+                    .message(message)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(1)
+                    .build();
+
+            notificationProducer.sendNotification("candidate-notifications", event);
+            log.info("✅ Sent second round notification to candidate: {}", candidateEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send second round notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Send notification to candidate about interview outcome (PASS, FAIL, PENDING).
+     */
+    private void sendInterviewOutcomeNotification(InterviewSchedule interview, InterviewOutcome outcome) {
+        try {
+            JobApply jobApply = interview.getJobApply();
+            String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("interviewId", interview.getId());
+            metadata.put("jobApplyId", jobApply.getId());
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
+            metadata.put("outcome", outcome != null ? outcome.name() : "PENDING");
+            metadata.put("notes", interview.getInterviewerNotes());
+
+            String title;
+            String subject;
+            String message;
+            Integer priority;
+
+            if (outcome == InterviewOutcome.PASS) {
+                title = "🎉 Congratulations! You Passed the Interview!";
+                subject = "Congratulations! Interview Passed - " + jobApply.getJobPosting().getTitle();
+                message = String.format(
+                        "🎉 Congratulations!\n\n" +
+                                "We're delighted to inform you that you have successfully passed the interview!\n\n" +
+                                "📋 Position: %s\n" +
+                                "🏢 Company: %s\n\n" +
+                                "%s" +
+                                "\nThe recruiter will contact you soon with the next steps, which may include:\n" +
+                                "• Job offer discussion\n" +
+                                "• Salary negotiation\n" +
+                                "• Start date confirmation\n\n" +
+                                "Well done!\n\n" +
+                                "Best regards,\n" +
+                                "CareerMate Team",
+                        jobApply.getJobPosting().getTitle(),
+                        jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                        interview.getInterviewerNotes() != null
+                                ? "📝 Feedback: " + interview.getInterviewerNotes() + "\n"
+                                : "");
+                priority = 1;
+            } else if (outcome == InterviewOutcome.FAIL) {
+                title = "Interview Update";
+                subject = "Interview Update - " + jobApply.getJobPosting().getTitle();
+                message = String.format(
+                        "Thank you for attending the interview.\n\n" +
+                                "📋 Position: %s\n" +
+                                "🏢 Company: %s\n\n" +
+                                "After careful consideration, the team has decided to proceed with other candidates " +
+                                "whose qualifications more closely match their current requirements.\n\n" +
+                                "%s" +
+                                "\nPlease don't be discouraged. Every interview is a learning experience. " +
+                                "We encourage you to continue exploring opportunities on CareerMate.\n\n" +
+                                "Best of luck in your job search!\n\n" +
+                                "Best regards,\n" +
+                                "CareerMate Team",
+                        jobApply.getJobPosting().getTitle(),
+                        jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                        interview.getInterviewerNotes() != null
+                                ? "📝 Feedback: " + interview.getInterviewerNotes() + "\n"
+                                : "");
+                priority = 2;
+            } else {
+                // PENDING
+                title = "Interview Completed - Decision Pending";
+                subject = "Interview Completed - " + jobApply.getJobPosting().getTitle();
+                message = String.format(
+                        "Thank you for attending the interview!\n\n" +
+                                "📋 Position: %s\n" +
+                                "🏢 Company: %s\n\n" +
+                                "Your interview has been completed and marked for review. " +
+                                "The recruiter is still evaluating candidates and will make a decision soon.\n\n" +
+                                "%s" +
+                                "\nYou will be notified once a decision has been made.\n\n" +
+                                "Thank you for your patience!\n\n" +
+                                "Best regards,\n" +
+                                "CareerMate Team",
+                        jobApply.getJobPosting().getTitle(),
+                        jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                        interview.getInterviewerNotes() != null ? "📝 Notes: " + interview.getInterviewerNotes() + "\n"
+                                : "");
+                priority = 3;
+            }
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(candidateEmail)
+                    .recipientId(candidateId)
+                    .category("CANDIDATE")
+                    .eventType("INTERVIEW_OUTCOME_" + (outcome != null ? outcome.name() : "PENDING"))
+                    .title(title)
+                    .subject(subject)
+                    .message(message)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(priority)
+                    .build();
+
+            notificationProducer.sendNotification("candidate-notifications", event);
+            log.info("✅ Sent interview outcome ({}) notification to candidate: {}", outcome, candidateEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send interview outcome notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Send notification to candidate when marked as no-show.
+     */
+    private void sendNoShowNotification(InterviewSchedule interview) {
+        try {
+            JobApply jobApply = interview.getJobApply();
+            String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm");
+            String scheduledTime = interview.getScheduledDate().format(formatter);
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("interviewId", interview.getId());
+            metadata.put("jobApplyId", jobApply.getId());
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
+            metadata.put("scheduledDate", scheduledTime);
+
+            String message = String.format(
+                    "⚠️ Interview No-Show Notice\n\n" +
+                            "📋 Position: %s\n" +
+                            "🏢 Company: %s\n" +
+                            "📅 Scheduled: %s\n\n" +
+                            "Unfortunately, you were marked as a no-show for this interview. " +
+                            "As a result, your application has been closed.\n\n" +
+                            "If you believe this was a mistake or had an emergency, " +
+                            "please contact the recruiter directly to explain your situation.\n\n" +
+                            "Tips for future interviews:\n" +
+                            "• Confirm your attendance as early as possible\n" +
+                            "• Set reminders for the interview time\n" +
+                            "• If you can't attend, notify the recruiter in advance\n\n" +
+                            "Best regards,\n" +
+                            "CareerMate Team",
+                    jobApply.getJobPosting().getTitle(),
+                    jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                    scheduledTime);
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(candidateEmail)
+                    .recipientId(candidateId)
+                    .category("CANDIDATE")
+                    .eventType("INTERVIEW_NO_SHOW")
+                    .title("Interview No-Show - Application Closed")
+                    .subject("⚠️ Interview No-Show - " + jobApply.getJobPosting().getTitle())
+                    .message(message)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(1)
+                    .build();
+
+            notificationProducer.sendNotification("candidate-notifications", event);
+            log.info("✅ Sent no-show notification to candidate: {}", candidateEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send no-show notification: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Send notification to candidate when interview is cancelled by recruiter.
+     */
+    private void sendInterviewCancelledNotification(InterviewSchedule interview, String reason) {
+        try {
+            JobApply jobApply = interview.getJobApply();
+            String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
+            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm");
+            String scheduledTime = interview.getScheduledDate().format(formatter);
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("interviewId", interview.getId());
+            metadata.put("jobApplyId", jobApply.getId());
+            metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
+            metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
+            metadata.put("scheduledDate", scheduledTime);
+            metadata.put("reason", reason);
+
+            String message = String.format(
+                    "📅 Interview Cancellation Notice\n\n" +
+                            "Your scheduled interview has been cancelled.\n\n" +
+                            "📋 Position: %s\n" +
+                            "🏢 Company: %s\n" +
+                            "📅 Was Scheduled: %s\n" +
+                            "ℹ️ Reason: %s\n\n" +
+                            "The recruiter may contact you to reschedule or provide more information.\n\n" +
+                            "If you have any questions, please contact the recruiter directly.\n\n" +
+                            "Best regards,\n" +
+                            "CareerMate Team",
+                    jobApply.getJobPosting().getTitle(),
+                    jobApply.getJobPosting().getRecruiter().getCompanyName(),
+                    scheduledTime,
+                    reason != null ? reason : "Not specified");
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .recipientEmail(candidateEmail)
+                    .recipientId(candidateId)
+                    .category("CANDIDATE")
+                    .eventType("INTERVIEW_CANCELLED")
+                    .title("Interview Cancelled")
+                    .subject("📅 Interview Cancelled - " + jobApply.getJobPosting().getTitle())
+                    .message(message)
+                    .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
+                    .priority(1)
+                    .build();
+
+            notificationProducer.sendNotification("candidate-notifications", event);
+            log.info("✅ Sent interview cancellation notification to candidate: {}", candidateEmail);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send interview cancellation notification: {}", e.getMessage());
+        }
     }
 }

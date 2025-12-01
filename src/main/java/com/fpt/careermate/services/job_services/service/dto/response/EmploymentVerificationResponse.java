@@ -17,25 +17,25 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class EmploymentVerificationResponse {
-    
+
     Integer id;
-    
+
     Integer jobApplyId;
-    
+
     LocalDate startDate;
-    
+
     LocalDate endDate;
-    
+
     Boolean isActive;
-    
+
     Integer daysEmployed;
-    
+
     LocalDateTime createdAt;
-    
+
     LocalDateTime updatedAt;
-    
+
     // Computed fields
     Boolean isEligibleForWorkReview;
-    
+
     Boolean isCurrentlyEmployed;
 }

@@ -27,9 +27,16 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
     Optional<InterviewSchedule> findByJobApply(JobApply jobApply);
 
     /**
-     * Find interview by job apply ID
+     * Find interview by job apply ID with all nested entities for response mapping
      */
-    @Query("SELECT i FROM interview_schedule i WHERE i.jobApply.id = :jobApplyId")
+    @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE ja.id = :jobApplyId")
     Optional<InterviewSchedule> findByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
     
     /**
@@ -77,27 +84,65 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
                                                    @Param("end") LocalDateTime end);
 
     /**
-     * Find interviews by recruiter
+     * Find interviews by recruiter with full entity graph for response
      */
-    @Query("SELECT i FROM interview_schedule i WHERE i.createdByRecruiter.id = :recruiterId ORDER BY i.scheduledDate DESC")
+    @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE i.createdByRecruiter.id = :recruiterId " +
+           "ORDER BY i.scheduledDate DESC")
     List<InterviewSchedule> findByRecruiterId(@Param("recruiterId") Integer recruiterId);
     
     /**
-     * Find recruiter's upcoming interviews
+     * Find recruiter's upcoming interviews with full entity graph for response
      */
     @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
            "WHERE i.createdByRecruiter.id = :recruiterId " +
            "AND i.status IN ('SCHEDULED', 'CONFIRMED') " +
            "AND i.scheduledDate >= :now " +
            "ORDER BY i.scheduledDate ASC")
     List<InterviewSchedule> findUpcomingInterviewsByRecruiterId(@Param("recruiterId") Integer recruiterId, 
                                                                 @Param("now") LocalDateTime now);
-
+    
     /**
-     * Find candidate's upcoming interviews
+     * Find recruiter's active scheduled interviews (SCHEDULED or CONFIRMED status)
+     * regardless of date - includes past interviews that need completion.
+     * This is used for the Interview Management page where recruiters need to
+     * see and complete interviews even after the scheduled time has passed.
      */
     @Query("SELECT i FROM interview_schedule i " +
-           "WHERE i.jobApply.candidate.id = :candidateId " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE i.createdByRecruiter.id = :recruiterId " +
+           "AND i.status IN ('SCHEDULED', 'CONFIRMED') " +
+           "ORDER BY i.scheduledDate ASC")
+    List<InterviewSchedule> findScheduledInterviewsByRecruiterId(@Param("recruiterId") Integer recruiterId);
+
+    /**
+     * Find candidate's upcoming interviews with full entity graph for response
+     */
+    @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE c.candidateId = :candidateId " +
            "AND i.status IN ('SCHEDULED', 'CONFIRMED') " +
            "AND i.scheduledDate >= :now " +
            "ORDER BY i.scheduledDate ASC")
@@ -105,10 +150,16 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
                                                                 @Param("now") LocalDateTime now);
 
     /**
-     * Find candidate's past interviews
+     * Find candidate's past interviews with full entity graph for response
      */
     @Query("SELECT i FROM interview_schedule i " +
-           "WHERE i.jobApply.candidate.id = :candidateId " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE c.candidateId = :candidateId " +
            "AND i.status IN ('COMPLETED', 'NO_SHOW', 'CANCELLED') " +
            "ORDER BY i.scheduledDate DESC")
     List<InterviewSchedule> findPastInterviewsByCandidateId(@Param("candidateId") Integer candidateId, 

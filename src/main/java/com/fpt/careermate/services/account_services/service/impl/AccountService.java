@@ -15,6 +15,7 @@ public interface AccountService {
     PageResponse<AccountResponse> searchAccounts(List<String> roles, List<String> statuses, String keyword, Pageable pageable);
     AccountResponse getAccountById(int id);
     void deleteAccount(int id);
+    AccountResponse updateAccountStatus(int id, String status);
     AccountResponse getCurrentUser();
     void signUp(SignUpRequest request);
 }

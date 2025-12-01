@@ -45,17 +45,17 @@ public class InterviewImp implements InterviewService {
     private static final int TOTAL_QUESTIONS = 10;
     private static final String QUESTION_GENERATION_PROMPT = """
             You are an expert technical interviewer. Based on the following job description, generate exactly 10 interview questions.
-            
+
             Job Description:
             %s
-            
+
             Requirements:
             - Generate exactly 10 questions
             - Questions should be relevant to the job description
             - Include a mix of technical and behavioral questions
             - Questions should be clear and specific
             - Format: Return only the questions, numbered from 1 to 10, one per line
-            
+
             Example format:
             1. [Question 1]
             2. [Question 2]
@@ -65,14 +65,14 @@ public class InterviewImp implements InterviewService {
 
     private static final String SCORING_PROMPT = """
             You are an expert interviewer evaluating a candidate's answer.
-            
+
             Question: %s
             Candidate's Answer: %s
-            
+
             Please evaluate this answer and provide:
             1. A score from 0 to 10 (where 0 is completely wrong and 10 is excellent)
             2. Brief feedback on the answer (2-3 sentences focusing on key points, not repeating the answer)
-            
+
             Format your response exactly as:
             Score: [number]
             Feedback: [your feedback]
@@ -80,19 +80,19 @@ public class InterviewImp implements InterviewService {
 
     private static final String REPORT_GENERATION_PROMPT = """
             You are an expert interviewer generating a final interview report.
-            
+
             Job Description:
             %s
-            
+
             Interview Results:
             %s
-            
+
             Generate a comprehensive interview report including:
             1. Overall Performance Summary
             2. Strengths
             3. Areas for Improvement
             4. Recommendation (Hire/Maybe/No Hire)
-            
+
             Keep it professional and concise.
             """;
 
@@ -133,10 +133,15 @@ public class InterviewImp implements InterviewService {
             questionEntities.add(question);
         }
         questionRepo.saveAll(questionEntities);
+        questionRepo.flush(); // Force flush to ensure questions are persisted before reload
+        log.info("Saved {} questions for session {}", questionEntities.size(), session.getSessionId());
 
-        // Reload session with questions
-        session = sessionRepo.findById(session.getSessionId())
+        // Reload session with questions using eager fetch
+        session = sessionRepo.findByIdWithQuestions(session.getSessionId())
                 .orElseThrow(() -> new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION));
+
+        log.info("Reloaded session {} with {} questions", session.getSessionId(),
+                session.getQuestions() != null ? session.getQuestions().size() : 0);
 
         return mapper.toSessionResponse(session);
     }
@@ -230,7 +235,8 @@ public class InterviewImp implements InterviewService {
     public InterviewSessionResponse getSession(int sessionId) {
         Candidate candidate = candidateProfileImp.generateProfile();
 
-        InterviewSession session = sessionRepo.findBySessionIdAndCandidateCandidateId(sessionId, candidate.getCandidateId())
+        InterviewSession session = sessionRepo
+                .findBySessionIdAndCandidateIdWithQuestions(sessionId, candidate.getCandidateId())
                 .orElseThrow(() -> new AppException(ErrorCode.INTERVIEW_SESSION_NOT_FOUND));
 
         return mapper.toSessionResponse(session);
@@ -241,7 +247,8 @@ public class InterviewImp implements InterviewService {
     public List<InterviewSessionResponse> getAllSessions() {
         Candidate candidate = candidateProfileImp.generateProfile();
 
-        List<InterviewSession> sessions = sessionRepo.findByCandidateCandidateIdOrderByCreatedAtDesc(candidate.getCandidateId());
+        List<InterviewSession> sessions = sessionRepo
+                .findByCandidateCandidateIdOrderByCreatedAtDesc(candidate.getCandidateId());
 
         return sessions.stream()
                 .map(mapper::toSessionResponse)
@@ -264,7 +271,6 @@ public class InterviewImp implements InterviewService {
             throw new AppException(ErrorCode.INTERVIEW_SESSION_FORBIDDEN);
         }
     }
-
 
     private List<InterviewQuestion> getQuestionsBySessionId(int sessionId) {
         return questionRepo.findBySessionSessionIdOrderByQuestionNumberAsc(sessionId);
@@ -301,7 +307,8 @@ public class InterviewImp implements InterviewService {
     /**
      * Calculate average score and build results string for report generation
      */
-    private double calculateAverageScoreAndBuildResults(List<InterviewQuestion> questions, StringBuilder resultsBuilder) {
+    private double calculateAverageScoreAndBuildResults(List<InterviewQuestion> questions,
+            StringBuilder resultsBuilder) {
         double totalScore = 0;
         int answeredCount = 0;
 
@@ -360,4 +367,3 @@ public class InterviewImp implements InterviewService {
         return evaluation; // Return whole evaluation if pattern doesn't match
     }
 }
-

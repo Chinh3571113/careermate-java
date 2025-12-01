@@ -18,6 +18,13 @@ public interface JobApplyRepo extends JpaRepository<JobApply,Integer> {
     List<JobApply> findByJobPostingId(int jobPostingId);
     List<JobApply> findByCandidateCandidateId(int candidateId);
     Optional<JobApply> findByJobPostingIdAndCandidateCandidateId(int jobPostingId, int candidateId);
+    
+    /**
+     * Find job apply by ID with candidate eagerly loaded (for ownership check)
+     */
+    @Query("SELECT ja FROM job_apply ja JOIN FETCH ja.candidate WHERE ja.id = :id")
+    Optional<JobApply> findByIdWithCandidate(@Param("id") Integer id);
+    
     @Query("SELECT ja FROM job_apply ja WHERE ja.candidate.candidateId = :candidateId " +
             "AND (:status IS NULL OR ja.status = :status)")
     Page<JobApply> findByCandidateIdAndStatus(

@@ -119,6 +119,16 @@ public interface InterviewScheduleService {
      * @return List of upcoming interviews
      */
     List<InterviewScheduleResponse> getRecruiterUpcomingInterviews(Integer recruiterId);
+    
+    /**
+     * Get all scheduled/confirmed interviews for a recruiter (regardless of date).
+     * This includes past interviews that haven't been completed yet,
+     * allowing recruiters to complete interviews after the scheduled time.
+     * 
+     * @param recruiterId The recruiter ID
+     * @return List of scheduled/confirmed interviews (both past and future)
+     */
+    List<InterviewScheduleResponse> getRecruiterScheduledInterviews(Integer recruiterId);
 
     /**
      * Get candidate's upcoming interviews.

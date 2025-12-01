@@ -44,7 +44,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
     public RecruiterWorkingHoursResponse setWorkingHours(RecruiterWorkingHoursRequest request) {
         Recruiter recruiter = getMyRecruiter();
         Integer recruiterId = recruiter.getId();
-        
+
         log.info("Setting working hours for recruiter {} on {}", recruiterId, request.getDayOfWeek());
 
         RecruiterWorkingHours workingHours = workingHoursRepo
@@ -59,18 +59,16 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         workingHours.setLunchBreakStart(request.getLunchBreakStart());
         workingHours.setLunchBreakEnd(request.getLunchBreakEnd());
         workingHours.setBufferMinutesBetweenInterviews(
-                request.getBufferMinutesBetweenInterviews() != null ? request.getBufferMinutesBetweenInterviews() : 15
-        );
+                request.getBufferMinutesBetweenInterviews() != null ? request.getBufferMinutesBetweenInterviews() : 15);
         workingHours.setMaxInterviewsPerDay(
-                request.getMaxInterviewsPerDay() != null ? request.getMaxInterviewsPerDay() : 8
-        );
+                request.getMaxInterviewsPerDay() != null ? request.getMaxInterviewsPerDay() : 8);
 
         validateWorkingHours(workingHours);
 
         RecruiterWorkingHours saved = workingHoursRepo.save(workingHours);
         return workingHoursMapper.toResponse(saved);
     }
-    
+
     /**
      * Get current authenticated recruiter
      * Same pattern as JobPostingImp.getMyRecruiter()
@@ -87,7 +85,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         return recruiter;
     }
-    
+
     /**
      * Validate working hours configuration
      */
@@ -99,29 +97,29 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
             if (!workingHours.getEndTime().isAfter(workingHours.getStartTime())) {
                 throw new RuntimeException("End time must be after start time");
             }
-            
+
             // Validate lunch break if configured
             if (workingHours.getLunchBreakStart() != null && workingHours.getLunchBreakEnd() != null) {
                 if (!workingHours.getLunchBreakEnd().isAfter(workingHours.getLunchBreakStart())) {
                     throw new RuntimeException("Lunch break end time must be after start time");
                 }
                 if (workingHours.getLunchBreakStart().isBefore(workingHours.getStartTime()) ||
-                    workingHours.getLunchBreakEnd().isAfter(workingHours.getEndTime())) {
+                        workingHours.getLunchBreakEnd().isAfter(workingHours.getEndTime())) {
                     throw new RuntimeException("Lunch break must be within working hours");
                 }
             }
-            
+
             // Validate buffer minutes
-            if (workingHours.getBufferMinutesBetweenInterviews() != null && 
-                (workingHours.getBufferMinutesBetweenInterviews() < 0 || 
-                 workingHours.getBufferMinutesBetweenInterviews() > 60)) {
+            if (workingHours.getBufferMinutesBetweenInterviews() != null &&
+                    (workingHours.getBufferMinutesBetweenInterviews() < 0 ||
+                            workingHours.getBufferMinutesBetweenInterviews() > 60)) {
                 throw new RuntimeException("Buffer minutes must be between 0 and 60");
             }
-            
+
             // Validate max interviews per day
             if (workingHours.getMaxInterviewsPerDay() != null &&
-                (workingHours.getMaxInterviewsPerDay() < 1 || 
-                 workingHours.getMaxInterviewsPerDay() > 20)) {
+                    (workingHours.getMaxInterviewsPerDay() < 1 ||
+                            workingHours.getMaxInterviewsPerDay() > 20)) {
                 throw new RuntimeException("Max interviews per day must be between 1 and 20");
             }
         }
@@ -133,15 +131,15 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
     public List<RecruiterWorkingHoursResponse> getWorkingHours() {
         Recruiter recruiter = getMyRecruiter();
         Integer recruiterId = recruiter.getId();
-        
+
         log.info("Getting working hours for recruiter {}", recruiterId);
-        
+
         List<RecruiterWorkingHours> workingHours = workingHoursRepo.findByRecruiterId(recruiterId);
         return workingHours.stream()
                 .map(workingHoursMapper::toResponse)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Set working hours for multiple days in one transaction
      * Production-ready batch operation to reduce API calls
@@ -151,14 +149,14 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         // Get recruiter from JWT token
         Recruiter recruiter = getMyRecruiter();
         Integer recruiterId = recruiter.getId();
-        
+
         log.info("Setting batch working hours for recruiter {}", recruiterId);
-        
+
         List<RecruiterWorkingHoursResponse> updatedConfigurations = new ArrayList<>();
         Map<String, String> errors = new HashMap<>();
         int successCount = 0;
         int failCount = 0;
-        
+
         // Process each configuration
         for (RecruiterWorkingHoursRequest config : request.getWorkingHoursConfigurations()) {
             try {
@@ -171,13 +169,13 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                 log.warn("Failed to set working hours for day {}: {}", config.getDayOfWeek(), e.getMessage());
             }
         }
-        
+
         // If replaceAll is true, mark unspecified days as non-working
         if (Boolean.TRUE.equals(request.getReplaceAll())) {
             Set<DayOfWeek> specifiedDays = request.getWorkingHoursConfigurations().stream()
                     .map(RecruiterWorkingHoursRequest::getDayOfWeek)
                     .collect(Collectors.toSet());
-            
+
             for (DayOfWeek day : DayOfWeek.values()) {
                 if (!specifiedDays.contains(day)) {
                     try {
@@ -194,7 +192,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                 }
             }
         }
-        
+
         return BatchWorkingHoursResponse.builder()
                 .recruiterId(recruiterId)
                 .totalConfigurations(request.getWorkingHoursConfigurations().size())
@@ -204,14 +202,15 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                 .errors(errors.isEmpty() ? null : errors)
                 .build();
     }
-    
+
     /**
      * Internal method for batch operations that accepts recruiterId
      * This allows admin operations to set hours for any recruiter
      */
-    private RecruiterWorkingHoursResponse setWorkingHoursInternal(Integer recruiterId, RecruiterWorkingHoursRequest request) {
+    private RecruiterWorkingHoursResponse setWorkingHoursInternal(Integer recruiterId,
+            RecruiterWorkingHoursRequest request) {
         log.info("Setting working hours for recruiter {} on {}", recruiterId, request.getDayOfWeek());
-        
+
         Recruiter recruiter = recruiterRepo.findById(recruiterId)
                 .orElseThrow(() -> new RuntimeException("Recruiter not found with id: " + recruiterId));
 
@@ -227,11 +226,9 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         workingHours.setLunchBreakStart(request.getLunchBreakStart());
         workingHours.setLunchBreakEnd(request.getLunchBreakEnd());
         workingHours.setBufferMinutesBetweenInterviews(
-                request.getBufferMinutesBetweenInterviews() != null ? request.getBufferMinutesBetweenInterviews() : 15
-        );
+                request.getBufferMinutesBetweenInterviews() != null ? request.getBufferMinutesBetweenInterviews() : 15);
         workingHours.setMaxInterviewsPerDay(
-                request.getMaxInterviewsPerDay() != null ? request.getMaxInterviewsPerDay() : 8
-        );
+                request.getMaxInterviewsPerDay() != null ? request.getMaxInterviewsPerDay() : 8);
 
         validateWorkingHours(workingHours);
 
@@ -248,13 +245,13 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         Optional<RecruiterWorkingHours> workingHoursOpt = workingHoursRepo
                 .findByRecruiterIdAndDayOfWeek(recruiterId, dayOfWeek);
-        
+
         if (workingHoursOpt.isEmpty() || !Boolean.TRUE.equals(workingHoursOpt.get().getIsWorkingDay())) {
             return false;
         }
 
         RecruiterWorkingHours workingHours = workingHoursOpt.get();
-        
+
         if (!workingHours.isWithinWorkingHours(time)) {
             return false;
         }
@@ -265,14 +262,14 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         LocalDateTime endTime = dateTime.plusMinutes(durationMinutes);
         boolean hasConflict = interviewScheduleRepo.hasConflict(recruiterId, dateTime, endTime);
-        
+
         return !hasConflict;
     }
 
     @Override
     @Transactional(readOnly = true)
     public ConflictCheckResponse checkConflict(Integer recruiterId, Integer candidateId,
-                                              LocalDateTime proposedStartTime, Integer durationMinutes) {
+            LocalDateTime proposedStartTime, Integer durationMinutes) {
         log.info("Checking conflict for recruiter {} at {}", recruiterId, proposedStartTime);
 
         List<ConflictCheckResponse.ConflictDetail> conflicts = new ArrayList<>();
@@ -297,9 +294,9 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         if (workingHours != null && Boolean.TRUE.equals(workingHours.getIsWorkingDay())) {
             LocalTime endTime = proposedEndTime.toLocalTime();
-            
-            if (!workingHours.isWithinWorkingHours(time) || 
-                !workingHours.isWithinWorkingHours(endTime.minusMinutes(1))) {
+
+            if (!workingHours.isWithinWorkingHours(time) ||
+                    !workingHours.isWithinWorkingHours(endTime.minusMinutes(1))) {
                 conflicts.add(ConflictCheckResponse.ConflictDetail.builder()
                         .conflictType("OUTSIDE_WORKING_HOURS")
                         .conflictStart(proposedStartTime)
@@ -310,8 +307,8 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
             }
 
             if (workingHours.getLunchBreakStart() != null && workingHours.getLunchBreakEnd() != null) {
-                if (workingHours.isDuringLunchBreak(time) || 
-                    workingHours.isDuringLunchBreak(endTime.minusMinutes(1))) {
+                if (workingHours.isDuringLunchBreak(time) ||
+                        workingHours.isDuringLunchBreak(endTime.minusMinutes(1))) {
                     conflicts.add(ConflictCheckResponse.ConflictDetail.builder()
                             .conflictType("DURING_LUNCH_BREAK")
                             .conflictStart(proposedStartTime)
@@ -336,7 +333,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         List<InterviewSchedule> overlappingInterviews = interviewScheduleRepo
                 .findOverlappingInterviews(recruiterId, proposedStartTime, proposedEndTime);
-        
+
         for (InterviewSchedule interview : overlappingInterviews) {
             conflicts.add(ConflictCheckResponse.ConflictDetail.builder()
                     .conflictType("INTERVIEW_OVERLAP")
@@ -352,7 +349,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         boolean candidateHasConflict = interviewScheduleRepo.candidateHasConflict(
                 candidateId, proposedStartTime, proposedEndTime);
-        
+
         if (candidateHasConflict) {
             conflicts.add(ConflictCheckResponse.ConflictDetail.builder()
                     .conflictType("INTERVIEW_OVERLAP")
@@ -363,11 +360,11 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         }
 
         boolean hasConflict = !conflicts.isEmpty();
-        String conflictReason = hasConflict 
+        String conflictReason = hasConflict
                 ? "Conflicts detected: " + conflicts.stream()
-                    .map(ConflictCheckResponse.ConflictDetail::getConflictType)
-                    .distinct()
-                    .collect(Collectors.joining(", "))
+                        .map(ConflictCheckResponse.ConflictDetail::getConflictType)
+                        .distinct()
+                        .collect(Collectors.joining(", "))
                 : null;
 
         return ConflictCheckResponse.builder()
@@ -390,8 +387,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                         recruiterId,
                         interview.getJobApply().getCandidate().getCandidateId(),
                         interview.getScheduledDate(),
-                        interview.getDurationMinutes()
-                ))
+                        interview.getDurationMinutes()))
                 .filter(response -> Boolean.TRUE.equals(response.getHasConflict()))
                 .collect(Collectors.toList());
     }
@@ -402,55 +398,52 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         log.info("Getting available slots for recruiter {} on {}", recruiterId, date);
 
         DayOfWeek dayOfWeek = date.getDayOfWeek();
-        
+
         Optional<RecruiterWorkingHours> workingHoursOpt = workingHoursRepo
                 .findByRecruiterIdAndDayOfWeek(recruiterId, dayOfWeek);
 
-        if (workingHoursOpt.isEmpty() || !Boolean.TRUE.equals(workingHoursOpt.get().getIsWorkingDay())) {
-            return Collections.emptyList();
+        // SIMPLIFIED: Allow scheduling even on non-working days (company may have
+        // overtime)
+        // Just generate standard business hours if no working hours configured
+        LocalTime startTime = LocalTime.of(8, 0); // Default: 8 AM
+        LocalTime endTime = LocalTime.of(20, 0); // Default: 8 PM (allow overtime)
+
+        if (workingHoursOpt.isPresent() && Boolean.TRUE.equals(workingHoursOpt.get().getIsWorkingDay())) {
+            RecruiterWorkingHours workingHours = workingHoursOpt.get();
+            startTime = workingHours.getStartTime() != null ? workingHours.getStartTime() : startTime;
+            endTime = workingHours.getEndTime() != null ? workingHours.getEndTime() : endTime;
         }
 
-        RecruiterWorkingHours workingHours = workingHoursOpt.get();
-
-        List<InterviewSchedule> existingInterviews = interviewScheduleRepo
-                .findByRecruiterIdAndDate(recruiterId, date);
-
-        List<LocalTime> candidateSlots = new ArrayList<>();
-        LocalTime current = workingHours.getStartTime();
-        LocalTime end = workingHours.getEndTime();
-
-        while (current.isBefore(end)) {
-            candidateSlots.add(current);
-            current = current.plusMinutes(15);
-        }
-
+        // SIMPLIFIED: Generate all 15-minute slots without restrictions
+        // Lunch break and buffer time are no longer enforced - company can have
+        // multiple interviewers
         List<LocalTime> availableSlots = new ArrayList<>();
-        Integer bufferMinutes = workingHours.getBufferMinutesBetweenInterviews();
+        LocalTime current = startTime;
 
-        for (LocalTime slot : candidateSlots) {
-            LocalDateTime proposedStart = LocalDateTime.of(date, slot);
-            LocalDateTime proposedEnd = proposedStart.plusMinutes(durationMinutes);
-
-            if (isSlotAvailable(slot, proposedEnd.toLocalTime(), workingHours, existingInterviews, bufferMinutes)) {
-                availableSlots.add(slot);
+        while (current.isBefore(endTime)) {
+            // Check if interview would fit before end of day
+            LocalTime interviewEnd = current.plusMinutes(durationMinutes);
+            if (!interviewEnd.isAfter(endTime)) {
+                availableSlots.add(current);
             }
+            current = current.plusMinutes(15);
         }
 
         return availableSlots;
     }
 
     private boolean isSlotAvailable(LocalTime slotStart, LocalTime slotEnd,
-                                   RecruiterWorkingHours workingHours, 
-                                   List<InterviewSchedule> existingInterviews,
-                                   Integer bufferMinutes) {
-        if (!workingHours.isWithinWorkingHours(slotStart) || 
-            !workingHours.isWithinWorkingHours(slotEnd.minusMinutes(1))) {
+            RecruiterWorkingHours workingHours,
+            List<InterviewSchedule> existingInterviews,
+            Integer bufferMinutes) {
+        if (!workingHours.isWithinWorkingHours(slotStart) ||
+                !workingHours.isWithinWorkingHours(slotEnd.minusMinutes(1))) {
             return false;
         }
 
         if (workingHours.getLunchBreakStart() != null) {
-            if (workingHours.isDuringLunchBreak(slotStart) || 
-                workingHours.isDuringLunchBreak(slotEnd.minusMinutes(1))) {
+            if (workingHours.isDuringLunchBreak(slotStart) ||
+                    workingHours.isDuringLunchBreak(slotEnd.minusMinutes(1))) {
                 return false;
             }
         }
@@ -459,15 +452,29 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
             LocalTime interviewStart = interview.getScheduledDate().toLocalTime();
             LocalTime interviewEnd = interviewStart.plusMinutes(interview.getDurationMinutes());
 
+            // Check for direct overlap: proposed slot overlaps with existing interview
             if (slotStart.isBefore(interviewEnd) && slotEnd.isAfter(interviewStart)) {
                 return false;
             }
 
-            if (slotStart.isAfter(interviewStart) && Duration.between(interviewEnd, slotStart).toMinutes() < bufferMinutes) {
-                return false;
+            // Check buffer AFTER existing interview (proposed slot starts after interview
+            // ends)
+            // Only check if the proposed slot actually starts after the interview ends
+            if (slotStart.isAfter(interviewEnd) || slotStart.equals(interviewEnd)) {
+                long gapMinutes = Duration.between(interviewEnd, slotStart).toMinutes();
+                if (gapMinutes < bufferMinutes) {
+                    return false;
+                }
             }
-            if (slotEnd.isBefore(interviewStart) && Duration.between(slotEnd, interviewStart).toMinutes() < bufferMinutes) {
-                return false;
+
+            // Check buffer BEFORE existing interview (proposed slot ends before interview
+            // starts)
+            // Only check if the proposed slot actually ends before the interview starts
+            if (slotEnd.isBefore(interviewStart) || slotEnd.equals(interviewStart)) {
+                long gapMinutes = Duration.between(slotEnd, interviewStart).toMinutes();
+                if (gapMinutes < bufferMinutes) {
+                    return false;
+                }
             }
         }
 
@@ -476,8 +483,8 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<LocalDate> getAvailableDates(Integer recruiterId, LocalDate startDate, 
-                                            LocalDate endDate, Integer durationMinutes) {
+    public List<LocalDate> getAvailableDates(Integer recruiterId, LocalDate startDate,
+            LocalDate endDate, Integer durationMinutes) {
         log.info("Getting available dates for recruiter {} from {} to {}", recruiterId, startDate, endDate);
 
         List<LocalDate> availableDates = new ArrayList<>();
@@ -500,7 +507,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         log.info("Getting daily calendar for recruiter {} on {}", recruiterId, date);
 
         DayOfWeek dayOfWeek = date.getDayOfWeek();
-        
+
         Optional<RecruiterWorkingHours> workingHoursOpt = workingHoursRepo
                 .findByRecruiterIdAndDayOfWeek(recruiterId, dayOfWeek);
 
@@ -512,17 +519,18 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
                 .map(interviewScheduleMapper::toResponse)
                 .collect(Collectors.toList());
 
-        List<LocalTime> availableSlots = isWorkingDay 
-                ? getAvailableSlots(recruiterId, date, 60)
-                : Collections.emptyList();
+        // SIMPLIFIED: Always return available slots (8 AM - 8 PM if no config)
+        List<LocalTime> availableSlots = getAvailableSlots(recruiterId, date, 60);
 
         return DailyCalendarResponse.builder()
                 .recruiterId(recruiterId)
                 .date(date)
                 .dayOfWeek(dayOfWeek.toString())
-                .isWorkingDay(isWorkingDay)
-                .workStartTime(workingHours != null ? workingHours.getStartTime() : null)
-                .workEndTime(workingHours != null ? workingHours.getEndTime() : null)
+                .isWorkingDay(isWorkingDay || true) // SIMPLIFIED: Always treat as working day
+                .workStartTime(workingHours != null ? workingHours.getStartTime() : LocalTime.of(8, 0))
+                .workEndTime(workingHours != null ? workingHours.getEndTime() : LocalTime.of(20, 0))
+                .lunchBreakStart(workingHours != null ? workingHours.getLunchBreakStart() : LocalTime.of(12, 0))
+                .lunchBreakEnd(workingHours != null ? workingHours.getLunchBreakEnd() : LocalTime.of(13, 0))
                 .totalInterviews(interviews.size())
                 .availableSlots(availableSlots.size())
                 .interviews(interviewResponses)
@@ -580,8 +588,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         Map<DayOfWeek, Boolean> workingDaysConfig = workingHoursList.stream()
                 .collect(Collectors.toMap(
                         RecruiterWorkingHours::getDayOfWeek,
-                        RecruiterWorkingHours::getIsWorkingDay
-                ));
+                        RecruiterWorkingHours::getIsWorkingDay));
 
         Map<LocalDate, Boolean> workingDays = new HashMap<>();
         LocalDate current = firstDay;
@@ -604,10 +611,10 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
     @Override
     @Transactional(readOnly = true)
-    public CandidateCalendarResponse getCandidateCalendar(Integer candidateId, 
-                                                         LocalDate startDate, 
-                                                         LocalDate endDate) {
-        log.info("Getting candidate calendar for candidate {} from {} to {}", 
+    public CandidateCalendarResponse getCandidateCalendar(Integer candidateId,
+            LocalDate startDate,
+            LocalDate endDate) {
+        log.info("Getting candidate calendar for candidate {} from {} to {}",
                 candidateId, startDate, endDate);
 
         List<InterviewSchedule> interviews = interviewScheduleRepo
@@ -615,7 +622,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
         List<InterviewSchedule> upcomingInterviews = interviews.stream()
                 .filter(i -> !i.getScheduledDate().toLocalDate().isBefore(startDate) &&
-                            !i.getScheduledDate().toLocalDate().isAfter(endDate))
+                        !i.getScheduledDate().toLocalDate().isAfter(endDate))
                 .sorted(Comparator.comparing(InterviewSchedule::getScheduledDate))
                 .collect(Collectors.toList());
 
@@ -634,10 +641,10 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
 
     @Override
     @Transactional(readOnly = true)
-    public RecruiterSchedulingStatsResponse getSchedulingStats(Integer recruiterId, 
-                                                              LocalDate startDate, 
-                                                              LocalDate endDate) {
-        log.info("Getting scheduling stats for recruiter {} from {} to {}", 
+    public RecruiterSchedulingStatsResponse getSchedulingStats(Integer recruiterId,
+            LocalDate startDate,
+            LocalDate endDate) {
+        log.info("Getting scheduling stats for recruiter {} from {} to {}",
                 recruiterId, startDate, endDate);
 
         List<InterviewSchedule> interviews = interviewScheduleRepo
@@ -657,7 +664,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         double totalHours = interviews.stream()
                 .mapToDouble(i -> i.getDurationMinutes() / 60.0)
                 .sum();
-        
+
         Integer totalInterviewHours = (int) totalHours;
 
         double avgDuration = interviews.stream()
@@ -668,8 +675,7 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         Map<DayOfWeek, Long> byDayOfWeek = interviews.stream()
                 .collect(Collectors.groupingBy(
                         i -> i.getScheduledDate().getDayOfWeek(),
-                        Collectors.counting()
-                ));
+                        Collectors.counting()));
         String busiestDay = byDayOfWeek.entrySet().stream()
                 .max(Map.Entry.comparingByValue())
                 .map(e -> e.getKey().toString())
@@ -682,10 +688,10 @@ public class InterviewCalendarServiceImpl implements InterviewCalendarService {
         long weeksInPeriod = daysInPeriod / 7;
         double totalWorkingHours = workingDays * weeksInPeriod * 8;
 
-        double utilizationRate = totalWorkingHours > 0 
-                ? (totalHours / totalWorkingHours) * 100 
+        double utilizationRate = totalWorkingHours > 0
+                ? (totalHours / totalWorkingHours) * 100
                 : 0;
-        
+
         Integer avgDurationMinutes = (int) avgDuration;
 
         return RecruiterSchedulingStatsResponse.builder()

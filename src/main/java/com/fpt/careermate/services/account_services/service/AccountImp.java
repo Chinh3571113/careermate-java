@@ -96,6 +96,31 @@ public class AccountImp implements AccountService {
 
     @PreAuthorize("hasRole('ADMIN')")
     @Override
+    public AccountResponse updateAccountStatus(int id, String status) {
+        Account account = accountRepo.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        
+        // Validate status
+        if (!isValidStatus(status)) {
+            throw new AppException(ErrorCode.INVALID_STATUS);
+        }
+        
+        account.setStatus(status.toUpperCase());
+        account = accountRepo.save(account);
+        return accountMapper.toAccountResponse(account);
+    }
+
+    private boolean isValidStatus(String status) {
+        return status != null && (
+            StatusAccount.ACTIVE.equalsIgnoreCase(status) ||
+            StatusAccount.INACTIVE.equalsIgnoreCase(status) ||
+            StatusAccount.LOCKED.equalsIgnoreCase(status) ||
+            StatusAccount.BANNED.equalsIgnoreCase(status)
+        );
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @Override
     public PageResponse<AccountResponse> searchAccounts(java.util.List<String> roles, java.util.List<String> statuses, String keyword, Pageable pageable) {
         // Convert empty lists to null for query
         java.util.List<String> roleList = (roles != null && !roles.isEmpty()) ? roles : null;

@@ -12,6 +12,20 @@ import java.time.LocalDateTime;
 public interface InterviewScheduleMapper {
 
     @Mapping(target = "jobApplyId", source = "jobApply.id")
+    // Candidate information mappings
+    @Mapping(target = "candidateId", source = "jobApply.candidate.candidateId")
+    @Mapping(target = "candidateName", source = "jobApply.fullName")
+    @Mapping(target = "candidatePhone", source = "jobApply.phoneNumber")
+    @Mapping(target = "candidateEmail", source = "jobApply.candidate.account.email")
+    @Mapping(target = "candidateImage", source = "jobApply.candidate.image")
+    // Job information mapping
+    @Mapping(target = "jobTitle", source = "jobApply.jobPosting.title")
+    // Company information mappings (for candidate view)
+    @Mapping(target = "companyId", source = "jobApply.jobPosting.recruiter.id")
+    @Mapping(target = "companyName", source = "jobApply.jobPosting.recruiter.companyName")
+    @Mapping(target = "companyLogo", source = "jobApply.jobPosting.recruiter.logoUrl")
+    @Mapping(target = "companyWebsite", source = "jobApply.jobPosting.recruiter.website")
+    // Calculated fields
     @Mapping(target = "expectedEndTime", expression = "java(calculateExpectedEndTime(interviewSchedule))")
     @Mapping(target = "hasInterviewTimePassed", expression = "java(hasTimePassed(interviewSchedule))")
     @Mapping(target = "isInterviewInProgress", expression = "java(isInProgress(interviewSchedule))")
