@@ -13,9 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -49,15 +51,17 @@ public class FcmPushNotificationService {
             InputStream serviceAccount;
 
             // Try to get credentials from environment variable first (for Cloud Run)
-            String credentialsPath = System.getenv("FIREBASE_CREDENTIALS_JSON");
-            if (credentialsPath != null && !credentialsPath.isEmpty()) {
-                serviceAccount = new FileInputStream(credentialsPath);
-                log.info("Using Firebase credentials from environment variable: {}", credentialsPath);
+            String credentialsJson = System.getenv("FIREBASE_CREDENTIALS_JSON");
+
+            if (credentialsJson != null && !credentialsJson.isEmpty()) {
+                // Environment variable contains JSON string (Cloud Run with Secret Manager)
+                serviceAccount = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
+                log.info("Using Firebase credentials from FIREBASE_CREDENTIALS_JSON environment variable");
             } else {
                 // Fallback to classpath
                 ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
                 if (!resource.exists()) {
-                    log.error("❌ Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
+                    log.error("Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
                 }
                 serviceAccount = resource.getInputStream();
                 log.info("Using Firebase credentials from classpath");
@@ -69,10 +73,9 @@ public class FcmPushNotificationService {
 
             FirebaseApp.initializeApp(options);
 
-            log.info("✅ Firebase Cloud Messaging initialized successfully");
+            log.info("Firebase Cloud Messaging initialized successfully");
         } catch (IOException e) {
-            log.error("❌ Failed to initialize Firebase: {}", e.getMessage());
-            log.warn("⚠️ Push notifications will not work until Firebase is properly configured");
+            log.error("Failed to initialize Firebase: {}", e.getMessage());
         }
     }
 

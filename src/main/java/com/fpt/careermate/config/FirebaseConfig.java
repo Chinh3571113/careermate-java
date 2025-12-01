@@ -8,8 +8,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
 import javax.annotation.PostConstruct;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Firebase configuration class to initialize Firebase Admin SDK
@@ -25,17 +27,17 @@ public class FirebaseConfig {
                 InputStream serviceAccount;
 
                 // Try to get credentials from environment variable first (for Cloud Run)
-                String credentialsPath = System.getenv("FIREBASE_CREDENTIALS_JSON");
-                if (credentialsPath != null && !credentialsPath.isEmpty()) {
-                    serviceAccount = new FileInputStream(credentialsPath);
-                    log.info("Using Firebase credentials from environment variable: {}", credentialsPath);
+                String credentialsJson = System.getenv("FIREBASE_CREDENTIALS_JSON");
+
+                if (credentialsJson != null && !credentialsJson.isEmpty()) {
+                    // Environment variable contains JSON string (Cloud Run with Secret Manager)
+                    serviceAccount = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
+                    log.info("Using Firebase credentials from FIREBASE_CREDENTIALS_JSON environment variable");
                 } else {
                     // Fallback to classpath
                     ClassPathResource resource = new ClassPathResource("firebase-service-account.json");
                     if (!resource.exists()) {
-                        log.error(
-                                "❌ Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
-
+                        log.error("Firebase service account file not found! Please add firebase-service-account.json to src/main/resources/");
                     }
                     serviceAccount = resource.getInputStream();
                     log.info("Using Firebase credentials from classpath");
@@ -48,11 +50,10 @@ public class FirebaseConfig {
                         .build();
 
                 FirebaseApp.initializeApp(options);
-                log.info("✅ Firebase initialized successfully for project: careermate-97d8c");
+                log.info("Firebase initialized successfully for project: careermate-97d8c");
 
             } catch (Exception e) {
-                log.error("❌ Firebase initialization failed: {}", e.getMessage());
-                throw new RuntimeException("Firebase initialization failed", e);
+                log.error("Firebase initialization failed: {}", e.getMessage());
             }
         } else {
             log.info("Firebase is already initialized");
