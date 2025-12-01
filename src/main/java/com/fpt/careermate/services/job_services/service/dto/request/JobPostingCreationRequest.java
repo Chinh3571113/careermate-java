@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.job_services.service.dto.request;
 
+import com.fpt.careermate.common.constant.WorkModel;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -36,8 +37,8 @@ public class JobPostingCreationRequest {
     @Max(100)
     int yearsOfExperience;
 
-    @NotBlank
-    String workModel;
+    @NotNull
+    WorkModel workModel;
 
     @NotBlank
     String salaryRange;

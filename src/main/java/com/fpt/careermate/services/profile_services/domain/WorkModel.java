@@ -11,7 +11,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @NoArgsConstructor
-@Entity(name = "work_models")
+@Entity(name = "work_model")
 @IdClass(WorkModelId.class)
 public class WorkModel {
     @Id
@@ -26,7 +26,4 @@ public class WorkModel {
     @JoinColumn(name = "candidate_id", nullable = false, insertable = false, updatable = false)
     Candidate candidate;
 
-    @OneToOne
-    @JoinColumn(name = "job_posting_id", referencedColumnName = "id")
-    JobPosting jobPosting;
 }
