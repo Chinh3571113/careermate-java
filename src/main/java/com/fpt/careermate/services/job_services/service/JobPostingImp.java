@@ -382,7 +382,17 @@ public class JobPostingImp implements JobPostingService {
         // Save all updated job postings in batch
         jobPostingRepo.saveAll(expiredJobs);
 
-        log.info("Updated {} job postings to EXPIRED status.", expiredJobs.size());
+        // Delete expired jobs from Weaviate
+        expiredJobs.forEach(jp -> {
+            try {
+                weaviateImp.deleteJobPosting(jp.getId());
+                log.info("Deleted expired job posting from Weaviate - ID: {}", jp.getId());
+            } catch (Exception e) {
+                log.error("Failed to delete job posting from Weaviate - ID: {}", jp.getId(), e);
+            }
+        });
+
+        log.info("Updated {} job postings to EXPIRED status and removed from Weaviate.", expiredJobs.size());
     }
 
     // ========== ADMIN METHODS ==========

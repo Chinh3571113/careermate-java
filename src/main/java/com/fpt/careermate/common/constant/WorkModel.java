@@ -1,9 +1,9 @@
 package com.fpt.careermate.common.constant;
 
 public enum WorkModel {
-    AT_OFFICE("AT OFFICE"),
-    REMOTE("REMOTE"),
-    HYBRID("HYBRID");
+    AT_OFFICE("At Office"),
+    REMOTE("Remote"),
+    HYBRID("Hybrid");
 
     private final String displayName;
 
