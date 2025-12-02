@@ -216,7 +216,7 @@ public class RecruiterPaymentImp implements RecruiterPaymentService {
             log.error(ex.getMessage(), ex);
         }
 
-        String redirectUrl = "http://localhost:3000/payment/return?" + qs.toString();
+        String redirectUrl = paymentConfig.successReturnUrl + "/payment/return?" + qs.toString();
 
         try {
             response.sendRedirect(redirectUrl);

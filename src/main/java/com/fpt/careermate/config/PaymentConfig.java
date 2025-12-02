@@ -20,5 +20,8 @@ public class PaymentConfig {
 
     @Value("${vnpay.recruiter-return-url}")
     public String vnp_RecruiterReturnUrl;
+
+    @Value("${vnpay.success-return-url}")
+    public String successReturnUrl;
 }
 
