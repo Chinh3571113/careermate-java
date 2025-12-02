@@ -38,7 +38,7 @@ import java.util.Map;
 
 @Component
 @Slf4j
-@Order(1)
+@Order(5)
 public class RoadmapSeeder implements CommandLineRunner {
 
     private final Storage storage;
