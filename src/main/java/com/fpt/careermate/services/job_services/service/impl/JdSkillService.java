@@ -6,6 +6,6 @@ import java.util.List;
 
 public interface JdSkillService {
     void createSkill(String name);
-    List<JdSkillResponse> getAllSkill();
+    List<JdSkillResponse> getAllSkill(String keyword);
     List<JdSkillResponse> getTopUsedSkillsFromFirst50();
 }

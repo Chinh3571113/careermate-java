@@ -28,7 +28,7 @@ public class JdSkillController {
 
     @PostMapping
     @Operation(summary = "Create jdSkill")
-    ApiResponse<String> createUser(
+    ApiResponse<String> createJdSkill(
             @RequestParam
             @NotBlank
             String name
@@ -41,10 +41,13 @@ public class JdSkillController {
     }
 
     @GetMapping
-    @Operation(summary = "Get jdSkill list")
-    ApiResponse<List<JdSkillResponse>> getSkillList() {
+    @Operation(summary = "Get jdSkill list with optional autocomplete search",
+               description = "Returns all skills if no keyword is provided, otherwise returns skills matching the keyword (case-insensitive partial match)")
+    ApiResponse<List<JdSkillResponse>> getSkillList(
+            @RequestParam(required = false) String keyword
+    ) {
         return ApiResponse.<List<JdSkillResponse>>builder()
-                .result(jdSkillImp.getAllSkill())
+                .result(jdSkillImp.getAllSkill(keyword))
                 .code(200)
                 .message("success")
                 .build();
