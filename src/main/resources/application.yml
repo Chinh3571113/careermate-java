@@ -70,14 +70,6 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     listener:
       ack-mode: manual
-    # Confluent Cloud SASL Configuration
-    properties:
-      security:
-        protocol: ${KAFKA_SECURITY_PROTOCOL:}
-      sasl:
-        mechanism: ${KAFKA_SASL_MECHANISM:}
-        jaas:
-          config: org.apache.kafka.common.security.plain.PlainLoginModule required username="${KAFKA_SASL_USERNAME:}" password="${KAFKA_SASL_PASSWORD:}";
 
 jwt:
   signerKey: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"
