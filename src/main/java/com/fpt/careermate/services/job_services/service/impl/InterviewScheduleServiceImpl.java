@@ -32,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -63,27 +64,49 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         // Only block if there's an ACTIVE interview (SCHEDULED or CONFIRMED)
         // Allow scheduling new interview if previous was COMPLETED, RESCHEDULED,
         // CANCELLED, or NO_SHOW
-        boolean hasActiveInterview = interviewRepo.findByJobApplyId(jobApplyId)
-                .map(interview -> interview.getStatus() == InterviewStatus.SCHEDULED ||
-                        interview.getStatus() == InterviewStatus.CONFIRMED)
-                .orElse(false);
+        // Use findActiveByJobApplyId which directly queries for active interviews
+        boolean hasActiveInterview = interviewRepo.findActiveByJobApplyId(jobApplyId).isPresent();
 
         if (hasActiveInterview) {
             throw new AppException(ErrorCode.INTERVIEW_ALREADY_SCHEDULED);
         }
 
-        if (request.getScheduledDate().isBefore(LocalDateTime.now())) {
+        // Allow scheduling with 5 minute buffer to handle UI/network delays
+        if (request.getScheduledDate().isBefore(LocalDateTime.now().plusMinutes(5))) {
             throw new AppException(ErrorCode.INVALID_SCHEDULE_DATE);
         }
 
-        // SIMPLIFIED: No conflict checking - allow overlapping interviews
-        // Companies may have multiple interviewers, so overlaps are allowed
-        log.info("Scheduling interview without conflict check - overlapping interviews allowed");
+        // Determine the interview round - if this is a new round, increment from previous
+        Integer interviewRound = request.getInterviewRound();
+        if (interviewRound == null) {
+            // Find the highest round for this job application
+            Optional<InterviewSchedule> latestInterview = interviewRepo.findByJobApplyId(jobApplyId);
+            if (latestInterview.isPresent()) {
+                interviewRound = latestInterview.get().getInterviewRound() + 1;
+                log.info("Scheduling interview round {} for job apply ID: {}", interviewRound, jobApplyId);
+            } else {
+                interviewRound = 1;
+            }
+        }
 
+        // Check if candidate has conflicting interviews (for warning, not blocking)
+        // Recruiter scheduling is not blocked - they may have multiple interviewers
+        // But we warn the candidate if they have a conflict
+        Integer candidateId = jobApply.getCandidate().getCandidateId();
+        LocalDateTime proposedStart = request.getScheduledDate();
+        LocalDateTime proposedEnd = proposedStart.plusMinutes(
+                request.getDurationMinutes() != null ? request.getDurationMinutes() : 60);
+        boolean candidateHasConflict = interviewRepo.candidateHasConflict(candidateId, proposedStart, proposedEnd);
+        
+        if (candidateHasConflict) {
+            log.warn("⚠️ Candidate {} has another interview at this time - they will be notified", candidateId);
+        }
+
+        // Use the calculated interviewRound from above (already handles auto-increment)
         InterviewSchedule interview = InterviewSchedule.builder()
                 .jobApply(jobApply)
                 .createdByRecruiter(jobApply.getJobPosting().getRecruiter())
-                .interviewRound(request.getInterviewRound() != null ? request.getInterviewRound() : 1)
+                .interviewRound(interviewRound)
                 .scheduledDate(request.getScheduledDate())
                 .durationMinutes(request.getDurationMinutes() != null ? request.getDurationMinutes() : 60)
                 .interviewType(request.getInterviewType())
@@ -104,8 +127,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         jobApply.setStatus(StatusJobApply.INTERVIEW_SCHEDULED);
         jobApplyRepo.save(jobApply);
 
-        // Send interview invitation notification to candidate
-        sendInterviewScheduledNotification(interview, jobApply);
+        // Send interview invitation notification to candidate (include conflict warning if applicable)
+        sendInterviewScheduledNotification(interview, jobApply, candidateHasConflict);
 
         log.info("Interview scheduled successfully with ID: {}", interview.getId());
         return interviewMapper.toResponse(interview);
@@ -366,7 +389,8 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         // If updating scheduled date, validate it's in the future
         // SIMPLIFIED: No conflict checking - allow overlapping interviews
         if (request.getScheduledDate() != null) {
-            if (request.getScheduledDate().isBefore(LocalDateTime.now())) {
+            // Allow updating with 5 minute buffer to handle UI/network delays
+            if (request.getScheduledDate().isBefore(LocalDateTime.now().plusMinutes(5))) {
                 throw new AppException(ErrorCode.INVALID_SCHEDULE_DATE);
             }
 
@@ -717,8 +741,12 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
      * scheduled.
      * This is the most important notification - it's the candidate's "invite to
      * interview" email.
+     * 
+     * @param interview The scheduled interview
+     * @param jobApply The job application
+     * @param hasConflict Whether the candidate has another interview at this time
      */
-    private void sendInterviewScheduledNotification(InterviewSchedule interview, JobApply jobApply) {
+    private void sendInterviewScheduledNotification(InterviewSchedule interview, JobApply jobApply, boolean hasConflict) {
         try {
             String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
             String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
@@ -739,6 +767,14 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             metadata.put("meetingLink", interview.getMeetingLink());
             metadata.put("interviewerName", interview.getInterviewerName());
             metadata.put("preparationNotes", interview.getPreparationNotes());
+            metadata.put("hasConflict", hasConflict);
+
+            // Add conflict warning to message if applicable
+            String conflictWarning = hasConflict 
+                ? "\n\n⚠️ SCHEDULING CONFLICT DETECTED!\n" +
+                  "You have another interview scheduled at this time.\n" +
+                  "Please review your calendar and request a reschedule if needed.\n"
+                : "";
 
             String message = String.format(
                     "🎉 Congratulations! You've been invited to an interview!\n\n" +
@@ -751,6 +787,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                             "%s" +
                             "%s" +
                             "\n%s" +
+                            "%s" +
                             "\n\n⚡ Please confirm your attendance as soon as possible.\n\n" +
                             "Good luck with your interview!\n\n" +
                             "Best regards,\n" +
@@ -766,16 +803,22 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                             : "",
                     interview.getPreparationNotes() != null
                             ? "\n📝 Preparation Notes:\n" + interview.getPreparationNotes()
-                            : "");
+                            : "",
+                    conflictWarning);
 
-            // Send to candidate
+            // Send to candidate - use different event type if there's a conflict
+            String eventType = hasConflict ? "INTERVIEW_INVITATION_CONFLICT" : "INTERVIEW_INVITATION";
+            String title = hasConflict 
+                ? "⚠️ Interview Invitation (Conflict) - " + jobApply.getJobPosting().getTitle()
+                : "Interview Invitation - " + jobApply.getJobPosting().getTitle();
+
             NotificationEvent candidateEvent = NotificationEvent.builder()
                     .eventId(java.util.UUID.randomUUID().toString())
                     .recipientEmail(candidateEmail)
                     .recipientId(candidateId)
                     .category("CANDIDATE")
-                    .eventType("INTERVIEW_INVITATION")
-                    .title("Interview Invitation - " + jobApply.getJobPosting().getTitle())
+                    .eventType(eventType)
+                    .title(title)
                     .subject("🎉 Interview Scheduled: " + jobApply.getJobPosting().getTitle() + " at "
                             + jobApply.getJobPosting().getRecruiter().getCompanyName())
                     .message(message)
@@ -785,7 +828,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                     .build();
 
             notificationProducer.sendNotification("candidate-notifications", candidateEvent);
-            log.info("✅ Sent interview invitation to candidate: {}", candidateEmail);
+            log.info("✅ Sent interview invitation to candidate: {} (hasConflict: {})", candidateEmail, hasConflict);
 
             // Also send confirmation to recruiter
             String recruiterMessage = String.format(

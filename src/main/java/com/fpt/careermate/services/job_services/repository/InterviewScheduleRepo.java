@@ -27,7 +27,8 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
     Optional<InterviewSchedule> findByJobApply(JobApply jobApply);
 
     /**
-     * Find interview by job apply ID with all nested entities for response mapping
+     * Find interview by job apply ID with all nested entities for response mapping.
+     * Returns the most recent interview (highest round) for the job application.
      */
     @Query("SELECT i FROM interview_schedule i " +
            "JOIN FETCH i.jobApply ja " +
@@ -36,8 +37,40 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
            "JOIN FETCH ja.jobPosting jp " +
            "JOIN FETCH jp.recruiter r " +
            "JOIN FETCH r.account " +
-           "WHERE ja.id = :jobApplyId")
+           "WHERE ja.id = :jobApplyId " +
+           "ORDER BY i.interviewRound DESC " +
+           "LIMIT 1")
     Optional<InterviewSchedule> findByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
+    
+    /**
+     * Find all interviews for a job application (all rounds)
+     */
+    @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE ja.id = :jobApplyId " +
+           "ORDER BY i.interviewRound ASC")
+    List<InterviewSchedule> findAllByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
+    
+    /**
+     * Find the latest active interview for a job application (SCHEDULED or CONFIRMED status)
+     */
+    @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE ja.id = :jobApplyId " +
+           "AND i.status IN ('SCHEDULED', 'CONFIRMED') " +
+           "ORDER BY i.interviewRound DESC " +
+           "LIMIT 1")
+    Optional<InterviewSchedule> findActiveByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
     
     /**
      * Check if interview exists for job apply

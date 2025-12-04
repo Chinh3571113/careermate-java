@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -28,6 +29,7 @@ import java.io.IOException;
  */
 @RestController
 @RequestMapping("/api/notifications")
+@CrossOrigin(origins = "*", allowedHeaders = "*", maxAge = 3600)
 @Tag(name = "Notification SSE", description = "Real-time notification streaming via Server-Sent Events")
 @RequiredArgsConstructor
 @Slf4j
@@ -39,123 +41,52 @@ public class NotificationSseController {
     /**
      * Establish an SSE connection for real-time notifications.
      * 
-     * ⚠️ IMPORTANT: Native EventSource cannot send Authorization headers!
+     * IMPORTANT: Native EventSource cannot send Authorization headers!
      * You MUST pass the JWT token as a query parameter.
      * 
      * This endpoint creates a long-lived HTTP connection that streams notifications
      * to the client in real-time.
      * 
-     * **How to use from frontend:**
-     * ```javascript
-     * // Get token from localStorage or your auth system
-     * const token = localStorage.getItem('token');
+     * How to use from frontend:
+     * 1. Get token: const token = localStorage.getItem('token');
+     * 2. Create connection: new EventSource('/api/notifications/stream?token=' + token);
+     * 3. Listen for 'notification' and 'unread-count' events
      * 
-     * // Pass token as query parameter (EventSource limitation workaround)
-     * const eventSource = new EventSource(
-     * `http://localhost:8080/api/notifications/stream?token=${token}`
-     * );
+     * Events sent by server:
+     * - connected: Initial event confirming connection established
+     * - notification: New notification received (NotificationResponse object)
+     * - unread-count: Updated unread notification count
+     * - keepalive: Periodic ping to keep connection alive
      * 
-     * // Listen for new notifications
-     * eventSource.addEventListener('notification', (event) => {
-     * const notification = JSON.parse(event.data);
-     * console.log('New notification:', notification);
-     * });
-     * 
-     * // Listen for unread count updates (for bell badge)
-     * eventSource.addEventListener('unread-count', (event) => {
-     * const { count } = JSON.parse(event.data);
-     * console.log('Unread count:', count);
-     * // Update bell badge here
-     * });
-     * ```
-     * // Update UI with notification
-     * });
-     * 
-     * // Listen for unread count updates
-     * eventSource.addEventListener('unread-count', (event) => {
-     * const { count } = JSON.parse(event.data);
-     * console.log('Unread count:', count);
-     * // Update notification bell badge
-     * });
-     * 
-     * // Listen for connection established
-     * eventSource.addEventListener('connected', (event) => {
-     * console.log('Connected to notification stream');
-     * });
-     * 
-     * // Handle errors
-     * eventSource.onerror = (error) => {
-     * console.error('SSE error:', error);
-     * // EventSource will automatically try to reconnect
-     * };
-     * 
-     * // Close connection when done
-     * eventSource.close();
-     * ```
-     * 
-     * **Events sent by server:**
-     * - `connected`: Initial event confirming connection established
-     * - `notification`: New notification received (NotificationResponse object)
-     * - `unread-count`: Updated unread notification count ({ count: number })
-     * - `keepalive`: Periodic ping to keep connection alive
-     * 
-     * **Connection management:**
+     * Connection management:
      * - Timeout: 30 minutes of inactivity
      * - Auto-reconnect: Browser handles reconnection automatically
-     * - Multiple tabs: Each tab gets its own connection, all receive same
-     * notifications
-     * - Authentication: JWT token must be valid and not expired
-     * 
-     * 
-     * **Events sent by server:**
-     * - `connected`: Initial event confirming connection established
-     * - `notification`: New notification received (NotificationResponse object)
-     * - `unread-count`: Updated unread notification count ({ count: number })
-     * - `keepalive`: Periodic ping to keep connection alive
-     * 
-     * **Connection management:**
-     * - Timeout: 30 minutes of inactivity
-     * - Auto-reconnect: Browser handles reconnection automatically
-     * - Multiple tabs: Each tab gets its own connection, all receive same
-     * notifications
+     * - Multiple tabs: Each tab gets its own connection
      * - Authentication: JWT token required as query parameter
      * 
-     * @param token JWT Bearer token (query parameter) - REQUIRED because
-     *              EventSource can't send headers
+     * @param token JWT Bearer token (query parameter) - REQUIRED because EventSource cannot send headers
+     * @param response HttpServletResponse for error handling
      * @return SseEmitter that streams notifications to the client
-     * @throws AppException if token is invalid or user is not authenticated
+     * @throws IOException if response writing fails
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "Stream real-time notifications", description = """
             Establish a Server-Sent Events (SSE) connection to receive real-time notifications.
 
-            **⚠️ IMPORTANT**: Pass JWT token as query parameter `?token=YOUR_JWT_TOKEN`
+            **IMPORTANT**: Pass JWT token as query parameter: ?token=YOUR_JWT_TOKEN
 
             Native EventSource API cannot send custom headers, so token must be in query parameter.
 
             **Events**:
-            - `connected` - Connection established successfully
-            - `notification` - New notification received (JSON object)
-            - `unread-count` - Updated unread count (JSON: { count: number })
-            - `keepalive` - Keep connection alive (sent periodically)
+            - connected: Connection established successfully
+            - notification: New notification received (JSON object)
+            - unread-count: Updated unread count (JSON: { count: number })
+            - keepalive: Keep connection alive (sent periodically)
 
-            **Usage**:
-            ```javascript
-            const token = localStorage.getItem('token');
-            const eventSource = new EventSource(
-                `http://localhost:8080/api/notifications/stream?token=$${token}`
-            );
-
-            eventSource.addEventListener('notification', (event) => {
-                const notification = JSON.parse(event.data);
-                // Handle new notification
-            });
-
-            eventSource.addEventListener('unread-count', (event) => {
-                const { count } = JSON.parse(event.data);
-                // Update bell badge
-            });
-            ```
+            **Usage Example**:
+            1. Get token from localStorage: const jwtToken = localStorage.getItem('token');
+            2. Create EventSource: new EventSource('/api/notifications/stream?token=' + jwtToken);
+            3. Listen for 'notification' and 'unread-count' events
 
             **Connection Details**:
             - Timeout: 30 minutes

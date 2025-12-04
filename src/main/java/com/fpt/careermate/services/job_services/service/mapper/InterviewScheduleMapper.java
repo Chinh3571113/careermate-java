@@ -19,6 +19,7 @@ public interface InterviewScheduleMapper {
     @Mapping(target = "candidateEmail", source = "jobApply.candidate.account.email")
     @Mapping(target = "candidateImage", source = "jobApply.candidate.image")
     // Job information mapping
+    @Mapping(target = "jobId", source = "jobApply.jobPosting.id")
     @Mapping(target = "jobTitle", source = "jobApply.jobPosting.title")
     // Company information mappings (for candidate view)
     @Mapping(target = "companyId", source = "jobApply.jobPosting.recruiter.id")

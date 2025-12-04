@@ -1,7 +1,7 @@
 package com.fpt.careermate.services.job_services.service.dto.request;
 
 import com.fpt.careermate.common.constant.InterviewType;
-import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateInterviewRequest {
 
-    @Future(message = "Scheduled date must be in the future")
+    @FutureOrPresent(message = "Scheduled date must be in the future")
     LocalDateTime scheduledDate;
 
     @Positive(message = "Duration must be positive")

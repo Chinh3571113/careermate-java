@@ -34,8 +34,9 @@ public class InterviewSchedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
     
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_apply_id", nullable = false, unique = true)
+    // Changed from @OneToOne to @ManyToOne to support multiple interview rounds per job application
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_apply_id", nullable = false)
     JobApply jobApply;
     
     @Column(nullable = false)

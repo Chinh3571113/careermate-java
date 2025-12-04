@@ -96,23 +96,27 @@ public class SecurityConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        // Allow localhost, 127.0.0.1, file:// protocol, and Next.js frontend
-//        corsConfiguration.setAllowedOriginPatterns(Arrays.asList(
-//                "http://localhost:*",
-//                "http://127.0.0.1:*",
-//                "https://localhost:*",
-//                "https://127.0.0.1:*",
-//                "file://*"  // Allow direct HTML file access for testing
-//        ));
-        // Also allow null origin (for file:// protocol)
-//        corsConfiguration.addAllowedOrigin("*");
-
+        // Allow all origins with pattern (required for credentials)
         corsConfiguration.setAllowedOriginPatterns(Collections.singletonList("*"));
 
+        // Allow all HTTP methods
         corsConfiguration.addAllowedMethod("*");
+        
+        // Allow all headers
         corsConfiguration.addAllowedHeader("*");
+        
+        // Allow credentials (cookies, authorization headers)
         corsConfiguration.setAllowCredentials(true);
+        
+        // Expose headers that frontend can read
         corsConfiguration.addExposedHeader("Set-Cookie");
+        corsConfiguration.addExposedHeader("Content-Type");
+        corsConfiguration.addExposedHeader("Cache-Control");
+        corsConfiguration.addExposedHeader("Connection");
+        
+        // SSE specific: Allow long-lived connections
+        // Max age for preflight cache (1 hour)
+        corsConfiguration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource = new UrlBasedCorsConfigurationSource();
         urlBasedCorsConfigurationSource.registerCorsConfiguration("/**", corsConfiguration);

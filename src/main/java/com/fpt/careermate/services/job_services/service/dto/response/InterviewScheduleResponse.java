@@ -37,6 +37,8 @@ public class InterviewScheduleResponse {
     String candidateImage;
     
     // Job information
+    Integer jobId;
+    
     String jobTitle;
     
     // Company information for candidate view
