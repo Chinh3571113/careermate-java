@@ -41,10 +41,16 @@ public class JdJdSkillImp implements JdSkillService {
         jdSkillRepo.save(jdSkill);
     }
 
-    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN', 'CANDIDATE')")
     @Override
-    public List<JdSkillResponse> getAllSkill() {
-        return jdSkillMapper.toSetSkillResponse(jdSkillRepo.findAll());
+    public List<JdSkillResponse> getAllSkill(String keyword) {
+        // If keyword is null or empty, return all skills
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return jdSkillMapper.toSetSkillResponse(jdSkillRepo.findAll());
+        }
+
+        // Otherwise, search by keyword for autocomplete
+        return jdSkillMapper.toSetSkillResponse(jdSkillRepo.searchByKeyword(keyword.trim()));
     }
 
     // Kiểm tra 50 record đầu trong JobDescription entity có JdSkill nào được sử dụng nhiều nhất gọm lại thành 1 list rồi trả về

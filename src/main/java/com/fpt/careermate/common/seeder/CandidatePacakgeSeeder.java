@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ import java.util.List;
  * Mục tiêu: Seed dữ liệu mặc định cho bảng candidateEntitlement, package, và mapping giữa chúng.
  * Giúp hệ thống có sẵn các gói và tính năng cơ bản (Free, Plus, Premium).
  */
+@Order(1)
 @Component
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
