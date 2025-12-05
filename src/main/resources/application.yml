@@ -92,7 +92,7 @@ vnpay:
   api-url: "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
   return-url: ${CANDIDATE_RETURN_URL}
   recruiter-return-url: ${RECRUITER_RETURN_URL}
-  success-return-url: ${FE_URL:http://localhost:3000}
+  success-return-url: ${SUCCESS_RETURN_URL}
 
 # Firebase config
 firebase:
