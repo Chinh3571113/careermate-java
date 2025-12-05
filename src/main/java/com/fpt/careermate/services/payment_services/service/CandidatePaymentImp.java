@@ -215,6 +215,7 @@ public class CandidatePaymentImp implements CandidatePaymentService {
         }
 
         String redirectUrl = paymentConfig.successReturnUrl + "/payment/return?" + qs.toString();
+        log.info("Redirecting to payment return URL: {}", redirectUrl);
 
         try {
             response.sendRedirect(redirectUrl);
