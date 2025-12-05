@@ -65,14 +65,26 @@ class JdSkillControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /api/jdskill - Get Skill List")
-    class GetSkillListTests {
+    @DisplayName("GET /api/jdskill - Search Skills Autocomplete")
+    class SearchSkillsTests {
         @Test
-        @DisplayName("Should get skill list successfully")
-        void getSkillList_ReturnsSuccess() throws Exception {
-            when(jdSkillImp.getAllSkill()).thenReturn(mockList);
+        @DisplayName("Should search skills by keyword successfully")
+        void searchSkills_ReturnsSuccess() throws Exception {
+            when(jdSkillImp.getAllSkill(anyString())).thenReturn(mockList);
 
-            mockMvc.perform(get("/api/jdskill"))
+            mockMvc.perform(get("/api/jdskill")
+                            .param("keyword", "Java"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+        }
+
+        @Test
+        @DisplayName("Should search skills with empty keyword successfully")
+        void searchSkills_EmptyKeyword_ReturnsSuccess() throws Exception {
+            when(jdSkillImp.getAllSkill(anyString())).thenReturn(mockList);
+
+            mockMvc.perform(get("/api/jdskill")
+                            .param("keyword", ""))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200));
         }
