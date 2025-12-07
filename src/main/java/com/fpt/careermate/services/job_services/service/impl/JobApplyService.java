@@ -27,4 +27,11 @@ public interface JobApplyService {
             StatusJobApply status,
             int page,
             int size);
+    
+    // Candidate offer confirmation methods (v3.1)
+    JobApplyResponse confirmOffer(int jobApplyId);
+    JobApplyResponse declineOffer(int jobApplyId);
+
+        // Candidate ends employment (v3.2)
+        JobApplyResponse terminateEmployment(int jobApplyId);
 }

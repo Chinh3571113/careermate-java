@@ -89,6 +89,8 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST),
     CANNOT_CREATE_JOB_POSTING_PROPERTY(6019, "Cannot create job posting property", HttpStatus.BAD_REQUEST),
     CANNOT_CREATE_JOB_POSTING_COLLECTION(6020, "Cannot create job posting collection", HttpStatus.BAD_REQUEST),
+    CANDIDATE_ALREADY_EMPLOYED(6021, "Candidate is already employed at another job. They must terminate their current employment before accepting a new job.",
+            HttpStatus.CONFLICT),
 
     // 70xx: Coach
     LESSON_NOT_FOUND(7000, "Lesson not found", HttpStatus.NOT_FOUND),

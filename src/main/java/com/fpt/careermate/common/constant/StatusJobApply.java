@@ -6,9 +6,9 @@ public enum StatusJobApply {
     INTERVIEW_SCHEDULED, // Interview has been scheduled
     INTERVIEWED,         // Interview completed (any outcome)
     APPROVED,            // Approved for next stage (not final hire)
+    OFFER_EXTENDED,      // Job offer extended, awaiting candidate confirmation (v3.1)
     ACCEPTED,            // Candidate hired/employed (legacy - use WORKING)
     WORKING,             // Candidate currently employed (v3.0)
-    PROBATION_FAILED,    // Failed probation period (v3.0)
     TERMINATED,          // Employment ended for any reason (v3.0)
     REJECTED,            // Application rejected
     BANNED,              // Candidate banned from applying

@@ -292,9 +292,11 @@ public class RegistrationService {
     // Helper methods
 
     private void validateOrganizationInfo(RecruiterRegistrationRequest.OrganizationInfo orgInfo) {
-        // Validate website
-        if (!urlValidator.isWebsiteReachable(orgInfo.getWebsite())) {
-            throw new AppException(ErrorCode.INVALID_WEBSITE);
+        // Validate website if provided
+        if (orgInfo.getWebsite() != null && !orgInfo.getWebsite().isEmpty()) {
+            if (!urlValidator.isWebsiteReachable(orgInfo.getWebsite())) {
+                throw new AppException(ErrorCode.INVALID_WEBSITE);
+            }
         }
 
         // Validate logo URL if provided
@@ -309,9 +311,9 @@ public class RegistrationService {
         return Recruiter.builder()
                 .account(account)
                 .companyName(orgInfo.getCompanyName())
-                .website(orgInfo.getWebsite())
+                .website(orgInfo.getWebsite() != null ? orgInfo.getWebsite() : "")
                 .logoUrl(orgInfo.getLogoUrl() != null ? orgInfo.getLogoUrl() : "https://via.placeholder.com/150")
-                .about(orgInfo.getAbout())
+                .about(orgInfo.getAbout() != null ? orgInfo.getAbout() : "")
                 .rating(0.0f)
                 .companyEmail(orgInfo.getCompanyEmail())
                 .contactPerson(orgInfo.getContactPerson())

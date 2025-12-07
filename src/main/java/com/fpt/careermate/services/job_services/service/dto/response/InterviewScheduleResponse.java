@@ -111,4 +111,15 @@ public class InterviewScheduleResponse {
      * Hours until interview
      */
     Long hoursUntilInterview;
+    
+    /**
+     * Whether this interview has a scheduling conflict with another interview.
+     * This is true when the candidate has another interview scheduled at an overlapping time.
+     */
+    Boolean hasConflict;
+    
+    /**
+     * Details about the conflicting interview (if any)
+     */
+    String conflictDetails;
 }

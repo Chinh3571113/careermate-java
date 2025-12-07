@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.job_services.domain;
 
+import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -36,6 +37,11 @@ public class EmploymentVerification {
     @JoinColumn(name = "job_apply_id", nullable = false, unique = true)
     JobApply jobApply;
 
+    // Recruiter who posted the job (from JobPosting)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_recruiter_id", nullable = false)
+    Recruiter createdByRecruiter;
+
     @Column(nullable = false)
     LocalDate startDate;
 
@@ -44,6 +50,10 @@ public class EmploymentVerification {
     @Column(nullable = false)
     @Builder.Default
     Boolean isActive = true;
+
+    @Column(nullable = false)
+    @Builder.Default
+    Boolean isProbation = false;
 
     Integer daysEmployed; // Auto-calculated
 
