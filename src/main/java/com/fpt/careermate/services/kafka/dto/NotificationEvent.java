@@ -41,6 +41,11 @@ public class NotificationEvent implements Serializable {
         // Application Events
         APPLICATION_RECEIVED,
         APPLICATION_STATUS_CHANGED,
+        
+        // Offer Events (v3.1)
+        OFFER_EXTENDED,
+        OFFER_ACCEPTED,
+        OFFER_DECLINED,
 
         // Profile Events
         PROFILE_VERIFICATION,

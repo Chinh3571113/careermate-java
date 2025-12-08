@@ -31,6 +31,11 @@ public interface InterviewScheduleMapper {
     @Mapping(target = "hasInterviewTimePassed", expression = "java(hasTimePassed(interviewSchedule))")
     @Mapping(target = "isInterviewInProgress", expression = "java(isInProgress(interviewSchedule))")
     @Mapping(target = "hoursUntilInterview", expression = "java(hoursUntil(interviewSchedule))")
+    // Conflict fields - set manually after mapping by service
+    @Mapping(target = "hasConflict", ignore = true)
+    @Mapping(target = "conflictDetails", ignore = true)
+    // Recruiter ID from nested object
+    @Mapping(target = "createdByRecruiterId", source = "createdByRecruiter.id")
     InterviewScheduleResponse toResponse(InterviewSchedule interviewSchedule);
 
     default LocalDateTime calculateExpectedEndTime(InterviewSchedule interview) {

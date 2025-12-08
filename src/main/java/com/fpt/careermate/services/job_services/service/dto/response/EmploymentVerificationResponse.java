@@ -21,6 +21,9 @@ public class EmploymentVerificationResponse {
     Integer id;
 
     Integer jobApplyId;
+    
+    // Company info (from JobApply -> JobPosting -> Recruiter)
+    String companyName;
 
     LocalDate startDate;
 

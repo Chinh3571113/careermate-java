@@ -3,6 +3,7 @@ package com.fpt.careermate.services.job_services.service;
 import com.fpt.careermate.common.constant.InterviewStatus;
 import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.common.response.PageResponse;
+import com.fpt.careermate.common.util.SecurityUtil;
 import com.fpt.careermate.services.account_services.domain.Account;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
@@ -10,11 +11,13 @@ import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
 import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.fpt.careermate.services.job_services.domain.JobApplyStatusHistory;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
+import com.fpt.careermate.services.job_services.domain.EmploymentVerification;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.job_services.repository.InterviewScheduleRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyStatusHistoryRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.job_services.repository.EmploymentVerificationRepo;
 import com.fpt.careermate.services.job_services.service.dto.request.JobApplyRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.JobApplyResponse;
 import com.fpt.careermate.services.job_services.service.impl.JobApplyService;
@@ -37,6 +40,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -60,6 +64,8 @@ public class JobApplyImp implements JobApplyService {
         AuthenticationImp authenticationImp;
         RecruiterRepo recruiterRepo;
         InterviewScheduleRepo interviewScheduleRepo;
+        SecurityUtil securityUtil;
+        EmploymentVerificationRepo employmentVerificationRepo;
 
         @Override
         @Transactional
@@ -76,11 +82,28 @@ public class JobApplyImp implements JobApplyService {
                 Candidate candidate = candidateRepo.findById(request.getCandidateId())
                                 .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
 
-                // Check if already applied
+                // Check if already has an active application (in the flow)
+                // Only block if existing application is in an active status
+                // Allow re-application if previous was: REJECTED, WITHDRAWN, NO_RESPONSE, TERMINATED
                 jobApplyRepo.findByJobPostingIdAndCandidateCandidateId(
                                 request.getJobPostingId(), request.getCandidateId())
                                 .ifPresent(existing -> {
-                                        throw new AppException(ErrorCode.ALREADY_APPLIED_TO_JOB_POSTING);
+                                        StatusJobApply existingStatus = existing.getStatus();
+                                        // Active statuses that block new applications
+                                        boolean isActiveApplication = existingStatus == StatusJobApply.SUBMITTED
+                                                        || existingStatus == StatusJobApply.REVIEWING
+                                                        || existingStatus == StatusJobApply.INTERVIEW_SCHEDULED
+                                                        || existingStatus == StatusJobApply.INTERVIEWED
+                                                        || existingStatus == StatusJobApply.APPROVED
+                                                        || existingStatus == StatusJobApply.OFFER_EXTENDED
+                                                        || existingStatus == StatusJobApply.ACCEPTED
+                                                        || existingStatus == StatusJobApply.WORKING
+                                                        || existingStatus == StatusJobApply.BANNED;
+                                        
+                                        if (isActiveApplication) {
+                                                throw new AppException(ErrorCode.ALREADY_APPLIED_TO_JOB_POSTING);
+                                        }
+                                        // If REJECTED, WITHDRAWN, NO_RESPONSE, or TERMINATED - allow re-application
                                 });
 
                 // Create new job apply
@@ -195,6 +218,25 @@ public class JobApplyImp implements JobApplyService {
                 // Validate status transition
                 if (!isValidStatusTransition(previousStatus, status)) {
                         throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
+                }
+
+                // Check if candidate already has active employment when trying to extend offer or hire them
+                // This prevents extending offers or hiring a candidate who is already employed
+                if (status == StatusJobApply.OFFER_EXTENDED || status == StatusJobApply.ACCEPTED || status == StatusJobApply.WORKING) {
+                        Integer candidateId = jobApply.getCandidate().getCandidateId();
+                        boolean hasActiveEmployment = jobApplyRepo.hasActiveEmployment(candidateId, id);
+                        
+                        if (hasActiveEmployment) {
+                                List<JobApply> activeEmployments = jobApplyRepo.findActiveEmploymentsByCandidate(candidateId);
+                                if (!activeEmployments.isEmpty()) {
+                                        JobApply currentJob = activeEmployments.get(0);
+                                        log.warn("❌ Cannot extend offer/hire candidate {} - already employed at '{}' (Application ID: {})",
+                                                candidateId, 
+                                                currentJob.getJobPosting().getTitle(),
+                                                currentJob.getId());
+                                }
+                                throw new AppException(ErrorCode.CANDIDATE_ALREADY_EMPLOYED);
+                        }
                 }
 
                 // Update status and relevant timestamps
@@ -394,24 +436,9 @@ public class JobApplyImp implements JobApplyService {
                                 break;
 
                         case REVIEWING:
-                                title = "Application Under Review";
-                                subject = String.format("Your Application for '%s' is Being Reviewed",
-                                                jobPosting.getTitle());
-                                message = String.format(
-                                                "Your application is now under review.\n\n" +
-                                                                "Job Position: %s\n" +
-                                                                "Company: %s\n\n" +
-                                                                "The recruiter is currently reviewing your application and CV. "
-                                                                +
-                                                                "You will be notified once a decision has been made.\n\n"
-                                                                +
-                                                                "Thank you for your patience!\n\n" +
-                                                                "Best regards,\n" +
-                                                                "CareerMate Team",
-                                                jobPosting.getTitle(),
-                                                jobPosting.getRecruiter().getCompanyName());
-                                priority = 3; // LOW priority
-                                break;
+                                // Skip notification for REVIEWING status - too insignificant to notify candidate
+                                log.info("Skipping notification for REVIEWING status - insignificant status change");
+                                return;
 
                         case INTERVIEW_SCHEDULED:
                                 // This notification is handled by InterviewScheduleServiceImpl
@@ -460,6 +487,25 @@ public class JobApplyImp implements JobApplyService {
                                                 jobPosting.getTitle(),
                                                 jobPosting.getRecruiter().getCompanyName());
                                 priority = 1; // HIGH priority
+                                break;
+
+                        case OFFER_EXTENDED:
+                                title = "🎉 Job Offer Received!";
+                                subject = String.format("Congratulations! You've Received a Job Offer from '%s'",
+                                                jobPosting.getRecruiter().getCompanyName());
+                                message = String.format(
+                                                "🎉 Congratulations! You've received a job offer!\n\n" +
+                                                                "Job Position: %s\n" +
+                                                                "Company: %s\n\n" +
+                                                                "The recruiter has extended a job offer to you. " +
+                                                                "Please review the offer and confirm your acceptance or decline.\n\n" +
+                                                                "⏰ Important: Please respond to this offer as soon as possible.\n\n" +
+                                                                "You can confirm or decline the offer from your candidate dashboard.\n\n" +
+                                                                "Best regards,\n" +
+                                                                "CareerMate Team",
+                                                jobPosting.getTitle(),
+                                                jobPosting.getRecruiter().getCompanyName());
+                                priority = 1; // HIGH priority - urgent action needed
                                 break;
 
                         case ACCEPTED:
@@ -537,24 +583,6 @@ public class JobApplyImp implements JobApplyService {
                                                                 "We're sorry to see this chapter close. " +
                                                                 "CareerMate is here to help you find your next opportunity.\n\n"
                                                                 +
-                                                                "Best regards,\n" +
-                                                                "CareerMate Team",
-                                                jobPosting.getTitle(),
-                                                jobPosting.getRecruiter().getCompanyName());
-                                priority = 2; // MEDIUM priority
-                                break;
-
-                        case PROBATION_FAILED:
-                                title = "Probation Period Update";
-                                subject = String.format("Probation Period Update at '%s'",
-                                                jobPosting.getRecruiter().getCompanyName());
-                                message = String.format(
-                                                "Your employment status has been updated.\n\n" +
-                                                                "Job Position: %s\n" +
-                                                                "Company: %s\n" +
-                                                                "Status: Probation Period Not Completed\n\n" +
-                                                                "We encourage you to continue developing your skills " +
-                                                                "and exploring new opportunities on CareerMate.\n\n" +
                                                                 "Best regards,\n" +
                                                                 "CareerMate Team",
                                                 jobPosting.getTitle(),
@@ -645,16 +673,23 @@ public class JobApplyImp implements JobApplyService {
                                                 || to == StatusJobApply.REJECTED;
 
                         case APPROVED:
-                                // Recruiter marks candidate as WORKING when they start the job
-                                // Or rejected if offer declined/changed mind
+                                // Recruiter extends offer to candidate (OFFER_EXTENDED)
+                                // Or rejected if changed mind, or candidate withdraws
+                                return to == StatusJobApply.OFFER_EXTENDED
+                                                || to == StatusJobApply.REJECTED
+                                                || to == StatusJobApply.WITHDRAWN;
+
+                        case OFFER_EXTENDED:
+                                // Candidate confirms offer → WORKING
+                                // Candidate declines → REJECTED
+                                // Candidate withdraws → WITHDRAWN
                                 return to == StatusJobApply.WORKING
                                                 || to == StatusJobApply.REJECTED
                                                 || to == StatusJobApply.WITHDRAWN;
 
                         case WORKING:
-                                // Currently employed - can be terminated or probation failed
+                                // Currently employed - can only be terminated or banned
                                 return to == StatusJobApply.TERMINATED
-                                                || to == StatusJobApply.PROBATION_FAILED
                                                 || to == StatusJobApply.BANNED;
 
                         case ACCEPTED:
@@ -667,7 +702,6 @@ public class JobApplyImp implements JobApplyService {
                         case NO_RESPONSE:
                         case WITHDRAWN:
                         case TERMINATED:
-                        case PROBATION_FAILED:
                                 // Terminal states - cannot transition out
                                 return false;
 
@@ -708,13 +742,13 @@ public class JobApplyImp implements JobApplyService {
                         case ACCEPTED:
                                 // Legacy status - also set hiredAt
                                 if (jobApply.getHiredAt() == null) {
+
                                         jobApply.setHiredAt(now);
                                 }
                                 jobApply.setLastContactAt(now);
                                 break;
 
                         case TERMINATED:
-                        case PROBATION_FAILED:
                                 // Employment ended - set leftAt timestamp
                                 if (jobApply.getLeftAt() == null) {
                                         jobApply.setLeftAt(now);
@@ -724,6 +758,7 @@ public class JobApplyImp implements JobApplyService {
 
                         case REVIEWING:
                         case APPROVED:
+                        case OFFER_EXTENDED:
                         case REJECTED:
                                 jobApply.setLastContactAt(now);
                                 break;
@@ -1155,5 +1190,314 @@ public class JobApplyImp implements JobApplyService {
                                 size,
                                 jobApplyPage.getTotalElements(),
                                 jobApplyPage.getTotalPages());
+        }
+
+        // ==================== CANDIDATE OFFER CONFIRMATION (v3.1) ====================
+
+        /**
+         * Candidate confirms a job offer - transitions from OFFER_EXTENDED to WORKING
+         * This validates that:
+         * 1. The application belongs to the current authenticated candidate
+         * 2. The application is in OFFER_EXTENDED status
+         * 3. The candidate is not already employed elsewhere
+         */
+        @Override
+        @Transactional
+        @PreAuthorize("hasRole('CANDIDATE')")
+        public JobApplyResponse confirmOffer(int jobApplyId) {
+                // Get current authenticated candidate
+                Candidate candidate = getMyCandidate();
+                
+                // Find the job application
+                JobApply jobApply = jobApplyRepo.findById(jobApplyId)
+                                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+                
+                // Verify this application belongs to the current candidate
+                if (jobApply.getCandidate().getCandidateId() != candidate.getCandidateId()) {
+                        throw new AppException(ErrorCode.UNAUTHORIZED);
+                }
+                
+                // Verify application is in OFFER_EXTENDED status
+                if (jobApply.getStatus() != StatusJobApply.OFFER_EXTENDED) {
+                        throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
+                }
+                
+                // Check if candidate is already employed elsewhere
+                if (jobApplyRepo.hasActiveEmployment(candidate.getCandidateId(), jobApplyId)) {
+                        throw new AppException(ErrorCode.CANDIDATE_ALREADY_EMPLOYED);
+                }
+                
+                StatusJobApply previousStatus = jobApply.getStatus();
+                
+                // Update to WORKING status
+                jobApply.setStatus(StatusJobApply.WORKING);
+                jobApply.setStatusChangedAt(LocalDateTime.now());
+                jobApply.setHiredAt(LocalDateTime.now());
+                jobApply.setLastContactAt(LocalDateTime.now());
+                
+                JobApply updatedJobApply = jobApplyRepo.save(jobApply);
+                
+                // Create EmploymentVerification record with startDate = today
+                try {
+                        // Check if employment verification already exists
+                        if (employmentVerificationRepo.findByJobApplyId(jobApplyId).isEmpty()) {
+                                // Get recruiter from job posting
+                                var recruiter = updatedJobApply.getJobPosting().getRecruiter();
+                                
+                                EmploymentVerification employmentVerification = EmploymentVerification.builder()
+                                        .jobApply(updatedJobApply)
+                                        .createdByRecruiter(recruiter)  // Required field - recruiter who posted the job
+                                        .startDate(LocalDate.now())
+                                        .isActive(true)
+                                        .isProbation(false)  // Candidate is not on probation initially
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+                                employmentVerificationRepo.save(employmentVerification);
+                                log.info("✅ Created employment verification for application {} with start date: {}", 
+                                        jobApplyId, LocalDate.now());
+                        }
+                } catch (Exception e) {
+                        log.error("Failed to create employment verification for application {}: {}", 
+                                jobApplyId, e.getMessage(), e);
+                }
+                
+                // Record status change in history
+                recordStatusChange(updatedJobApply, previousStatus, StatusJobApply.WORKING, 
+                                candidate.getAccount().getId(), "Candidate confirmed job offer");
+                
+                log.info("✅ Candidate {} confirmed job offer for application {}. Status: OFFER_EXTENDED → WORKING",
+                                candidate.getCandidateId(), jobApplyId);
+                
+                // Send notification to candidate about employment start
+                try {
+                        sendApplicationStatusChangeNotification(updatedJobApply, previousStatus, StatusJobApply.WORKING);
+                } catch (Exception e) {
+                        log.error("Failed to send offer confirmation notification: {}", e.getMessage(), e);
+                }
+                
+                // Handle business rules when candidate is hired (auto-withdraw other applications)
+                try {
+                        handleHireBusinessRules(updatedJobApply);
+                } catch (Exception e) {
+                        log.error("Failed to process hire business rules for application {}: {}",
+                                        jobApplyId, e.getMessage(), e);
+                }
+                
+                // Send notification to recruiter that candidate accepted
+                try {
+                        sendOfferAcceptedNotificationToRecruiter(updatedJobApply);
+                } catch (Exception e) {
+                        log.error("Failed to send offer accepted notification to recruiter: {}", e.getMessage(), e);
+                }
+                
+                return jobApplyMapper.toJobApplyResponse(updatedJobApply);
+        }
+
+        // ==================== CANDIDATE TERMINATE EMPLOYMENT (v3.2) ====================
+
+        /**
+         * Candidate ends current employment. Transitions WORKING/ACCEPTED -> TERMINATED and closes EmploymentVerification.
+         */
+        @Override
+        @Transactional
+        @PreAuthorize("hasRole('CANDIDATE')")
+        public JobApplyResponse terminateEmployment(int jobApplyId) {
+                Candidate candidate = getMyCandidate();
+
+                JobApply jobApply = jobApplyRepo.findById(jobApplyId)
+                                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+
+                if (jobApply.getCandidate().getCandidateId() != candidate.getCandidateId()) {
+                        throw new AppException(ErrorCode.UNAUTHORIZED);
+                }
+
+                if (jobApply.getStatus() != StatusJobApply.WORKING
+                                && jobApply.getStatus() != StatusJobApply.ACCEPTED) {
+                        throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
+                }
+
+                StatusJobApply previousStatus = jobApply.getStatus();
+
+                jobApply.setStatus(StatusJobApply.TERMINATED);
+                jobApply.setStatusChangedAt(LocalDateTime.now());
+                jobApply.setLeftAt(LocalDateTime.now());
+                jobApply.setLastContactAt(LocalDateTime.now());
+
+                JobApply updated = jobApplyRepo.save(jobApply);
+
+                employmentVerificationRepo.findByJobApplyId(jobApplyId).ifPresent(ev -> {
+                        ev.setIsActive(false);
+                        ev.setEndDate(LocalDate.now());
+                        ev.setUpdatedAt(LocalDateTime.now());
+                        employmentVerificationRepo.save(ev);
+                });
+
+                recordStatusChange(updated, previousStatus, StatusJobApply.TERMINATED,
+                                candidate.getAccount().getId(), "Candidate ended employment");
+
+                try {
+                        sendApplicationStatusChangeNotification(updated, previousStatus, StatusJobApply.TERMINATED);
+                } catch (Exception e) {
+                        log.error("Failed to send termination notification: {}", e.getMessage(), e);
+                }
+
+                return jobApplyMapper.toJobApplyResponse(updated);
+        }
+
+        /**
+         * Candidate declines a job offer - transitions from OFFER_EXTENDED to REJECTED
+         */
+        @Override
+        @Transactional
+        @PreAuthorize("hasRole('CANDIDATE')")
+        public JobApplyResponse declineOffer(int jobApplyId) {
+                // Get current authenticated candidate
+                Candidate candidate = getMyCandidate();
+                
+                // Find the job application
+                JobApply jobApply = jobApplyRepo.findById(jobApplyId)
+                                .orElseThrow(() -> new AppException(ErrorCode.JOB_POSTING_NOT_FOUND));
+                
+                // Verify this application belongs to the current candidate
+                if (jobApply.getCandidate().getCandidateId() != candidate.getCandidateId()) {
+                        throw new AppException(ErrorCode.UNAUTHORIZED);
+                }
+                
+                // Verify application is in OFFER_EXTENDED status
+                if (jobApply.getStatus() != StatusJobApply.OFFER_EXTENDED) {
+                        throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
+                }
+                
+                StatusJobApply previousStatus = jobApply.getStatus();
+                
+                // Update to WITHDRAWN status (candidate declined)
+                jobApply.setStatus(StatusJobApply.WITHDRAWN);
+                jobApply.setStatusChangedAt(LocalDateTime.now());
+                jobApply.setLastContactAt(LocalDateTime.now());
+                
+                JobApply updatedJobApply = jobApplyRepo.save(jobApply);
+                
+                // Record status change in history
+                recordStatusChange(updatedJobApply, previousStatus, StatusJobApply.WITHDRAWN, 
+                                candidate.getAccount().getId(), "Candidate declined job offer");
+                
+                log.info("❌ Candidate {} declined job offer for application {}. Status: OFFER_EXTENDED → WITHDRAWN",
+                                candidate.getCandidateId(), jobApplyId);
+                
+                // Send notification to recruiter that candidate declined
+                try {
+                        sendOfferDeclinedNotificationToRecruiter(updatedJobApply);
+                } catch (Exception e) {
+                        log.error("Failed to send offer declined notification to recruiter: {}", e.getMessage(), e);
+                }
+                
+                return jobApplyMapper.toJobApplyResponse(updatedJobApply);
+        }
+
+        /**
+         * Get the current authenticated candidate
+         */
+        private Candidate getMyCandidate() {
+                Integer accountId = securityUtil.getCurrentUserId();
+                return candidateRepo.findByAccount_Id(accountId)
+                                .orElseThrow(() -> new AppException(ErrorCode.CANDIDATE_NOT_FOUND));
+        }
+
+        /**
+         * Send notification to recruiter when candidate accepts offer
+         */
+        private void sendOfferAcceptedNotificationToRecruiter(JobApply jobApply) {
+                JobPosting jobPosting = jobApply.getJobPosting();
+                Recruiter recruiter = jobPosting.getRecruiter();
+                String recruiterEmail = recruiter.getAccount().getEmail();
+                
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("applicationId", jobApply.getId());
+                metadata.put("jobPostingId", jobPosting.getId());
+                metadata.put("jobTitle", jobPosting.getTitle());
+                metadata.put("candidateId", jobApply.getCandidate().getCandidateId());
+                metadata.put("candidateName", jobApply.getFullName());
+                metadata.put("status", "OFFER_ACCEPTED");
+                
+                String message = String.format(
+                                "🎉 Great news! Your job offer has been accepted!\n\n" +
+                                                "Job Position: %s\n" +
+                                                "Candidate: %s\n\n" +
+                                                "The candidate has confirmed their acceptance and is now marked as WORKING.\n\n" +
+                                                "Next steps:\n" +
+                                                "- Coordinate onboarding details with the new hire\n" +
+                                                "- Prepare necessary documentation\n" +
+                                                "- Welcome them to the team!\n\n" +
+                                                "Best regards,\n" +
+                                                "CareerMate Team",
+                                jobPosting.getTitle(),
+                                jobApply.getFullName());
+                
+                NotificationEvent event = NotificationEvent.builder()
+                                .eventId(UUID.randomUUID().toString())
+                                .eventType(NotificationEvent.EventType.OFFER_ACCEPTED.name())
+                                .recipientId(recruiterEmail)
+                                .recipientEmail(recruiterEmail)
+                                .title("🎉 Job Offer Accepted!")
+                                .subject(String.format("Job Offer Accepted: %s - %s", 
+                                                jobPosting.getTitle(), jobApply.getFullName()))
+                                .message(message)
+                                .category("JOB_APPLICATION")
+                                .metadata(metadata)
+                                .timestamp(LocalDateTime.now())
+                                .priority(1) // HIGH priority
+                                .build();
+                
+                notificationProducer.sendNotification("recruiter-notifications", event);
+                log.info("✅ Sent offer accepted notification to recruiter {} for application {}",
+                                recruiter.getId(), jobApply.getId());
+        }
+
+        /**
+         * Send notification to recruiter when candidate declines offer
+         */
+        private void sendOfferDeclinedNotificationToRecruiter(JobApply jobApply) {
+                JobPosting jobPosting = jobApply.getJobPosting();
+                Recruiter recruiter = jobPosting.getRecruiter();
+                String recruiterEmail = recruiter.getAccount().getEmail();
+                
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("applicationId", jobApply.getId());
+                metadata.put("jobPostingId", jobPosting.getId());
+                metadata.put("jobTitle", jobPosting.getTitle());
+                metadata.put("candidateId", jobApply.getCandidate().getCandidateId());
+                metadata.put("candidateName", jobApply.getFullName());
+                metadata.put("status", "OFFER_DECLINED");
+                
+                String message = String.format(
+                                "Unfortunately, your job offer was declined.\n\n" +
+                                                "Job Position: %s\n" +
+                                                "Candidate: %s\n\n" +
+                                                "The candidate has chosen to decline the offer.\n\n" +
+                                                "Don't worry - you can continue reviewing other candidates " +
+                                                "or use CareerMate's AI matching to find more suitable candidates.\n\n" +
+                                                "Best regards,\n" +
+                                                "CareerMate Team",
+                                jobPosting.getTitle(),
+                                jobApply.getFullName());
+                
+                NotificationEvent event = NotificationEvent.builder()
+                                .eventId(UUID.randomUUID().toString())
+                                .eventType(NotificationEvent.EventType.OFFER_DECLINED.name())
+                                .recipientId(recruiterEmail)
+                                .recipientEmail(recruiterEmail)
+                                .title("Job Offer Declined")
+                                .subject(String.format("Job Offer Declined: %s - %s", 
+                                                jobPosting.getTitle(), jobApply.getFullName()))
+                                .message(message)
+                                .category("JOB_APPLICATION")
+                                .metadata(metadata)
+                                .timestamp(LocalDateTime.now())
+                                .priority(2) // MEDIUM priority
+                                .build();
+                
+                notificationProducer.sendNotification("recruiter-notifications", event);
+                log.info("✅ Sent offer declined notification to recruiter {} for application {}",
+                                recruiter.getId(), jobApply.getId());
         }
 }

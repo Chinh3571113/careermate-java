@@ -137,7 +137,7 @@ public class JobApplyController {
                         Retrieve job applications for the current recruiter with optional status filter and pagination.
                         
                         Parameters:
-                        - status: Filter by application status (optional). Valid values: SUBMITTED, REVIEWING, INTERVIEW_SCHEDULED, INTERVIEWED, APPROVED, WORKING, REJECTED, etc.
+                        - status: Filter by application status (optional). Valid values: SUBMITTED, REVIEWING, INTERVIEW_SCHEDULED, INTERVIEWED, APPROVED, OFFER_EXTENDED, WORKING, REJECTED, etc.
                         - page: Page number, starts from 0 (default: 0)
                         - size: Number of items per page (default: 10)
                         
@@ -150,6 +150,60 @@ public class JobApplyController {
                 return ApiResponse.<PageResponse<JobApplyResponse>>builder()
                                 .result(jobApplyImp.getJobAppliesByRecruiterWithFilter(status, page, size))
                                 .message("Job applications retrieved successfully")
+                                .build();
+        }
+
+        // ==================== CANDIDATE OFFER CONFIRMATION ENDPOINTS (v3.1) ====================
+
+        @PostMapping("/{id}/confirm-offer")
+        @Operation(summary = "Confirm Job Offer (Candidate)", 
+                   description = """
+                        Candidate confirms a job offer. This transitions the application from OFFER_EXTENDED to WORKING.
+                        
+                        Prerequisites:
+                        - Application must be in OFFER_EXTENDED status
+                        - Must be called by the candidate who owns the application
+                        - Candidate must not already be employed elsewhere (ACCEPTED/WORKING status)
+                        
+                        Effects:
+                        - Application status changes to WORKING
+                        - All other pending applications are automatically withdrawn
+                        - Recruiter is notified of the acceptance
+                        """)
+        public ApiResponse<JobApplyResponse> confirmOffer(@PathVariable int id) {
+                return ApiResponse.<JobApplyResponse>builder()
+                                .result(jobApplyImp.confirmOffer(id))
+                                .message("Job offer confirmed successfully! You are now employed.")
+                                .build();
+        }
+
+        @PostMapping("/{id}/decline-offer")
+        @Operation(summary = "Decline Job Offer (Candidate)", 
+                   description = """
+                        Candidate declines a job offer. This transitions the application from OFFER_EXTENDED to WITHDRAWN.
+                        
+                        Prerequisites:
+                        - Application must be in OFFER_EXTENDED status
+                        - Must be called by the candidate who owns the application
+                        
+                        Effects:
+                        - Application status changes to WITHDRAWN
+                        - Recruiter is notified of the decline
+                        """)
+        public ApiResponse<JobApplyResponse> declineOffer(@PathVariable int id) {
+                return ApiResponse.<JobApplyResponse>builder()
+                                .result(jobApplyImp.declineOffer(id))
+                                .message("Job offer declined. Application withdrawn.")
+                                .build();
+        }
+
+        @PostMapping("/{id}/terminate")
+        @Operation(summary = "Terminate Employment (Candidate)",
+                   description = "Candidate ends current employment. Transitions WORKING/ACCEPTED to TERMINATED and closes employment verification.")
+        public ApiResponse<JobApplyResponse> terminateEmployment(@PathVariable int id) {
+                return ApiResponse.<JobApplyResponse>builder()
+                                .result(jobApplyImp.terminateEmployment(id))
+                                .message("Employment terminated successfully.")
                                 .build();
         }
 }

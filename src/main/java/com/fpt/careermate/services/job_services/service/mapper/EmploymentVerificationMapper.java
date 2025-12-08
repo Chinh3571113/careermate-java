@@ -12,7 +12,9 @@ import org.mapstruct.Mapping;
 public interface EmploymentVerificationMapper {
     
     @Mapping(target = "jobApplyId", source = "jobApply.id")
+    @Mapping(target = "companyName", source = "jobApply.jobPosting.recruiter.companyName")
     @Mapping(target = "isEligibleForWorkReview", expression = "java(entity.isEligibleForWorkReview())")
     @Mapping(target = "isCurrentlyEmployed", expression = "java(entity.isCurrentlyEmployed())")
+    @Mapping(target = "daysEmployed", expression = "java(entity.calculateDaysEmployed())")
     EmploymentVerificationResponse toResponse(EmploymentVerification entity);
 }

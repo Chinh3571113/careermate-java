@@ -313,6 +313,39 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
                                   @Param("proposedEndTime") LocalDateTime proposedEndTime);
     
     /**
+     * Check if candidate has conflicting interview, excluding a specific interview.
+     * Used for checking conflicts on existing interviews (to avoid self-conflict).
+     */
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM interview_schedule i " +
+           "JOIN job_apply ja ON i.job_apply_id = ja.id " +
+           "WHERE ja.candidate_id = :candidateId " +
+           "AND i.id != :excludeInterviewId " +
+           "AND i.status NOT IN ('CANCELLED', 'NO_SHOW', 'COMPLETED') " +
+           "AND i.scheduled_date < :proposedEndTime " +
+           "AND (i.scheduled_date + (i.duration_minutes * INTERVAL '1 minute')) > :proposedStartTime", nativeQuery = true)
+    boolean candidateHasConflictExcludingInterview(@Param("candidateId") Integer candidateId,
+                                                    @Param("proposedStartTime") LocalDateTime proposedStartTime,
+                                                    @Param("proposedEndTime") LocalDateTime proposedEndTime,
+                                                    @Param("excludeInterviewId") Integer excludeInterviewId);
+    
+    /**
+     * Find conflicting interviews for a candidate, excluding a specific interview.
+     * Returns the actual conflicting interview details for display purposes.
+     */
+    @Query(value = "SELECT i.* FROM interview_schedule i " +
+           "JOIN job_apply ja ON i.job_apply_id = ja.id " +
+           "WHERE ja.candidate_id = :candidateId " +
+           "AND i.id != :excludeInterviewId " +
+           "AND i.status NOT IN ('CANCELLED', 'NO_SHOW', 'COMPLETED') " +
+           "AND i.scheduled_date < :proposedEndTime " +
+           "AND (i.scheduled_date + (i.duration_minutes * INTERVAL '1 minute')) > :proposedStartTime " +
+           "ORDER BY i.scheduled_date ASC", nativeQuery = true)
+    List<InterviewSchedule> findConflictingInterviewsForCandidate(@Param("candidateId") Integer candidateId,
+                                                                   @Param("proposedStartTime") LocalDateTime proposedStartTime,
+                                                                   @Param("proposedEndTime") LocalDateTime proposedEndTime,
+                                                                   @Param("excludeInterviewId") Integer excludeInterviewId);
+    
+    /**
      * Find candidate's interviews on specific date
      * Uses native query for proper PostgreSQL date comparison
      */

@@ -42,28 +42,30 @@ public class RecruiterRegistrationRequest {
         @Size(min = 2, max = 100, message = "Company name must be between 2 and 100 characters")
         String companyName;
 
-        @NotBlank(message = "Website is required")
         @URL(message = "Invalid Website URL")
-        String website;
+        String website; // Optional for OAuth registration
 
         @URL(message = "Invalid Logo URL")
         String logoUrl; // Optional
 
-        @NotBlank(message = "Company description is required")
         @Size(max = 2000, message = "Description cannot exceed 2000 characters")
-        String about;
+        String about; // Optional for OAuth registration
 
+        @NotBlank(message = "Company email is required")
         @Email(message = "Invalid company email format")
         @Size(max = 100, message = "Company email cannot exceed 100 characters")
         String companyEmail;
 
+        @NotBlank(message = "Contact person is required")
         @Size(max = 100, message = "Contact person name cannot exceed 100 characters")
         String contactPerson;
 
-        @Pattern(regexp = "^\\+?[0-9\\s\\-()]{7,20}$", message = "Invalid phone number format")
+        @NotBlank(message = "Phone number is required")
+        @Pattern(regexp = "^0\\d{9}$", message = "Phone must be 10 digits starting with 0")
         @Size(max = 20)
         String phoneNumber;
 
+        @NotBlank(message = "Company address is required")
         @Size(max = 500, message = "Company address cannot exceed 500 characters")
         String companyAddress;
     }

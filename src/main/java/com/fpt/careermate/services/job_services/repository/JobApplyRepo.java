@@ -64,4 +64,31 @@ public interface JobApplyRepo extends JpaRepository<JobApply,Integer> {
 
     @Query("SELECT ja FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId ORDER BY ja.createAt DESC")
     Page<JobApply> findByRecruiterId(@Param("recruiterId") int recruiterId, Pageable pageable);
+    
+    /**
+     * Check if candidate has any active employment (status = WORKING or ACCEPTED).
+     * Used to prevent candidate from being employed at multiple jobs simultaneously.
+     * 
+     * @param candidateId The candidate's ID
+     * @param excludeApplicationId The application ID to exclude (for updates)
+     * @return true if candidate has an active employment, false otherwise
+     */
+    @Query("SELECT CASE WHEN COUNT(ja) > 0 THEN true ELSE false END FROM job_apply ja " +
+           "WHERE ja.candidate.candidateId = :candidateId " +
+           "AND ja.id != :excludeApplicationId " +
+           "AND ja.status IN (com.fpt.careermate.common.constant.StatusJobApply.WORKING, " +
+           "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED)")
+    boolean hasActiveEmployment(@Param("candidateId") int candidateId, 
+                                 @Param("excludeApplicationId") int excludeApplicationId);
+    
+    /**
+     * Find active employment for a candidate.
+     * Returns the job application where status is WORKING or ACCEPTED.
+     */
+    @Query("SELECT ja FROM job_apply ja " +
+           "WHERE ja.candidate.candidateId = :candidateId " +
+           "AND ja.status IN (com.fpt.careermate.common.constant.StatusJobApply.WORKING, " +
+           "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED) " +
+           "ORDER BY ja.statusChangedAt DESC")
+    List<JobApply> findActiveEmploymentsByCandidate(@Param("candidateId") int candidateId);
 }

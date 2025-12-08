@@ -131,7 +131,14 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         sendInterviewScheduledNotification(interview, jobApply, candidateHasConflict);
 
         log.info("Interview scheduled successfully with ID: {}", interview.getId());
-        return interviewMapper.toResponse(interview);
+        
+        // Return response with conflict information
+        InterviewScheduleResponse response = interviewMapper.toResponse(interview);
+        response.setHasConflict(candidateHasConflict);
+        if (candidateHasConflict) {
+            response.setConflictDetails("Candidate has another interview at this time");
+        }
+        return response;
     }
 
     @Override
@@ -356,19 +363,19 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         log.info("Interview completed early after {} minutes with outcome: {} -> Job status: {}",
                 minutesSinceStart, request.getOutcome(), newStatus);
-        return interviewMapper.toResponse(interview);
+        return toResponseWithConflict(interview);
     }
 
     @Override
     public InterviewScheduleResponse getInterviewById(Integer interviewId) {
         InterviewSchedule interview = findInterviewById(interviewId);
-        return interviewMapper.toResponse(interview);
+        return toResponseWithConflict(interview);
     }
 
     @Override
     public InterviewScheduleResponse getInterviewByJobApply(Integer jobApplyId) {
         return interviewRepo.findByJobApplyId(jobApplyId)
-                .map(interviewMapper::toResponse)
+                .map(this::toResponseWithConflict)
                 .orElse(null);
     }
 
@@ -505,7 +512,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                 recruiterId,
                 LocalDateTime.now());
         return interviews.stream()
-                .map(interviewMapper::toResponse)
+                .map(this::toResponseWithConflict)
                 .collect(Collectors.toList());
     }
 
@@ -516,7 +523,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         // passed
         List<InterviewSchedule> interviews = interviewRepo.findScheduledInterviewsByRecruiterId(recruiterId);
         return interviews.stream()
-                .map(interviewMapper::toResponse)
+                .map(this::toResponseWithConflict)
                 .collect(Collectors.toList());
     }
 
@@ -526,7 +533,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                 candidateId,
                 LocalDateTime.now());
         return interviews.stream()
-                .map(interviewMapper::toResponse)
+                .map(this::toResponseWithConflict)
                 .collect(Collectors.toList());
     }
 
@@ -536,7 +543,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                 candidateId,
                 LocalDateTime.now());
         return interviews.stream()
-                .map(interviewMapper::toResponse)
+                .map(this::toResponseWithConflict)
                 .collect(Collectors.toList());
     }
 
@@ -1203,5 +1210,69 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         } catch (Exception e) {
             log.error("❌ Failed to send interview cancellation notification: {}", e.getMessage());
         }
+    }
+
+    // ==================== CONFLICT CHECK HELPER METHODS ====================
+
+    /**
+     * Enriches an InterviewScheduleResponse with conflict information.
+     * Checks if the candidate has another interview scheduled at the same time.
+     * 
+     * @param response The interview response to enrich
+     * @param interview The interview schedule entity
+     * @return The enriched response with conflict information
+     */
+    private InterviewScheduleResponse enrichWithConflictInfo(InterviewScheduleResponse response, InterviewSchedule interview) {
+        if (interview == null || interview.getScheduledDate() == null) {
+            response.setHasConflict(false);
+            return response;
+        }
+
+        // Only check for conflicts on SCHEDULED or CONFIRMED interviews
+        if (interview.getStatus() != InterviewStatus.SCHEDULED && 
+            interview.getStatus() != InterviewStatus.CONFIRMED) {
+            response.setHasConflict(false);
+            return response;
+        }
+
+        try {
+            Integer candidateId = interview.getJobApply().getCandidate().getCandidateId();
+            LocalDateTime proposedStart = interview.getScheduledDate();
+            LocalDateTime proposedEnd = proposedStart.plusMinutes(
+                interview.getDurationMinutes() != null ? interview.getDurationMinutes() : 60);
+            
+            // Check for conflicts excluding this interview itself
+            boolean hasConflict = interviewRepo.candidateHasConflictExcludingInterview(
+                candidateId, proposedStart, proposedEnd, interview.getId());
+            
+            response.setHasConflict(hasConflict);
+            
+            if (hasConflict) {
+                // Find the conflicting interview for details
+                List<InterviewSchedule> conflictingInterviews = interviewRepo.findConflictingInterviewsForCandidate(
+                    candidateId, proposedStart, proposedEnd, interview.getId());
+                
+                if (!conflictingInterviews.isEmpty()) {
+                    InterviewSchedule conflict = conflictingInterviews.get(0);
+                    String conflictDetails = String.format("Conflicts with interview at %s for %s", 
+                        conflict.getScheduledDate().format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")),
+                        conflict.getJobApply().getJobPosting().getTitle());
+                    response.setConflictDetails(conflictDetails);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to check conflict for interview {}: {}", interview.getId(), e.getMessage());
+            response.setHasConflict(false);
+        }
+        
+        return response;
+    }
+
+    /**
+     * Converts an InterviewSchedule to response with conflict information.
+     */
+    private InterviewScheduleResponse toResponseWithConflict(InterviewSchedule interview) {
+        InterviewScheduleResponse response = interviewMapper.toResponse(interview);
+        return enrichWithConflictInfo(response, interview);
     }
 }
