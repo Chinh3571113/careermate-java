@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.authentication_services.service.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -8,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthenticationResponse {
     String accessToken;
@@ -18,11 +20,11 @@ public class AuthenticationResponse {
     boolean authenticated;
     Long expiresIn;
     String tokenType;
-    
+
     // User identification - CRITICAL for frontend API calls
-    Integer userId;           // Account ID
-    Integer recruiterId;      // Recruiter profile ID (null if not a recruiter)
-    Integer candidateId;      // Candidate profile ID (null if not a candidate)
+    Integer userId; // Account ID
+    Integer recruiterId; // Recruiter profile ID (null if not a recruiter)
+    Integer candidateId; // Candidate profile ID (null if not a candidate)
     String email;
-    String role;              // Primary role: ADMIN, RECRUITER, CANDIDATE
+    String role; // Primary role: ADMIN, RECRUITER, CANDIDATE
 }

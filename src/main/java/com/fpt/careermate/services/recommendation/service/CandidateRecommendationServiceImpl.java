@@ -11,6 +11,8 @@ import com.fpt.careermate.services.recommendation.dto.RecommendationResponseDTO;
 import com.fpt.careermate.services.resume_services.domain.Resume;
 import com.fpt.careermate.services.resume_services.domain.Skill;
 import com.fpt.careermate.services.resume_services.repository.ResumeRepo;
+import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
+import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.google.gson.GsonBuilder;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
@@ -39,6 +41,7 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
     JobPostingRepo jobPostingRepo;
     CandidateRepo candidateRepo;
     ResumeRepo resumeRepo;
+    JobApplyRepo jobApplyRepo;
     com.fpt.careermate.services.recommendation.util.SkillMatcher skillMatcher;
 
     private static final String CANDIDATE_CLASS = "CandidateProfile";
@@ -99,12 +102,31 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
         int limit = maxCandidates != null ? maxCandidates : DEFAULT_MAX_CANDIDATES;
         double threshold = minMatchScore != null ? minMatchScore : DEFAULT_MIN_MATCH_SCORE;
 
-        // Search in Weaviate using vector similarity
+        // Only consider candidates who have applied to this job posting
+        List<JobApply> applications = jobApplyRepo.findByJobPostingId(jobPostingId);
+        Set<Integer> eligibleCandidateIds = applications.stream()
+                .filter(app -> app.getCandidate() != null)
+                .map(app -> app.getCandidate().getCandidateId())
+                .collect(Collectors.toSet());
+
+        if (eligibleCandidateIds.isEmpty()) {
+            log.info("🛑 No applicants for job posting {}, returning empty recommendations", jobPostingId);
+            return RecommendationResponseDTO.builder()
+                    .jobPostingId(jobPostingId)
+                    .jobTitle(jobPosting.getTitle())
+                    .totalCandidatesFound(0)
+                    .recommendations(Collections.emptyList())
+                    .processingTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+        }
+
+        // Search in Weaviate using vector similarity, then filter by applied candidates
         List<CandidateRecommendationDTO> recommendations = searchCandidatesInWeaviate(
                 requiredSkills,
                 jobPosting.getYearsOfExperience(),
-                limit,
-                threshold);
+                Math.min(limit, eligibleCandidateIds.size()),
+                threshold,
+                eligibleCandidateIds);
 
         long processingTime = System.currentTimeMillis() - startTime;
         log.info("Found {} recommended candidates for job '{}' in {}ms",
@@ -123,7 +145,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             List<String> requiredSkills,
             int minYearsExperience,
             int limit,
-            double threshold) {
+            double threshold,
+            Set<Integer> eligibleCandidateIds) {
         try {
             // Create semantic search query from skills
             String searchQuery = String.join(" ", requiredSkills);
@@ -167,7 +190,7 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             log.info("✅ Weaviate semantic search completed, parsing results...");
             // Parse and rank results
             List<CandidateRecommendationDTO> recommendations = parseSemanticSearchResults(
-                    result.getResult(), requiredSkills, minYearsExperience, limit, threshold);
+                    result.getResult(), requiredSkills, minYearsExperience, limit, threshold, eligibleCandidateIds);
             log.info("📈 Found {} matching candidates", recommendations.size());
             return recommendations;
 
@@ -183,7 +206,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             List<String> requiredSkills,
             int minYearsExperience,
             int limit,
-            double threshold) {
+            double threshold,
+            Set<Integer> eligibleCandidateIds) {
         List<CandidateRecommendationDTO> recommendations = new ArrayList<>();
 
         try {
@@ -211,6 +235,11 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                     if (candidateIdObj == null)
                         continue;
                     int candidateId = ((Number) candidateIdObj).intValue();
+
+                    // Restrict to candidates who applied to this job
+                    if (!eligibleCandidateIds.contains(candidateId)) {
+                        continue;
+                    }
 
                     String candidateName = (String) candidate.get("candidateName");
                     String email = (String) candidate.get("email");

@@ -5,6 +5,7 @@ import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.profile_services.service.CandidateProfileImp;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
+import com.fpt.careermate.services.recommendation.service.CandidateWeaviateService;
 import com.fpt.careermate.services.resume_services.repository.ResumeRepo;
 import com.fpt.careermate.services.resume_services.service.dto.request.ResumeStatusRequest;
 import com.fpt.careermate.services.resume_services.service.dto.response.ResumeResponse;
@@ -17,6 +18,7 @@ import com.fpt.careermate.common.exception.ErrorCode;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +30,7 @@ import static lombok.AccessLevel.PRIVATE;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = PRIVATE, makeFinal = true)
+@Slf4j
 public class ResumeImp implements ResumeService {
 
     ResumeRepo resumeRepo;
@@ -35,6 +38,7 @@ public class ResumeImp implements ResumeService {
     ResumeMapper resumeMapper;
     CandidateProfileImp candidateProfileImp;
     AuthenticationImp authenticationService;
+    CandidateWeaviateService candidateWeaviateService;
 
     @Override
     @Transactional
@@ -52,6 +56,7 @@ public class ResumeImp implements ResumeService {
                 .build();
 
         Resume savedResume = resumeRepo.save(newResume);
+        syncCandidateProfile(savedResume);
         return resumeMapper.toResumeResponse(savedResume);
     }
 
@@ -86,8 +91,20 @@ public class ResumeImp implements ResumeService {
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
     public void deleteResume(int resumeId) {
-        resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
-        resumeRepo.deleteById(resumeId);
+        Candidate candidate = candidateProfileImp.generateProfile();
+        Resume resume = resumeRepo.findByResumeIdAndCandidateCandidateId(resumeId, candidate.getCandidateId())
+                .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
+
+        resumeRepo.delete(resume);
+
+        // If the candidate still has another resume, sync that one; otherwise remove
+        // from Weaviate
+        List<Resume> remaining = resumeRepo.findByCandidateCandidateId(candidate.getCandidateId());
+        if (!remaining.isEmpty()) {
+            syncCandidateProfile(remaining.get(0));
+        } else {
+            deleteCandidateProfile(candidate.getCandidateId());
+        }
     }
 
     @Transactional
@@ -108,6 +125,7 @@ public class ResumeImp implements ResumeService {
         resume.setResumeUrl(resumeRequest.getResumeUrl());
 
         Resume updatedResume = resumeRepo.save(resume);
+        syncCandidateProfile(updatedResume);
 
         return resumeMapper.toResumeResponse(updatedResume);
     }
@@ -137,6 +155,7 @@ public class ResumeImp implements ResumeService {
         // Update only isActive field
         resume.setIsActive(request.getIsActive());
         Resume updatedResume = resumeRepo.save(resume);
+        syncCandidateProfile(updatedResume);
 
         return resumeMapper.toResumeResponse(updatedResume);
     }
@@ -155,6 +174,7 @@ public class ResumeImp implements ResumeService {
         // Update only type field
         resume.setType(request);
         Resume updatedResume = resumeRepo.save(resume);
+        syncCandidateProfile(updatedResume);
 
         return resumeMapper.toResumeResponse(updatedResume);
     }
@@ -175,10 +195,36 @@ public class ResumeImp implements ResumeService {
                 .collect(Collectors.toList());
     }
 
-    // Helper method to get resume by ID for other services (used by Education, Certificate, etc.)
+    // Helper method to get resume by ID for other services (used by Education,
+    // Certificate, etc.)
     public Resume getResumeEntityById(int resumeId) {
         Candidate candidate = candidateProfileImp.generateProfile();
         return resumeRepo.findByResumeIdAndCandidateCandidateId(resumeId, candidate.getCandidateId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
+    }
+
+    /**
+     * Push the latest resume snapshot to Weaviate. Errors are logged so we don't
+     * block the main transaction.
+     */
+    public void syncCandidateProfile(Resume resume) {
+        try {
+            candidateWeaviateService.storeCandidateProfile(resume);
+        } catch (Exception ex) {
+            log.warn("Failed to sync candidate {} resume {} to Weaviate: {}", resume.getCandidate().getCandidateId(),
+                    resume.getResumeId(), ex.getMessage());
+        }
+    }
+
+    public void syncCandidateProfileByResumeId(int resumeId) {
+        resumeRepo.findById(resumeId).ifPresent(this::syncCandidateProfile);
+    }
+
+    public void deleteCandidateProfile(int candidateId) {
+        try {
+            candidateWeaviateService.deleteCandidateProfile(candidateId);
+        } catch (Exception ex) {
+            log.warn("Failed to delete candidate {} profile from Weaviate: {}", candidateId, ex.getMessage());
+        }
     }
 }
