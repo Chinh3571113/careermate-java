@@ -3,6 +3,7 @@ package com.fpt.careermate.services.job_services.service;
 import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.common.constant.StatusJobPosting;
 import com.fpt.careermate.common.constant.StatusRecruiter;
+import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.domain.SavedJob;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
@@ -78,6 +79,9 @@ public class JobPostingImp implements JobPostingService {
     SavedJobRepo savedJobRepo;
     AsyncEmailService asyncEmailService;
     AsyncWeaviateService asyncWeaviateService;
+    RecruiterJobPostingRedisService recruiterJobPostingRedisService;
+    AdminJobPostingRedisService adminJobPostingRedisService;
+    CandidateJobPostingRedisService candidateJobPostingRedisService;
 
     // Recruiter create job posting
     @PreAuthorize("hasRole('RECRUITER')")
@@ -121,11 +125,17 @@ public class JobPostingImp implements JobPostingService {
         // Save to postgres
         JobPosting savedPostgres = jobPostingRepo.save(jobPosting);
 
+        // Clear list cache for this recruiter (new job posting added)
+        recruiterJobPostingRedisService.clearRecruiterListCache(recruiter.getId());
+
+        // Clear pending jobs cache (new pending job added)
+        adminJobPostingRedisService.clearPendingJobsCache();
+
+        // Clear admin list cache (new job posting affects admin views)
+        adminJobPostingRedisService.clearAllAdminListCache();
+
         // Send notification to admin about new job posting pending approval
         sendJobPostingPendingNotification(savedPostgres);
-
-        log.info("Job posting created successfully by recruiter: {} with ID: {}",
-                recruiter.getCompanyName(), savedPostgres.getId());
     }
 
     // Get all job postings of the current recruiter with all status
@@ -139,6 +149,15 @@ public class JobPostingImp implements JobPostingService {
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
     public JobPostingForRecruiterResponse getJobPostingDetailForRecruiter(int id) {
+        // Try to get from cache first
+        JobPostingForRecruiterResponse cachedResponse = recruiterJobPostingRedisService.getFromCache(id);
+        if (cachedResponse != null) {
+            log.debug("Returning cached job posting detail for ID: {}", id);
+            return cachedResponse;
+        }
+
+        // If not in cache, fetch from database
+        log.debug("Fetching job posting detail from database for ID: {}", id);
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
         JobPostingForRecruiterResponse jpResponse = jobPostingMapper.toJobPostingDetailForRecruiterResponse(jobPosting);
 
@@ -154,6 +173,10 @@ public class JobPostingImp implements JobPostingService {
         });
 
         jpResponse.setSkills(skills);
+
+        // Save to cache for future requests
+        recruiterJobPostingRedisService.saveToCache(id, jpResponse);
+        log.debug("Saved job posting detail to cache for ID: {}", id);
 
         return jpResponse;
     }
@@ -192,6 +215,16 @@ public class JobPostingImp implements JobPostingService {
             }
 
             JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+            // Invalidate cache for this job posting
+            recruiterJobPostingRedisService.deleteFromCache(id);
+            // Clear list cache for this recruiter
+            recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+
+            // Clear candidate list cache if job is ACTIVE (publicly visible)
+            if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+                candidateJobPostingRedisService.clearAllCandidateListCache();
+            }
 
             // Sync with Weaviate: delete old entry and add updated job
             if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
@@ -242,6 +275,11 @@ public class JobPostingImp implements JobPostingService {
 
         JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
 
+        // Invalidate cache for this job posting
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        // Clear list cache for this recruiter
+        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+
         // Sync with Weaviate: delete old entry and add updated job if it's active
         if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
             weaviateImp.deleteJobPosting(id);
@@ -265,6 +303,13 @@ public class JobPostingImp implements JobPostingService {
         jobPosting.setStatus(StatusJobPosting.DELETED);
         jobPostingRepo.save(jobPosting);
 
+        // Invalidate cache for this job posting
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        // Clear list cache for this recruiter
+        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+        // Note: ACTIVE jobs cannot be deleted (validation above), but clear candidate cache for safety
+        candidateJobPostingRedisService.clearAllCandidateListCache();
+
         // Delete from Weaviate
         weaviateImp.deleteJobPosting(id);
     }
@@ -281,6 +326,13 @@ public class JobPostingImp implements JobPostingService {
 
         jobPosting.setStatus(StatusJobPosting.PAUSED);
         jobPostingRepo.save(jobPosting);
+
+        // Invalidate cache for this job posting
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        // Clear list cache for this recruiter
+        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+        // Clear candidate list cache (job is no longer publicly visible)
+        candidateJobPostingRedisService.clearAllCandidateListCache();
 
         // Delete from Weaviate
         weaviateImp.deleteJobPosting(id);
@@ -383,6 +435,18 @@ public class JobPostingImp implements JobPostingService {
         // Save all updated job postings in batch
         jobPostingRepo.saveAll(expiredJobs);
 
+        // Invalidate cache for all expired job postings
+        expiredJobs.forEach(jp -> {
+            recruiterJobPostingRedisService.deleteFromCache(jp.getId());
+            recruiterJobPostingRedisService.clearRecruiterListCache(jp.getRecruiter().getId());
+        });
+
+        // Clear candidate list cache once (jobs removed from public view)
+        candidateJobPostingRedisService.clearAllCandidateListCache();
+
+        // Clear admin list cache (status changed for multiple jobs)
+        adminJobPostingRedisService.clearAllAdminListCache();
+
         // Delete expired jobs from Weaviate
         expiredJobs.forEach(jp -> {
             try {
@@ -401,19 +465,35 @@ public class JobPostingImp implements JobPostingService {
     // Admin get all job postings with pagination and filtering
     @PreAuthorize("hasRole('ADMIN')")
     @Override
-    public org.springframework.data.domain.Page<JobPostingForAdminResponse> getAllJobPostingsForAdmin(
+    public Page<JobPostingForAdminResponse> getAllJobPostingsForAdmin(
             int page, int size, String status, String sortBy, String sortDirection) {
 
-        log.info("Admin fetching job postings - Page: {}, Size: {}, Status: {}", page, size, status);
+        long startTime = System.currentTimeMillis();
 
-        org.springframework.data.domain.Sort sort = sortDirection.equalsIgnoreCase("ASC")
-                ? org.springframework.data.domain.Sort.by(sortBy).ascending()
-                : org.springframework.data.domain.Sort.by(sortBy).descending();
+        // Try to get from cache first
+        Page<?> cachedResponse =
+                adminJobPostingRedisService.getAdminListFromCache(
+                        page, size, status, sortBy, sortDirection
+                );
 
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size,
-                sort);
+        if (cachedResponse != null) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.info("getAllJobPostingsForAdmin - Redis - Response time: {}ms", responseTime);
 
-        org.springframework.data.domain.Page<JobPosting> jobPostings;
+            @SuppressWarnings("unchecked")
+            Page<JobPostingForAdminResponse> typedResponse =
+                    (Page<JobPostingForAdminResponse>) cachedResponse;
+
+            return typedResponse;
+        }
+
+        Sort sort = sortDirection.equalsIgnoreCase("ASC")
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<JobPosting> jobPostings;
 
         if (status == null || status.trim().isEmpty() || status.equalsIgnoreCase("ALL")) {
             jobPostings = jobPostingRepo.findAll(pageable);
@@ -421,7 +501,16 @@ public class JobPostingImp implements JobPostingService {
             jobPostings = jobPostingRepo.findAllByStatusOrderByCreateAtDesc(status.toUpperCase(), pageable);
         }
 
-        return jobPostings.map(this::convertToAdminResponse);
+        Page<JobPostingForAdminResponse> result = jobPostings.map(this::convertToAdminResponse);
+
+        // Save to cache for future requests
+        adminJobPostingRedisService.saveAdminListToCache(
+                page, size, status, sortBy, sortDirection, result);
+
+        long responseTime = System.currentTimeMillis() - startTime;
+        log.info("getAllJobPostingsForAdmin - (DB query + cache save) - Response time: {}ms ",responseTime);
+
+        return result;
     }
 
     // Admin get specific job posting detail
@@ -488,6 +577,23 @@ public class JobPostingImp implements JobPostingService {
 
         JobPosting savedPostgres = jobPostingRepo.save(jobPosting);
 
+        // Invalidate cache for this job posting
+        recruiterJobPostingRedisService.deleteFromCache(id);
+
+        // Clear list cache for this recruiter
+        recruiterJobPostingRedisService.clearRecruiterListCache(savedPostgres.getRecruiter().getId());
+
+        // Clear candidate list cache if job is approved (becomes publicly visible)
+        if(savedPostgres.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            candidateJobPostingRedisService.clearAllCandidateListCache();
+        }
+
+        // Clear admin list cache (status changed, affects all admin views)
+        adminJobPostingRedisService.clearAllAdminListCache();
+
+        // Clear pending jobs cache (job is no longer pending)
+        adminJobPostingRedisService.clearPendingJobsCache();
+
         // Add to Weaviate ASYNCHRONOUSLY if approved - prevents blocking response
         if(savedPostgres.getStatus().equals(StatusJobPosting.ACTIVE)) {
             asyncWeaviateService.addJobPostingToWeaviateAsync(savedPostgres);
@@ -498,13 +604,35 @@ public class JobPostingImp implements JobPostingService {
     @PreAuthorize("hasRole('ADMIN')")
     @Override
     public List<JobPostingForAdminResponse> getPendingJobPostings() {
-        log.info("Admin fetching all pending job postings");
+        long startTime = System.currentTimeMillis();
+
+        // Try to get from cache first
+        List<?> cachedResponse = adminJobPostingRedisService.getPendingJobsFromCache();
+
+        if (cachedResponse != null) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.info("getPendingJobPostings - Redis - Response time: {}ms", responseTime);
+
+            @SuppressWarnings("unchecked")
+            List<JobPostingForAdminResponse> typedResponse =
+                    (List<JobPostingForAdminResponse>) cachedResponse;
+
+            return typedResponse;
+        }
 
         List<JobPosting> pendingJobs = jobPostingRepo.findAllByStatus(StatusJobPosting.PENDING);
 
-        return pendingJobs.stream()
+        List<JobPostingForAdminResponse> result = pendingJobs.stream()
                 .map(this::convertToAdminResponse)
                 .toList();
+
+        // Save to cache for future requests
+        adminJobPostingRedisService.savePendingJobsToCache(result);
+
+        long responseTime = System.currentTimeMillis() - startTime;
+        log.info("getPendingJobPostings - (DB query + cache save) - Response time: {}ms", responseTime);
+
+        return result;
     }
 
     // Helper method to convert JobPosting to Admin Response
@@ -553,12 +681,29 @@ public class JobPostingImp implements JobPostingService {
 
     // Public API: Get all approved and active job postings with search
     @Override
-    public com.fpt.careermate.common.response.PageResponse<JobPostingForCandidateResponse> getAllApprovedJobPostings(
-            String keyword, org.springframework.data.domain.Pageable pageable) {
-        log.info("Public API: Fetching approved job postings - keyword: {}, page: {}", keyword,
-                pageable.getPageNumber());
+    public PageResponse<JobPostingForCandidateResponse> getAllApprovedJobPostings(
+            String keyword, Pageable pageable) {
+        long startTime = System.currentTimeMillis();
 
-        org.springframework.data.domain.Page<JobPosting> jobPostingPage;
+        // Try to get from cache first
+        PageResponse<?> cachedResponse =
+                candidateJobPostingRedisService.getCandidateListFromCache(
+                        pageable.getPageNumber(),
+                        pageable.getPageSize(),
+                        keyword);
+
+        if (cachedResponse != null) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.info("getAllApprovedJobPostings - Redis - Response time: {}ms", responseTime);
+
+            @SuppressWarnings("unchecked")
+            PageResponse<JobPostingForCandidateResponse> typedResponse =
+                    (PageResponse<JobPostingForCandidateResponse>) cachedResponse;
+
+            return typedResponse;
+        }
+
+        Page<JobPosting> jobPostingPage;
         LocalDate currentDate = LocalDate.now();
 
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -581,12 +726,24 @@ public class JobPostingImp implements JobPostingService {
                 .map(this::convertToCandidateResponse)
                 .toList();
 
-        return new com.fpt.careermate.common.response.PageResponse<>(
+        PageResponse<JobPostingForCandidateResponse> pageResponse = new PageResponse<>(
                 responses,
                 jobPostingPage.getNumber(),
                 jobPostingPage.getSize(),
                 jobPostingPage.getTotalElements(),
                 jobPostingPage.getTotalPages());
+
+        // Save to cache for future requests
+        candidateJobPostingRedisService.saveCandidateListToCache(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                keyword,
+                pageResponse);
+
+        long responseTime = System.currentTimeMillis() - startTime;
+        log.info("getAllApprovedJobPostings - (DB query + cache save) - Response time: {}ms ", responseTime);
+
+        return pageResponse;
     }
 
     // Public API: Get job posting detail by ID (only approved ones)
@@ -807,9 +964,23 @@ public class JobPostingImp implements JobPostingService {
 
     private PageJobPostingForRecruiterResponse gellAllJobPostings(
             int page, int size, String keyword, int recruiterId, int candidateId) {
+
+        long startTime = System.currentTimeMillis();
+
         if (recruiterId == 0) {
             Recruiter recruiter = getMyRecruiter();
             recruiterId = recruiter.getId();
+        }
+
+        // Try to get from cache first (only for non-candidate requests)
+        if (candidateId == 0) {
+            PageJobPostingForRecruiterResponse cachedResponse =
+                    recruiterJobPostingRedisService.getListFromCache(recruiterId, page, size, keyword);
+            if (cachedResponse != null) {
+                long responseTime = System.currentTimeMillis() - startTime;
+                log.info("getAllJobPostingForRecruiter - Redis - Response time: {}ms", responseTime);
+                return cachedResponse;
+            }
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").ascending());
@@ -867,6 +1038,17 @@ public class JobPostingImp implements JobPostingService {
         PageJobPostingForRecruiterResponse pageResponse = jobPostingMapper
                 .toPageJobPostingForRecruiterResponse(pageJobPosting);
         pageResponse.setContent(jobPostingForRecruiterResponses);
+
+        // Save to cache for future requests (only for non-candidate requests)
+        if (candidateId == 0) {
+            recruiterJobPostingRedisService.saveListToCache(recruiterId, page, size, keyword, pageResponse);
+
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.info("getAllJobPostingForRecruiter - (DB query + cache save) - Response time: {}ms", responseTime);
+        } else {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.info("for candidate view (no cache) - Response time: {}ms", responseTime);
+        }
 
         return pageResponse;
     }
