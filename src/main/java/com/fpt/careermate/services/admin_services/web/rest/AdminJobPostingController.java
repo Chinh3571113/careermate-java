@@ -41,8 +41,6 @@ public class AdminJobPostingController {
             @RequestParam(defaultValue = "createAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDirection) {
 
-        log.info("Admin fetching job postings - Page: {}, Size: {}, Status: {}", page, size, status);
-
         Page<JobPostingForAdminResponse> jobPostings = jobPostingImp.getAllJobPostingsForAdmin(
                 page, size, status, sortBy, sortDirection);
 
@@ -56,8 +54,6 @@ public class AdminJobPostingController {
     @GetMapping("/{id}")
     @Operation(summary = "Get job posting detail", description = "Admin can view detailed information of a specific job posting")
     public ApiResponse<JobPostingForAdminResponse> getJobPostingDetail(@PathVariable int id) {
-        log.info("Admin fetching job posting detail for ID: {}", id);
-
         JobPostingForAdminResponse jobPosting = jobPostingImp.getJobPostingDetailForAdmin(id);
 
         return ApiResponse.<JobPostingForAdminResponse>builder()
@@ -70,8 +66,6 @@ public class AdminJobPostingController {
     @GetMapping("/pending")
     @Operation(summary = "Get all pending job postings", description = "Admin can view all job postings that are waiting for approval")
     public ApiResponse<List<JobPostingForAdminResponse>> getPendingJobPostings() {
-        log.info("Admin fetching all pending job postings");
-
         List<JobPostingForAdminResponse> pendingJobs = jobPostingImp.getPendingJobPostings();
 
         return ApiResponse.<List<JobPostingForAdminResponse>>builder()

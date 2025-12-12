@@ -57,8 +57,6 @@ public class CandidateJobPostingController {
             @RequestParam(defaultValue = "createAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        log.info("Public API: Fetching job postings - keyword: {}, page: {}, size: {}", keyword, page, size);
-
         // Create sort object
         Sort sort = sortDir.equalsIgnoreCase("asc")
             ? Sort.by(sortBy).ascending()
