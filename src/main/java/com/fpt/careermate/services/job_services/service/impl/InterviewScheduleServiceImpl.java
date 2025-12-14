@@ -124,7 +124,12 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
+        // Update job application status and timestamps
+        if (jobApply.getInterviewScheduledAt() == null) {
+            jobApply.setInterviewScheduledAt(LocalDateTime.now());
+        }
         jobApply.setStatus(StatusJobApply.INTERVIEW_SCHEDULED);
+        jobApply.setLastContactAt(LocalDateTime.now());
         jobApplyRepo.save(jobApply);
 
         // Send interview invitation notification to candidate (include conflict warning if applicable)
@@ -191,6 +196,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             // Set job application back to REVIEWING for new interview scheduling
             JobApply jobApply = interview.getJobApply();
             jobApply.setStatus(StatusJobApply.REVIEWING);
+            jobApply.setLastContactAt(LocalDateTime.now());
             jobApplyRepo.save(jobApply);
 
             log.info("Interview marked for second round - status: RESCHEDULED, job application: REVIEWING");
@@ -209,10 +215,14 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
-        // Update job application status based on interview outcome
+        // Update job application status and timestamps based on interview outcome
         JobApply jobApply = interview.getJobApply();
+        if (jobApply.getInterviewedAt() == null) {
+            jobApply.setInterviewedAt(interview.getInterviewCompletedAt());
+        }
         StatusJobApply newStatus = determineJobApplyStatusFromOutcome(request.getOutcome());
         jobApply.setStatus(newStatus);
+        jobApply.setLastContactAt(LocalDateTime.now());
         jobApplyRepo.save(jobApply);
 
         log.info("Interview completed with outcome: {} -> Job application status: {}",
@@ -263,6 +273,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         JobApply jobApply = interview.getJobApply();
         jobApply.setStatus(StatusJobApply.REJECTED);
+        jobApply.setLastContactAt(LocalDateTime.now());
         jobApplyRepo.save(jobApply);
 
         // Send no-show notification to candidate
@@ -341,6 +352,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
             JobApply jobApply = interview.getJobApply();
             jobApply.setStatus(StatusJobApply.REVIEWING);
+            jobApply.setLastContactAt(LocalDateTime.now());
             jobApplyRepo.save(jobApply);
 
             log.info("Interview marked for second round early after {} minutes", minutesSinceStart);
@@ -355,10 +367,14 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         interview = interviewRepo.save(interview);
 
-        // Update job application status based on interview outcome
+        // Update job application status and timestamps based on interview outcome
         JobApply jobApply = interview.getJobApply();
+        if (jobApply.getInterviewedAt() == null) {
+            jobApply.setInterviewedAt(interview.getInterviewCompletedAt());
+        }
         StatusJobApply newStatus = determineJobApplyStatusFromOutcome(request.getOutcome());
         jobApply.setStatus(newStatus);
+        jobApply.setLastContactAt(LocalDateTime.now());
         jobApplyRepo.save(jobApply);
 
         log.info("Interview completed early after {} minutes with outcome: {} -> Job status: {}",

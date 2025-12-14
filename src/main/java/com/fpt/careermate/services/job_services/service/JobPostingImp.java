@@ -285,6 +285,52 @@ public class JobPostingImp implements JobPostingService {
         weaviateImp.deleteJobPosting(id);
     }
 
+    // Recruiter extend job posting expiration date
+    @PreAuthorize("hasRole('RECRUITER')")
+    public void extendJobPosting(int id, String expirationDateStr) {
+        JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
+
+        // Only allow extending ACTIVE or EXPIRED job postings
+        if (!jobPosting.getStatus().equals(StatusJobPosting.ACTIVE) &&
+            !jobPosting.getStatus().equals(StatusJobPosting.EXPIRED)) {
+            throw new AppException(ErrorCode.CANNOT_MODIFY_JOB_POSTING);
+        }
+
+        // Parse and validate the new expiration date
+        LocalDate newExpirationDate;
+        try {
+            newExpirationDate = LocalDate.parse(expirationDateStr);
+        } catch (Exception e) {
+            throw new AppException(ErrorCode.INVALID_DATE_FORMAT);
+        }
+
+        // Validate new expiration date (must be in the future)
+        jobPostingValidator.validateExpirationDate(newExpirationDate);
+
+        // Ensure new expiration date is not before the creation date
+        if (newExpirationDate.isBefore(jobPosting.getCreateAt())) {
+            throw new AppException(ErrorCode.INVALID_EXPIRATION_DATE);
+        }
+
+        // Update expiration date
+        jobPosting.setExpirationDate(newExpirationDate);
+
+        // If expired posting is being extended, change status back to ACTIVE
+        if (jobPosting.getStatus().equals(StatusJobPosting.EXPIRED)) {
+            jobPosting.setStatus(StatusJobPosting.ACTIVE);
+        }
+
+        JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Sync with Weaviate: delete old entry and add updated job
+        if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            weaviateImp.deleteJobPosting(id);
+            weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
+        }
+
+        log.info("Job posting ID {} extended to {}", id, newExpirationDate);
+    }
+
     // Get job posting stats for recruiter dashboard
     @PreAuthorize("hasRole('RECRUITER')")
     public JobPostingStatsResponse getJobPostingStats() {

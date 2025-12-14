@@ -9,13 +9,11 @@ import com.fpt.careermate.services.authentication_services.service.Authenticatio
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
 import com.fpt.careermate.services.job_services.domain.JobApply;
-import com.fpt.careermate.services.job_services.domain.JobApplyStatusHistory;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
 import com.fpt.careermate.services.job_services.domain.EmploymentVerification;
 import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.job_services.repository.InterviewScheduleRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
-import com.fpt.careermate.services.job_services.repository.JobApplyStatusHistoryRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
 import com.fpt.careermate.services.job_services.repository.EmploymentVerificationRepo;
 import com.fpt.careermate.services.job_services.service.dto.request.JobApplyRequest;
@@ -60,7 +58,6 @@ public class JobApplyImp implements JobApplyService {
         CandidateRepo candidateRepo;
         JobApplyMapper jobApplyMapper;
         NotificationProducer notificationProducer;
-        JobApplyStatusHistoryRepo statusHistoryRepo;
         AuthenticationImp authenticationImp;
         RecruiterRepo recruiterRepo;
         InterviewScheduleRepo interviewScheduleRepo;
@@ -119,7 +116,8 @@ public class JobApplyImp implements JobApplyService {
                                 .createAt(LocalDateTime.now())
                                 .build();
 
-                JobApply savedJobApply = jobApplyRepo.save(jobApply);
+                // Flush early so we don't send notifications for a DB write that later fails on commit
+                JobApply savedJobApply = jobApplyRepo.saveAndFlush(jobApply);
                 log.info("Job application created with ID: {} for job: {}", savedJobApply.getId(),
                                 jobPosting.getTitle());
 
@@ -246,10 +244,8 @@ public class JobApplyImp implements JobApplyService {
                 // Auto-set timestamps based on status
                 updateTimestampsForStatus(jobApply, status);
 
-                JobApply updatedJobApply = jobApplyRepo.save(jobApply);
-
-                // Record status change in history
-                recordStatusChange(updatedJobApply, previousStatus, status, null, null);
+                // Flush early so we don't send notifications for a DB write that later fails on commit
+                JobApply updatedJobApply = jobApplyRepo.saveAndFlush(jobApply);
 
                 log.info("Job application ID: {} updated from {} to {}", id, previousStatus, status);
 
@@ -769,25 +765,6 @@ public class JobApplyImp implements JobApplyService {
                 }
         }
 
-        /**
-         * Record status change in history table
-         */
-        private void recordStatusChange(JobApply jobApply, StatusJobApply previousStatus,
-                        StatusJobApply newStatus, Integer changedByUserId, String reason) {
-                JobApplyStatusHistory history = JobApplyStatusHistory.builder()
-                                .jobApply(jobApply)
-                                .previousStatus(previousStatus)
-                                .newStatus(newStatus)
-                                .changedAt(LocalDateTime.now())
-                                .changedByUserId(changedByUserId)
-                                .changeReason(reason)
-                                .build();
-
-                statusHistoryRepo.save(history);
-                log.info("📝 Recorded status change: JobApply {} from {} to {}",
-                                jobApply.getId(), previousStatus, newStatus);
-        }
-
         // ==================== AUTO-WITHDRAW ON HIRE ====================
 
         /**
@@ -847,13 +824,6 @@ public class JobApplyImp implements JobApplyService {
                                 application.setStatus(StatusJobApply.WITHDRAWN);
                                 application.setStatusChangedAt(LocalDateTime.now());
                                 jobApplyRepo.save(application);
-
-                                // Record in history with reason
-                                String withdrawReason = String.format(
-                                                "Auto-withdrawn: Candidate hired for '%s' at %s",
-                                                hiredJobTitle, hiredCompanyName);
-                                recordStatusChange(application, previousStatus, StatusJobApply.WITHDRAWN,
-                                                null, withdrawReason);
 
                                 // Send notification to recruiter about auto-withdrawal
                                 sendAutoWithdrawNotificationToRecruiter(application, hiredJobTitle, hiredCompanyName);
@@ -1261,10 +1231,6 @@ public class JobApplyImp implements JobApplyService {
                                 jobApplyId, e.getMessage(), e);
                 }
                 
-                // Record status change in history
-                recordStatusChange(updatedJobApply, previousStatus, StatusJobApply.WORKING, 
-                                candidate.getAccount().getId(), "Candidate confirmed job offer");
-                
                 log.info("✅ Candidate {} confirmed job offer for application {}. Status: OFFER_EXTENDED → WORKING",
                                 candidate.getCandidateId(), jobApplyId);
                 
@@ -1332,9 +1298,6 @@ public class JobApplyImp implements JobApplyService {
                         employmentVerificationRepo.save(ev);
                 });
 
-                recordStatusChange(updated, previousStatus, StatusJobApply.TERMINATED,
-                                candidate.getAccount().getId(), "Candidate ended employment");
-
                 try {
                         sendApplicationStatusChangeNotification(updated, previousStatus, StatusJobApply.TERMINATED);
                 } catch (Exception e) {
@@ -1376,10 +1339,6 @@ public class JobApplyImp implements JobApplyService {
                 jobApply.setLastContactAt(LocalDateTime.now());
                 
                 JobApply updatedJobApply = jobApplyRepo.save(jobApply);
-                
-                // Record status change in history
-                recordStatusChange(updatedJobApply, previousStatus, StatusJobApply.WITHDRAWN, 
-                                candidate.getAccount().getId(), "Candidate declined job offer");
                 
                 log.info("❌ Candidate {} declined job offer for application {}. Status: OFFER_EXTENDED → WITHDRAWN",
                                 candidate.getCandidateId(), jobApplyId);

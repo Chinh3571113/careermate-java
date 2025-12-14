@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.order_services.service.mapper;
 
 import com.fpt.careermate.services.order_services.domain.RecruiterInvoice;
+import com.fpt.careermate.services.order_services.service.dto.response.MyInvoiceListItemResponse;
 import com.fpt.careermate.services.order_services.service.dto.response.MyRecruiterInvoiceResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -9,4 +10,7 @@ import org.mapstruct.Mapping;
 public interface RecruiterInvoiceMapper {
     @Mapping(source = "recruiterPackage.name", target = "packageName")
     MyRecruiterInvoiceResponse toMyRecruiterInvoiceResponse(RecruiterInvoice recruiterInvoice);
+
+    @Mapping(source = "recruiterPackage.name", target = "packageName")
+    MyInvoiceListItemResponse toMyInvoiceListItemResponse(RecruiterInvoice recruiterInvoice);
 }

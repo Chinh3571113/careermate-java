@@ -92,6 +92,7 @@ public enum ErrorCode {
         CANDIDATE_ALREADY_EMPLOYED(6021,
                         "Candidate is already employed at another job. They must terminate their current employment before accepting a new job.",
                         HttpStatus.CONFLICT),
+        INVALID_DATE_FORMAT(6022, "Invalid date format. Expected format: YYYY-MM-DD", HttpStatus.BAD_REQUEST),
 
         // 70xx: Coach
         LESSON_NOT_FOUND(7000, "Lesson not found", HttpStatus.NOT_FOUND),
