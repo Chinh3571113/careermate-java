@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.net.URI;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -28,28 +30,59 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RedisConfig {
 
-    @Value("${spring.data.redis.host:localhost}")
-    String redisHost;
-
-    @Value("${spring.data.redis.port:6379}")
-    int redisPort;
-
-    @Value("${spring.data.redis.password:}")
-    String redisPassword;
+    // Use a single URL property (examples: redis://localhost:6379 or rediss://:password@host:6379)
+    @Value("${spring.data.redis.url:redis://localhost:6379}")
+    String redisUrl;
 
     // LettuceConnectionFactory = Redis client mặc định của Spring Boot 3.x
     // Ổn định hơn và được recommend hơn Jedis
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-        config.setHostName(redisHost);
-        config.setPort(redisPort);
+        // Parse URL with java.net.URI to avoid deprecated RedisURI.getPassword()
+        String host = "localhost";
+        int port = 6379;
+        String password = null;
+        boolean ssl = false;
 
-        if (redisPassword != null && !redisPassword.isEmpty()) {
-            config.setPassword(redisPassword);
+        try {
+            URI uri = new URI(redisUrl);
+            if (uri.getHost() != null) {
+                host = uri.getHost();
+            }
+            if (uri.getPort() != -1) {
+                port = uri.getPort();
+            }
+            String userInfo = uri.getUserInfo();
+            if (userInfo != null && !userInfo.isEmpty()) {
+                int idx = userInfo.indexOf(':');
+                if (idx >= 0 && idx + 1 < userInfo.length()) {
+                    password = userInfo.substring(idx + 1);
+                } else {
+                    password = userInfo.replaceFirst(":", "");
+                }
+            }
+            String scheme = uri.getScheme();
+            if (scheme != null && scheme.equalsIgnoreCase("rediss")) {
+                ssl = true;
+            }
+        } catch (Exception ignored) {
+            // Keep defaults if parsing fails
         }
 
-        return new LettuceConnectionFactory(config);
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+        config.setHostName(host);
+        config.setPort(port);
+        if (password != null && !password.isEmpty()) {
+            config.setPassword(password);
+        }
+
+        LettuceClientConfiguration.LettuceClientConfigurationBuilder clientBuilder = LettuceClientConfiguration.builder();
+        if (ssl) {
+            clientBuilder.useSsl();
+        }
+        LettuceClientConfiguration clientConfig = clientBuilder.build();
+
+        return new LettuceConnectionFactory(config, clientConfig);
     }
 
     @Bean
@@ -96,4 +129,3 @@ public class RedisConfig {
         return template;
     }
 }
-
