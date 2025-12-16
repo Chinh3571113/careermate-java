@@ -41,27 +41,34 @@ public class CertificateImp implements CertificateService {
 
         Certificate savedCertificate = certificateRepo.save(certificateInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return certificateMapper.toResponse(savedCertificate);
     }
 
     @Override
     @PreAuthorize("hasRole('CANDIDATE')")
     public void removeCertificationFromResume(int certificationId) {
-        certificateRepo.findById(certificationId)
+        Certificate certificate = certificateRepo.findById(certificationId)
                 .orElseThrow(() -> new AppException(ErrorCode.CERTIFICATE_NOT_FOUND));
-        certificateRepo.deleteById(certificationId);
+        int resumeId = certificate.getResume().getResumeId();
+        certificateRepo.delete(certificate);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
     @Override
     @PreAuthorize("hasRole('CANDIDATE')")
-    public CertificateResponse updateCertificationInResume(int resumeId, int certificationId, CertificateRequest certification) {
+    public CertificateResponse updateCertificationInResume(int resumeId, int certificationId,
+            CertificateRequest certification) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
         Certificate existingCertificate = certificateRepo.findById(certificationId)
                 .orElseThrow(() -> new AppException(ErrorCode.CERTIFICATE_NOT_FOUND));
 
         certificateMapper.updateEntity(certification, existingCertificate);
+        Certificate updated = certificateRepo.save(existingCertificate);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
 
-        return certificateMapper.toResponse(certificateRepo.save(existingCertificate));
+        return certificateMapper.toResponse(updated);
     }
 }

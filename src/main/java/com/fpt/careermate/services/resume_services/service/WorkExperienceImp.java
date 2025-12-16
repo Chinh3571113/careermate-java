@@ -42,27 +42,34 @@ public class WorkExperienceImp implements WorkExperienceService {
 
         WorkExperience savedWorkExp = workExperienceRepo.save(workExpInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return workExperienceMapper.toResponse(savedWorkExp);
     }
 
     @Override
     @PreAuthorize("hasRole('CANDIDATE')")
     public void removeWorkExperienceFromResume(int workExperienceId) {
-        workExperienceRepo.findById(workExperienceId)
+        WorkExperience workExperience = workExperienceRepo.findById(workExperienceId)
                 .orElseThrow(() -> new AppException(ErrorCode.WORK_EXPERIENCE_NOT_FOUND));
-        workExperienceRepo.deleteById(workExperienceId);
+        int resumeId = workExperience.getResume().getResumeId();
+        workExperienceRepo.delete(workExperience);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public WorkExperienceResponse updateWorkExperienceInResume(int resumeId, int workExp, WorkExperienceRequest workExperience) {
+    public WorkExperienceResponse updateWorkExperienceInResume(int resumeId, int workExp,
+            WorkExperienceRequest workExperience) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
         WorkExperience existingWorkExp = workExperienceRepo.findById(workExp)
                 .orElseThrow(() -> new AppException(ErrorCode.WORK_EXPERIENCE_NOT_FOUND));
 
         workExperienceMapper.updateEntity(workExperience, existingWorkExp);
+        WorkExperience updated = workExperienceRepo.save(existingWorkExp);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
 
-        return workExperienceMapper.toResponse(workExperienceRepo.save(existingWorkExp));
+        return workExperienceMapper.toResponse(updated);
     }
 }

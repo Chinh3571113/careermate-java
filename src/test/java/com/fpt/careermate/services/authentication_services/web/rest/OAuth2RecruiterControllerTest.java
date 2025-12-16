@@ -41,6 +41,10 @@ class OAuth2RecruiterControllerTest {
                 .website("https://techcompany.com")
                 .about("A leading technology company")
                 .logoUrl("https://techcompany.com/logo.png")
+                .companyEmail("contact@techcompany.com")
+                .contactPerson("John Doe")
+                .phoneNumber("0123456789")
+                .companyAddress("123 Tech Street, District 1, Ho Chi Minh City")
                 .build();
     }
 

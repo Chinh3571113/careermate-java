@@ -23,6 +23,13 @@ RUN mvn clean package -DskipTests
 # ===========================================
 FROM eclipse-temurin:21-jre-alpine
 
+# Set timezone to Vietnam
+ENV TZ=Asia/Ho_Chi_Minh
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    apk del tzdata
+
 # Set working directory
 WORKDIR /app
 
@@ -32,8 +39,8 @@ COPY --from=builder /app/target/*.jar app.jar
 # Expose the application port
 EXPOSE 8080
 
-# JVM options (optional)
-ENV JAVA_OPTS="-Xms256m -Xmx512m"
+# JVM options with timezone setting
+ENV JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Ho_Chi_Minh"
 
 # Run the Spring Boot application
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

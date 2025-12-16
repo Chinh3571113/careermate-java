@@ -100,6 +100,21 @@ public class JobPostingController {
 
     }
 
+    @PutMapping("/{id}/extend")
+    @Operation(summary = "Extend job posting expiration date",
+               description = "Extends the expiration date of an ACTIVE or EXPIRED job posting")
+    ApiResponse<String> extendJobPosting(
+            @PathVariable int id,
+            @RequestParam String expirationDate
+    ) {
+        jobPostingImp.extendJobPosting(id, expirationDate);
+        
+        return ApiResponse.<String>builder()
+                .code(200)
+                .message("Job posting expiration date extended successfully")
+                .build();
+    }
+
     @GetMapping("/recruiter/stats")
     @Operation(summary = "Get job posting statistics for the current recruiter",
                description = "Returns counts of job postings by status and applications by status for the recruiter dashboard")

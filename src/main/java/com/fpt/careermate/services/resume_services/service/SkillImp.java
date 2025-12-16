@@ -42,6 +42,8 @@ public class SkillImp implements SkillService {
 
         Skill savedSkill = skillRepo.save(skillInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return skillMapper.toResponse(savedSkill);
     }
 
@@ -51,6 +53,7 @@ public class SkillImp implements SkillService {
         skillRepo.findById(skillId)
                 .orElseThrow(() -> new AppException(ErrorCode.SKILL_NOT_FOUND));
         skillRepo.deleteById(skillId);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
@@ -63,6 +66,9 @@ public class SkillImp implements SkillService {
 
         skillMapper.updateEntity(skill, existingSkill);
 
-        return skillMapper.toResponse(skillRepo.save(existingSkill));
+        Skill updated = skillRepo.save(existingSkill);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
+
+        return skillMapper.toResponse(updated);
     }
 }

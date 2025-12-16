@@ -15,6 +15,10 @@ import java.util.Optional;
 public interface RecruiterInvoiceRepo extends JpaRepository<RecruiterInvoice,Integer> {
     Optional<RecruiterInvoice> findByRecruiter_IdAndIsActiveTrue(int recruiterId);
 
+    Page<RecruiterInvoice> findByRecruiter_IdOrderByIdDesc(int recruiterId, Pageable pageable);
+
+    Optional<RecruiterInvoice> findByIdAndRecruiter_Id(int id, int recruiterId);
+
     @Override
     Page<RecruiterInvoice> findAll(Pageable pageable);
 

@@ -1,0 +1,238 @@
+<mxfile host="app.diagrams.net" modified="2025-12-13T00:00:00.000Z" agent="GitHub Copilot" version="22.1.11" etag="drawio-generated" type="device">
+  <diagram id="JobApplicationWorkflow" name="Job Application Workflow">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="Job Application" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="150" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- START STATE -->
+        <mxCell id="start" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="410" y="70" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- JOB APPLICATION STATES -->
+        
+        <!-- SUBMITTED -->
+        <mxCell id="SUBMITTED" value="Created" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="140" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- REVIEWING -->
+        <mxCell id="REVIEWING" value="Reviewing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="230" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- INTERVIEW_SCHEDULED -->
+        <mxCell id="INTERVIEW_SCHEDULED" value="Interview Scheduled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="320" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- INTERVIEWED -->
+        <mxCell id="INTERVIEWED" value="Interviewed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="410" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- APPROVED -->
+        <mxCell id="APPROVED" value="Approved" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="500" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- OFFER_EXTENDED -->
+        <mxCell id="OFFER_EXTENDED" value="Offer Extended" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="590" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- WORKING -->
+        <mxCell id="WORKING" value="Working" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="680" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- TERMINATED -->
+        <mxCell id="TERMINATED" value="Terminated" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="770" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- REJECTED -->
+        <mxCell id="REJECTED" value="Rejected" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="590" y="410" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- WITHDRAWN -->
+        <mxCell id="WITHDRAWN" value="Withdrawn" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="90" y="410" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- BANNED -->
+        <mxCell id="BANNED" value="Banned" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="590" y="500" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- NO_RESPONSE -->
+        <mxCell id="NO_RESPONSE" value="No Response" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="590" y="230" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- END STATE -->
+        <mxCell id="end" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=3;" vertex="1" parent="1">
+          <mxGeometry x="410" y="870" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="end_inner" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="417" y="877" width="16" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- TRANSITIONS -->
+        
+        <!-- Start to SUBMITTED -->
+        <mxCell id="edge1" value="Candidate Applies" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="start" target="SUBMITTED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- SUBMITTED to REVIEWING -->
+        <mxCell id="edge2" value="Recruiter reviews" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="SUBMITTED" target="REVIEWING">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- REVIEWING to INTERVIEW_SCHEDULED -->
+        <mxCell id="edge3" value="Schedule interview" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="REVIEWING" target="INTERVIEW_SCHEDULED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- INTERVIEW_SCHEDULED to INTERVIEWED -->
+        <mxCell id="edge4" value="Complete interview" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="INTERVIEW_SCHEDULED" target="INTERVIEWED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- INTERVIEWED to APPROVED -->
+        <mxCell id="edge5" value="Pass" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="INTERVIEWED" target="APPROVED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- APPROVED to OFFER_EXTENDED -->
+        <mxCell id="edge6" value="Send offer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="APPROVED" target="OFFER_EXTENDED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- OFFER_EXTENDED to WORKING -->
+        <mxCell id="edge7" value="Accept offer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="OFFER_EXTENDED" target="WORKING">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- WORKING to TERMINATED -->
+        <mxCell id="edge8" value="End employment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="WORKING" target="TERMINATED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- TERMINATED to END -->
+        <mxCell id="edge9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="TERMINATED" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+
+        
+        <!-- INTERVIEWED to REJECTED -->
+        <mxCell id="edge10" value="Fail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="INTERVIEWED" target="REJECTED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- INTERVIEWED to REVIEWING (needs second round) -->
+        <mxCell id="edge11" value="Needs 2nd round" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;curved=1;" edge="1" parent="1" source="INTERVIEWED" target="REVIEWING">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="435" />
+              <mxPoint x="280" y="255" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- REVIEWING to REJECTED -->
+        <mxCell id="edge12" value="Reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="REVIEWING" target="REJECTED">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="255" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- SUBMITTED to NO_RESPONSE -->
+        <mxCell id="edge13" value="7+ days no response" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="SUBMITTED" target="NO_RESPONSE">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Withdrawal paths -->
+        <mxCell id="edge14" value="Withdraw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="SUBMITTED" target="WITHDRAWN">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="175" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge15" value="Withdraw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="REVIEWING" target="WITHDRAWN">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="175" y="255" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge16" value="Withdraw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="INTERVIEW_SCHEDULED" target="WITHDRAWN">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="175" y="345" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- OFFER_EXTENDED to WITHDRAWN -->
+        <mxCell id="edge17" value="Decline offer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;curved=1;" edge="1" parent="1" source="OFFER_EXTENDED" target="WITHDRAWN">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="50" y="615" />
+              <mxPoint x="50" y="435" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- REJECTED to BANNED -->
+        <mxCell id="edge18" value="Admin bans" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="REJECTED" target="BANNED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Terminal states to END -->
+        <mxCell id="edge19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="WITHDRAWN" target="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="175" y="885" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="BANNED" target="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="885" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="edge21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="NO_RESPONSE" target="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="885" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

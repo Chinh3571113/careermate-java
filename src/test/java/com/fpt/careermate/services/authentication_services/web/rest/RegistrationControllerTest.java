@@ -42,6 +42,10 @@ class RegistrationControllerTest {
                         .companyName("Tech Company Inc")
                         .website("https://techcompany.com")
                         .about("A leading technology company")
+                        .companyEmail("contact@techcompany.com")
+                        .contactPerson("John Doe")
+                        .phoneNumber("0123456789")
+                        .companyAddress("123 Tech Street, District 1, Ho Chi Minh City")
                         .build())
                 .build();
     }

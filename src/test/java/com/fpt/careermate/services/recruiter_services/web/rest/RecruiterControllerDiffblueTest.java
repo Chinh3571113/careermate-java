@@ -97,7 +97,7 @@ class RecruiterControllerDiffblueTest {
     organizationInfo.setCompanyName("Company Name");
     organizationInfo.setContactPerson("Contact Person");
     organizationInfo.setLogoUrl("https://example.org/example");
-    organizationInfo.setPhoneNumber("6625550144");
+    organizationInfo.setPhoneNumber("0123456789");
     organizationInfo.setWebsite("Website");
 
     MockHttpServletRequestBuilder requestBuilder =

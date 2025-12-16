@@ -42,27 +42,34 @@ public class HighLightProjectImp implements HighLightProjectService {
 
         HighlightProject savedHighlightProject = highlightProjectRepo.save(highlightProjectInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return highlightProjectMapper.toResponse(savedHighlightProject);
     }
 
     @Override
     @PreAuthorize("hasRole('CANDIDATE')")
     public void removeHighlightProjectFromResume(int highlightProjectId) {
-        highlightProjectRepo.findById(highlightProjectId)
+        HighlightProject highlightProject = highlightProjectRepo.findById(highlightProjectId)
                 .orElseThrow(() -> new AppException(ErrorCode.HIGHLIGHT_PROJECT_NOT_FOUND));
-        highlightProjectRepo.deleteById(highlightProjectId);
+        int resumeId = highlightProject.getResume().getResumeId();
+        highlightProjectRepo.delete(highlightProject);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public HighlightProjectResponse updateHighlightProjectInResume(int resumeId, int highlightProjectId, HighlightProjectRequest highlightProject) {
+    public HighlightProjectResponse updateHighlightProjectInResume(int resumeId, int highlightProjectId,
+            HighlightProjectRequest highlightProject) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
         HighlightProject existingHighlightProject = highlightProjectRepo.findById(highlightProjectId)
                 .orElseThrow(() -> new AppException(ErrorCode.HIGHLIGHT_PROJECT_NOT_FOUND));
 
         highlightProjectMapper.updateEntity(highlightProject, existingHighlightProject);
+        HighlightProject updated = highlightProjectRepo.save(existingHighlightProject);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
 
-        return highlightProjectMapper.toResponse(highlightProjectRepo.save(existingHighlightProject));
+        return highlightProjectMapper.toResponse(updated);
     }
 }

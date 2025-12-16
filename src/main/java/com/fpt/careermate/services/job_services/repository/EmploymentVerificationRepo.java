@@ -26,6 +26,17 @@ public interface EmploymentVerificationRepo extends JpaRepository<EmploymentVeri
      * Find all active employments
      */
     List<EmploymentVerification> findByIsActiveTrue();
+
+    /**
+     * Find active employments for a recruiter (via JobApply -> JobPosting -> Recruiter)
+     * Uses fetch-joins to avoid lazy-loading issues during DTO mapping.
+     */
+    @Query("SELECT ev FROM employment_verification ev " +
+           "JOIN FETCH ev.jobApply ja " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "WHERE ev.isActive = true AND r.id = :recruiterId")
+    List<EmploymentVerification> findActiveByRecruiterId(@Param("recruiterId") Integer recruiterId);
     
     /**
      * Find employments eligible for work experience review (30+ days)

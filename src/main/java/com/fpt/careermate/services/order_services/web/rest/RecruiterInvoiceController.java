@@ -2,10 +2,13 @@ package com.fpt.careermate.services.order_services.web.rest;
 
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.order_services.service.RecruiterInvoiceImp;
+import com.fpt.careermate.services.order_services.service.dto.response.MyInvoiceListItemResponse;
 import com.fpt.careermate.services.order_services.service.dto.response.MyRecruiterInvoiceResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.PageMyInvoiceListResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -62,6 +65,31 @@ public class RecruiterInvoiceController {
     public ApiResponse<MyRecruiterInvoiceResponse> getMyActiveInvoice() {
         return ApiResponse.<MyRecruiterInvoiceResponse>builder()
                 .result(recruiterInvoiceImp.getMyActiveInvoice())
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @Operation(summary = "Get my invoice history (paged)")
+    @GetMapping("/my-invoices")
+    public ApiResponse<PageMyInvoiceListResponse> myInvoiceHistory(
+            @RequestParam(defaultValue = "0") @PositiveOrZero int page,
+            @RequestParam(defaultValue = "20") @Positive int size
+    ) {
+        return ApiResponse.<PageMyInvoiceListResponse>builder()
+                .result(recruiterInvoiceImp.getMyInvoiceHistory(page, size))
+                .code(200)
+                .message("success")
+                .build();
+    }
+
+    @Operation(summary = "Get invoice detail by id (must be owned by current recruiter)")
+    @GetMapping("/my-invoices/{id}")
+    public ApiResponse<MyInvoiceListItemResponse> myInvoiceDetail(
+            @PathVariable("id") @Positive int id
+    ) {
+        return ApiResponse.<MyInvoiceListItemResponse>builder()
+                .result(recruiterInvoiceImp.getMyInvoiceById(id))
                 .code(200)
                 .message("success")
                 .build();

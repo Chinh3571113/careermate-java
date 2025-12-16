@@ -32,8 +32,6 @@ public class EducationImp implements EducationService {
     public EducationResponse addEducationToResume(EducationRequest education) {
         Resume resume = resumeImp.getResumeEntityById(education.getResumeId());
 
-
-
         if (educationRepo.countEducationByResumeId(resume.getResumeId()) >= 3) {
             throw new AppException(ErrorCode.OVERLOAD);
         }
@@ -44,15 +42,19 @@ public class EducationImp implements EducationService {
 
         Education savedEducation = educationRepo.save(educationInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return educationMapper.toResponse(savedEducation);
     }
 
     @Override
     @PreAuthorize("hasRole('CANDIDATE')")
     public void removeEducationFromResume(int educationId) {
-        educationRepo.findById(educationId)
+        Education education = educationRepo.findById(educationId)
                 .orElseThrow(() -> new AppException(ErrorCode.EDUCATION_NOT_FOUND));
-        educationRepo.deleteById(educationId);
+        int resumeId = education.getResume().getResumeId();
+        educationRepo.delete(education);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
@@ -64,8 +66,10 @@ public class EducationImp implements EducationService {
                 .orElseThrow(() -> new AppException(ErrorCode.EDUCATION_NOT_FOUND));
 
         educationMapper.updateEntity(education, existingEducation);
+        Education updated = educationRepo.save(existingEducation);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
 
-        return educationMapper.toResponse(educationRepo.save(existingEducation));
+        return educationMapper.toResponse(updated);
     }
 
 }
