@@ -78,7 +78,8 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
             throw new AppException(ErrorCode.REVIEW_ALREADY_SUBMITTED);
         }
 
-        // Validate review type eligibility (this should be checked by checkEligibility first)
+        // Validate review type eligibility (this should be checked by checkEligibility
+        // first)
         // Eligibility enforcement is handled above via ReviewEligibilityService
 
         // Build review entity
@@ -121,15 +122,15 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
 
         // Verify ownership - only the candidate who wrote the review can update it
         if (!candidateId.equals(existingReview.getCandidate().getCandidateId())) {
-            log.warn("Candidate {} attempted to update review {} owned by candidate {}", 
-                candidateId, reviewId, existingReview.getCandidate().getCandidateId());
+            log.warn("Candidate {} attempted to update review {} owned by candidate {}",
+                    candidateId, reviewId, existingReview.getCandidate().getCandidateId());
             throw new AppException(ErrorCode.UNAUTHORIZED_REVIEW);
         }
 
         // Update fields
         existingReview.setOverallRating(request.getOverallRating());
         existingReview.setReviewText(request.getReviewText());
-        
+
         // Update category ratings
         existingReview.setCommunicationRating(request.getCommunicationRating());
         existingReview.setResponsivenessRating(request.getResponsivenessRating());
@@ -138,7 +139,7 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
         existingReview.setManagementRating(request.getManagementRating());
         existingReview.setBenefitsRating(request.getBenefitsRating());
         existingReview.setWorkLifeBalanceRating(request.getWorkLifeBalanceRating());
-        
+
         existingReview.setIsAnonymous(request.getIsAnonymous());
         existingReview.setUpdatedAt(LocalDateTime.now());
 
@@ -167,7 +168,8 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
         Map<ReviewType, Boolean> alreadyReviewed = new HashMap<>();
         for (ReviewType type : ReviewType.values()) {
             alreadyReviewed.put(type,
-                reviewRepo.existsByCandidateCandidateIdAndRecruiterIdAndReviewType(candidateId, recruiter.getId(), type));
+                    reviewRepo.existsByCandidateCandidateIdAndRecruiterIdAndReviewType(candidateId, recruiter.getId(),
+                            type));
         }
 
         var qualification = reviewEligibilityService.determineQualification(jobApply);
@@ -208,14 +210,15 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
     @Override
     @Transactional(readOnly = true)
     public Page<PublicCompanyReviewResponse> getCompanyReviews(Integer recruiterId, ReviewType reviewType,
-                                                               int page, int size) {
+            int page, int size) {
         log.debug("Fetching reviews for recruiter {} with type {}", recruiterId, reviewType);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        
+
         Page<CompanyReview> reviews;
         if (reviewType != null) {
-            reviews = reviewRepo.findByRecruiterIdAndReviewTypeAndStatus(recruiterId, reviewType, ReviewStatus.ACTIVE, pageable);
+            reviews = reviewRepo.findByRecruiterIdAndReviewTypeAndStatus(recruiterId, reviewType, ReviewStatus.ACTIVE,
+                    pageable);
         } else {
             reviews = reviewRepo.findByRecruiterIdAndStatus(recruiterId, ReviewStatus.ACTIVE, pageable);
         }
@@ -226,12 +229,12 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
     @Override
     @Transactional(readOnly = true)
     public Page<CompanyReviewResponse> adminGetReviews(Integer recruiterId,
-                                                      ReviewStatus status,
-                                                      ReviewType reviewType,
-                                                      LocalDateTime from,
-                                                      LocalDateTime to,
-                                                      int page,
-                                                      int size) {
+            ReviewStatus status,
+            ReviewType reviewType,
+            LocalDateTime from,
+            LocalDateTime to,
+            int page,
+            int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return reviewRepo.adminFindByFilters(recruiterId, status, reviewType, from, to, pageable)
                 .map(reviewMapper::toResponse);
@@ -275,7 +278,7 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<CompanyReview> reviews = reviewRepo.findByCandidateCandidateIdAndStatus(
-            candidateId, ReviewStatus.ACTIVE, pageable);
+                candidateId, ReviewStatus.ACTIVE, pageable);
 
         return reviews.map(reviewMapper::toResponse);
     }
@@ -299,22 +302,22 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
 
         // Count by type
         Long appReviews = reviewRepo.countByRecruiterIdAndReviewTypeAndStatus(
-            recruiterId, ReviewType.APPLICATION_EXPERIENCE, ReviewStatus.ACTIVE);
+                recruiterId, ReviewType.APPLICATION_EXPERIENCE, ReviewStatus.ACTIVE);
         Long interviewReviews = reviewRepo.countByRecruiterIdAndReviewTypeAndStatus(
-            recruiterId, ReviewType.INTERVIEW_EXPERIENCE, ReviewStatus.ACTIVE);
+                recruiterId, ReviewType.INTERVIEW_EXPERIENCE, ReviewStatus.ACTIVE);
         Long workReviews = reviewRepo.countByRecruiterIdAndReviewTypeAndStatus(
-            recruiterId, ReviewType.WORK_EXPERIENCE, ReviewStatus.ACTIVE);
+                recruiterId, ReviewType.WORK_EXPERIENCE, ReviewStatus.ACTIVE);
 
         // Calculate rating distribution
         List<CompanyReview> allReviews = reviewRepo.findByRecruiterIdAndStatus(
-            recruiterId, ReviewStatus.ACTIVE, Pageable.unpaged()).getContent();
-        
+                recruiterId, ReviewStatus.ACTIVE, Pageable.unpaged()).getContent();
+
         Map<Integer, Long> distribution = new HashMap<>();
         for (int i = 1; i <= 5; i++) {
             final int rating = i;
             long count = allReviews.stream()
-                .filter(r -> r.getOverallRating().equals(rating))
-                .count();
+                    .filter(r -> r.getOverallRating().equals(rating))
+                    .count();
             distribution.put(rating, count);
         }
 
@@ -331,9 +334,9 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
         long anonymous = allReviews.stream().filter(CompanyReview::getIsAnonymous).count();
 
         Double avgSentiment = allReviews.stream()
-            .map(CompanyReview::getSentimentScore)
-            .filter(s -> s != null)
-            .collect(Collectors.averagingDouble(Double::doubleValue));
+                .map(CompanyReview::getSentimentScore)
+                .filter(s -> s != null)
+                .collect(Collectors.averagingDouble(Double::doubleValue));
 
         return CompanyReviewStatsResponse.builder()
                 .recruiterId(recruiterId)
@@ -365,18 +368,19 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
                 .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_FOUND));
 
         review.setFlagCount(review.getFlagCount() + 1);
-        
+
         // Auto-remove if flagged too many times
         if (review.getFlagCount() >= 5) {
             review.setStatus(ReviewStatus.FLAGGED);
-            log.warn("Review {} has been flagged {} times and marked for moderation", 
-                reviewId, review.getFlagCount());
+            log.warn("Review {} has been flagged {} times and marked for moderation",
+                    reviewId, review.getFlagCount());
         }
 
         reviewRepo.save(review);
 
         // TODO: Notify moderators
-        // notificationService.notifyModeratorReviewFlagged(reviewId, review.getFlagCount());
+        // notificationService.notifyModeratorReviewFlagged(reviewId,
+        // review.getFlagCount());
     }
 
     @Override
@@ -394,7 +398,8 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
         log.info("Review {} removed successfully", reviewId);
 
         // TODO: Notify review author
-        // notificationService.notifyReviewRemoved(review.getCandidate().getCandidateId(), reviewId, reason);
+        // notificationService.notifyReviewRemoved(review.getCandidate().getCandidateId(),
+        // reviewId, reason);
     }
 
     @Override
@@ -411,80 +416,81 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
     /**
      * Helper method to calculate average of aspect ratings
      */
-    private Double calculateAverageAspect(List<CompanyReview> reviews, 
-                                         java.util.function.Function<CompanyReview, Integer> ratingGetter) {
+    private Double calculateAverageAspect(List<CompanyReview> reviews,
+            java.util.function.Function<CompanyReview, Integer> ratingGetter) {
         return reviews.stream()
                 .map(ratingGetter)
                 .filter(rating -> rating != null)
                 .collect(Collectors.averagingDouble(Integer::doubleValue));
     }
-    
+
     /**
-     * Get all job applications that are eligible for review but haven't been reviewed yet
+     * Get all job applications that are eligible for review but haven't been
+     * reviewed yet
      */
     @Override
     @Transactional(readOnly = true)
     public List<ReviewEligibilityResponse> getPendingReviews(Integer candidateId) {
         log.info("Getting pending reviews for candidate: {}", candidateId);
-        
+
         // Get all job applications for this candidate
         List<JobApply> applications = jobApplyRepo.findByCandidateId(candidateId);
-        
+
         return applications.stream()
-            .map(jobApply -> {
-                try {
-                    // Get eligibility for this application
-                    var allowedTypes = reviewEligibilityService.getAllowedReviewTypes(jobApply);
-                    
-                    if (allowedTypes.isEmpty()) {
-                        return null; // Skip - no review types available
+                .map(jobApply -> {
+                    try {
+                        // Get eligibility for this application
+                        var allowedTypes = reviewEligibilityService.getAllowedReviewTypes(jobApply);
+
+                        if (allowedTypes.isEmpty()) {
+                            return null; // Skip - no review types available
+                        }
+
+                        // Check which types have already been reviewed
+                        Map<ReviewType, Boolean> alreadyReviewed = new HashMap<>();
+                        List<CompanyReview> existingReviews = reviewRepo.findByCandidateCandidateIdAndJobApplyId(
+                                candidateId, jobApply.getId());
+
+                        for (ReviewType type : ReviewType.values()) {
+                            boolean reviewed = existingReviews.stream()
+                                    .anyMatch(r -> r.getReviewType() == type);
+                            alreadyReviewed.put(type, reviewed);
+                        }
+
+                        // Filter out already reviewed types
+                        var availableTypes = allowedTypes.stream()
+                                .filter(type -> !alreadyReviewed.getOrDefault(type, false))
+                                .collect(java.util.stream.Collectors.toSet());
+
+                        if (availableTypes.isEmpty()) {
+                            return null; // Skip - all types already reviewed
+                        }
+
+                        Recruiter recruiter = jobApply.getJobPosting().getRecruiter();
+
+                        return ReviewEligibilityResponse.builder()
+                                .jobApplyId(jobApply.getId())
+                                .candidateId(candidateId)
+                                .recruiterId(recruiter.getId())
+                                .companyName(recruiter.getCompanyName())
+                                .qualification(reviewEligibilityService.determineQualification(jobApply))
+                                .allowedReviewTypes(availableTypes)
+                                .alreadyReviewed(alreadyReviewed)
+                                .daysSinceApplication(jobApply.getDaysSinceApplication())
+                                .daysEmployed(jobApply.getDaysEmployed())
+                                .canReview(true)
+                                .message(reviewEligibilityService.getEligibilityMessage(jobApply))
+                                .build();
+                    } catch (Exception e) {
+                        log.debug("Skip job apply {} - error checking eligibility: {}",
+                                jobApply.getId(), e.getMessage());
+                        return null;
                     }
-                    
-                    // Check which types have already been reviewed
-                    Map<ReviewType, Boolean> alreadyReviewed = new HashMap<>();
-                    List<CompanyReview> existingReviews = reviewRepo.findByCandidateCandidateIdAndJobApplyId(
-                        candidateId, jobApply.getId());
-                    
-                    for (ReviewType type : ReviewType.values()) {
-                        boolean reviewed = existingReviews.stream()
-                            .anyMatch(r -> r.getReviewType() == type);
-                        alreadyReviewed.put(type, reviewed);
-                    }
-                    
-                    // Filter out already reviewed types
-                    var availableTypes = allowedTypes.stream()
-                        .filter(type -> !alreadyReviewed.getOrDefault(type, false))
-                        .collect(java.util.stream.Collectors.toSet());
-                    
-                    if (availableTypes.isEmpty()) {
-                        return null; // Skip - all types already reviewed
-                    }
-                    
-                    Recruiter recruiter = jobApply.getJobPosting().getRecruiter();
-                    
-                    return ReviewEligibilityResponse.builder()
-                        .jobApplyId(jobApply.getId())
-                        .candidateId(candidateId)
-                        .recruiterId(recruiter.getId())
-                        .companyName(recruiter.getCompanyName())
-                        .qualification(reviewEligibilityService.determineQualification(jobApply))
-                        .allowedReviewTypes(availableTypes)
-                        .alreadyReviewed(alreadyReviewed)
-                        .daysSinceApplication(jobApply.getDaysSinceApplication())
-                        .daysEmployed(jobApply.getDaysEmployed())
-                        .canReview(true)
-                        .message(reviewEligibilityService.getEligibilityMessage(jobApply))
-                        .build();
-                } catch (Exception e) {
-                    log.debug("Skip job apply {} - error checking eligibility: {}", 
-                        jobApply.getId(), e.getMessage());
-                    return null;
-                }
-            })
-            .filter(r -> r != null)
-            .collect(Collectors.toList());
+                })
+                .filter(r -> r != null)
+                .collect(Collectors.toList());
     }
-    
+
     /**
      * Get all job applications with review status for each review type
      * Shows which reviews are submitted, available, or not yet eligible
@@ -493,64 +499,61 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
     @Transactional(readOnly = true)
     public List<JobApplicationReviewStatusResponse> getApplicationsWithReviewStatus(Integer candidateId) {
         log.info("Getting applications with review status for candidate: {}", candidateId);
-        
+
         // Get all job applications for this candidate
         List<JobApply> applications = jobApplyRepo.findByCandidateId(candidateId);
-        
+
         return applications.stream()
-            .<JobApplicationReviewStatusResponse>map(jobApply -> {
-                try {
-                    // Get all existing reviews for this application
-                    List<CompanyReview> existingReviews = reviewRepo.findByCandidateCandidateIdAndJobApplyId(
-                        candidateId, jobApply.getId());
-                    
-                    Map<ReviewType, CompanyReview> reviewMap = existingReviews.stream()
-                        .collect(Collectors.toMap(CompanyReview::getReviewType, r -> r, (a, b) -> a));
-                    
-                    // Get allowed types based on eligibility
-                    var allowedTypes = reviewEligibilityService.getAllowedReviewTypes(jobApply);
-                    
-                    Recruiter recruiter = jobApply.getJobPosting().getRecruiter();
-                    
-                    return JobApplicationReviewStatusResponse.builder()
-                        .jobApplyId(jobApply.getId())
-                        .jobTitle(jobApply.getJobPosting().getTitle())
-                        .companyName(recruiter.getCompanyName())
-                        .companyLogo(recruiter.getLogoUrl())
-                        .appliedAt(jobApply.getCreateAt())
-                        .interviewedAt(jobApply.getInterviewedAt())
-                        .hiredAt(jobApply.getHiredAt())
-                        .daysSinceApplication(jobApply.getDaysSinceApplication())
-                        .daysEmployed(jobApply.getDaysEmployed())
-                        .applicationReview(buildReviewTypeStatus(
-                            ReviewType.APPLICATION_EXPERIENCE, 
-                            reviewMap, 
-                            allowedTypes,
-                            jobApply
-                        ))
-                        .interviewReview(buildReviewTypeStatus(
-                            ReviewType.INTERVIEW_EXPERIENCE, 
-                            reviewMap, 
-                            allowedTypes,
-                            jobApply
-                        ))
-                        .workReview(buildReviewTypeStatus(
-                            ReviewType.WORK_EXPERIENCE, 
-                            reviewMap, 
-                            allowedTypes,
-                            jobApply
-                        ))
-                        .build();
-                } catch (Exception e) {
-                    log.debug("Skip job apply {} - error building status: {}", 
-                        jobApply.getId(), e.getMessage());
-                    return null;
-                }
-            })
-            .filter(r -> r != null)
-            .collect(Collectors.toList());
+                .<JobApplicationReviewStatusResponse>map(jobApply -> {
+                    try {
+                        // Get all existing reviews for this application
+                        List<CompanyReview> existingReviews = reviewRepo.findByCandidateCandidateIdAndJobApplyId(
+                                candidateId, jobApply.getId());
+
+                        Map<ReviewType, CompanyReview> reviewMap = existingReviews.stream()
+                                .collect(Collectors.toMap(CompanyReview::getReviewType, r -> r, (a, b) -> a));
+
+                        // Get allowed types based on eligibility
+                        var allowedTypes = reviewEligibilityService.getAllowedReviewTypes(jobApply);
+
+                        Recruiter recruiter = jobApply.getJobPosting().getRecruiter();
+
+                        return JobApplicationReviewStatusResponse.builder()
+                                .jobApplyId(jobApply.getId())
+                                .jobTitle(jobApply.getJobPosting().getTitle())
+                                .companyName(recruiter.getCompanyName())
+                                .companyLogo(recruiter.getLogoUrl())
+                                .appliedAt(jobApply.getCreateAt())
+                                .interviewedAt(jobApply.getInterviewedAt())
+                                .hiredAt(jobApply.getHiredAt())
+                                .daysSinceApplication(jobApply.getDaysSinceApplication())
+                                .daysEmployed(jobApply.getDaysEmployed())
+                                .applicationReview(buildReviewTypeStatus(
+                                        ReviewType.APPLICATION_EXPERIENCE,
+                                        reviewMap,
+                                        allowedTypes,
+                                        jobApply))
+                                .interviewReview(buildReviewTypeStatus(
+                                        ReviewType.INTERVIEW_EXPERIENCE,
+                                        reviewMap,
+                                        allowedTypes,
+                                        jobApply))
+                                .workReview(buildReviewTypeStatus(
+                                        ReviewType.WORK_EXPERIENCE,
+                                        reviewMap,
+                                        allowedTypes,
+                                        jobApply))
+                                .build();
+                    } catch (Exception e) {
+                        log.debug("Skip job apply {} - error building status: {}",
+                                jobApply.getId(), e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(r -> r != null)
+                .collect(Collectors.toList());
     }
-    
+
     /**
      * Build the status for a specific review type
      */
@@ -559,32 +562,32 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
             Map<ReviewType, CompanyReview> reviewMap,
             java.util.Set<ReviewType> allowedTypes,
             JobApply jobApply) {
-        
+
         // Check if already submitted
         CompanyReview existingReview = reviewMap.get(type);
         if (existingReview != null) {
             return JobApplicationReviewStatusResponse.ReviewTypeStatus.builder()
-                .status("submitted")
-                .reviewId(existingReview.getId())
-                .rating(existingReview.getOverallRating())
-                .build();
+                    .status("submitted")
+                    .reviewId(existingReview.getId())
+                    .rating(existingReview.getOverallRating())
+                    .build();
         }
-        
+
         // Check if eligible
         if (allowedTypes.contains(type)) {
             return JobApplicationReviewStatusResponse.ReviewTypeStatus.builder()
-                .status("available")
-                .build();
+                    .status("available")
+                    .build();
         }
-        
+
         // Not eligible - determine reason
         String reason = getNotEligibleReason(type, jobApply);
         return JobApplicationReviewStatusResponse.ReviewTypeStatus.builder()
-            .status("not_eligible")
-            .reason(reason)
-            .build();
+                .status("not_eligible")
+                .reason(reason)
+                .build();
     }
-    
+
     /**
      * Get human-readable reason why review type is not eligible
      */
@@ -596,13 +599,13 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
                     return String.format("Need %d more days (applied %d days ago)", 7 - daysSince, daysSince);
                 }
                 return "Not eligible";
-                
+
             case INTERVIEW_EXPERIENCE:
                 if (jobApply.getInterviewedAt() == null) {
                     return "No interview completed yet";
                 }
                 return "Not eligible";
-                
+
             case WORK_EXPERIENCE:
                 Integer daysEmployed = jobApply.getDaysEmployed();
                 if (daysEmployed == null || daysEmployed < 30) {
@@ -610,7 +613,7 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
                     return String.format("Need %d more days employed", remaining);
                 }
                 return "Not eligible";
-                
+
             default:
                 return "Not eligible";
         }

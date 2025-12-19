@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CompanyReviewResponse {
-    
+
     Integer id;
     Integer candidateId;
     String candidateName;
@@ -22,13 +22,13 @@ public class CompanyReviewResponse {
     Integer jobApplyId;
     Integer jobPostingId;
     String jobTitle;
-    
+
     ReviewType reviewType;
     ReviewStatus status;
-    
+
     String reviewText;
     Integer overallRating;
-    
+
     // Aspect-specific ratings
     Integer communicationRating;
     Integer responsivenessRating;
@@ -37,13 +37,13 @@ public class CompanyReviewResponse {
     Integer managementRating;
     Integer benefitsRating;
     Integer workLifeBalanceRating;
-    
+
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
-    
+
     Boolean isAnonymous;
     Boolean isVerified;
-    
+
     Integer flagCount;
     Double sentimentScore;
 }

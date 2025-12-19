@@ -18,25 +18,25 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdminReviewFilterRequest {
-    private String companyName;  // Search by company name (deprecated, use searchText)
-    private String candidateName;  // Search by candidate name (deprecated, use searchText)
-    private ReviewType reviewType;  // Filter by review type
-    private ReviewStatus status;  // Filter by status
-    
+    private String companyName; // Search by company name (deprecated, use searchText)
+    private String candidateName; // Search by candidate name (deprecated, use searchText)
+    private ReviewType reviewType; // Filter by review type
+    private ReviewStatus status; // Filter by status
+
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime startDate;  // Filter by date range
-    
+    private LocalDateTime startDate; // Filter by date range
+
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime endDate;
-    
-    private Integer minRating;  // Filter by rating
+
+    private Integer minRating; // Filter by rating
     private Integer maxRating;
-    
-    private Boolean flaggedOnly;  // Show only flagged reviews
-    private Integer minFlagCount;  // Minimum flag count
-    
-    private String searchText;  // Combined search: company name, candidate name, job title, and review text
-    
+
+    private Boolean flaggedOnly; // Show only flagged reviews
+    private Integer minFlagCount; // Minimum flag count
+
+    private String searchText; // Combined search: company name, candidate name, job title, and review text
+
     private Integer page = 0;
     private Integer size = 20;
     private String sortBy = "createdAt";

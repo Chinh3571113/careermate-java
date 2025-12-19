@@ -19,88 +19,89 @@ import java.util.List;
  * Service interface for company review operations
  */
 public interface CompanyReviewService {
-    
-    /**
-     * Submit a new company review
-     */
-    CompanyReviewResponse submitReview(CompanyReviewRequest request, Integer candidateId);
-    
-    /**
-     * Update an existing review (candidate only)
-     */
-    CompanyReviewResponse updateReview(Integer reviewId, CompanyReviewRequest request, Integer candidateId);
-    
-    /**
-     * Check if candidate is eligible to review a company
-     */
-    ReviewEligibilityResponse checkEligibility(Integer candidateId, Integer jobApplyId);
-    
-    /**
-      * Get public reviews for a company (paginated)
-     */
-     Page<PublicCompanyReviewResponse> getCompanyReviews(Integer recruiterId, ReviewType reviewType,
-                                                                          int page, int size);
-    
-    /**
-     * Get candidate's own reviews
-     */
-    Page<CompanyReviewResponse> getCandidateReviews(Integer candidateId, int page, int size);
-    
-    /**
-     * Get average rating for a company
-     */
-    Double getAverageRating(Integer recruiterId);
-    
-    /**
-     * Get review statistics for a company
-     */
-    CompanyReviewStatsResponse getCompanyStatistics(Integer recruiterId);
-    
-    /**
-     * Flag a review for moderation
-     */
-    void flagReview(Integer reviewId, Integer reporterId, String reason);
-    
-    /**
-     * Remove a review (admin/moderator only)
-     */
-    void removeReview(Integer reviewId, String reason);
-    
-    /**
-     * Get a single review by ID
-     */
-    PublicCompanyReviewResponse getReviewById(Integer reviewId);
 
-    /**
-     * Admin moderation: list reviews with filters.
-     */
-    Page<CompanyReviewResponse> adminGetReviews(Integer recruiterId,
-                                               ReviewStatus status,
-                                               ReviewType reviewType,
-                                               LocalDateTime from,
-                                               LocalDateTime to,
-                                               int page,
-                                               int size);
+  /**
+   * Submit a new company review
+   */
+  CompanyReviewResponse submitReview(CompanyReviewRequest request, Integer candidateId);
 
-    /**
-     * Admin moderation: set status for a review.
-     */
-    void adminSetReviewStatus(Integer reviewId, ReviewStatus status, String reason);
+  /**
+   * Update an existing review (candidate only)
+   */
+  CompanyReviewResponse updateReview(Integer reviewId, CompanyReviewRequest request, Integer candidateId);
 
-    /**
-     * Admin moderation: bulk set status for reviews.
-     */
-    void adminBulkSetReviewStatus(AdminBulkReviewStatusRequest request);
-    
-    /**
-     * Get all job applications that are eligible for review but haven't been reviewed yet
-     * Used for the "Available to Review" tab in the frontend
-     */
-    List<ReviewEligibilityResponse> getPendingReviews(Integer candidateId);
-    
-    /**
-     * Get all job applications with review status for each review type
-     * Shows which reviews are submitted, available, or not yet eligible
-     */
-    List<JobApplicationReviewStatusResponse> getApplicationsWithReviewStatus(Integer candidateId);
+  /**
+   * Check if candidate is eligible to review a company
+   */
+  ReviewEligibilityResponse checkEligibility(Integer candidateId, Integer jobApplyId);
+
+  /**
+   * Get public reviews for a company (paginated)
+   */
+  Page<PublicCompanyReviewResponse> getCompanyReviews(Integer recruiterId, ReviewType reviewType,
+      int page, int size);
+
+  /**
+   * Get candidate's own reviews
+   */
+  Page<CompanyReviewResponse> getCandidateReviews(Integer candidateId, int page, int size);
+
+  /**
+   * Get average rating for a company
+   */
+  Double getAverageRating(Integer recruiterId);
+
+  /**
+   * Get review statistics for a company
+   */
+  CompanyReviewStatsResponse getCompanyStatistics(Integer recruiterId);
+
+  /**
+   * Flag a review for moderation
+   */
+  void flagReview(Integer reviewId, Integer reporterId, String reason);
+
+  /**
+   * Remove a review (admin/moderator only)
+   */
+  void removeReview(Integer reviewId, String reason);
+
+  /**
+   * Get a single review by ID
+   */
+  PublicCompanyReviewResponse getReviewById(Integer reviewId);
+
+  /**
+   * Admin moderation: list reviews with filters.
+   */
+  Page<CompanyReviewResponse> adminGetReviews(Integer recruiterId,
+      ReviewStatus status,
+      ReviewType reviewType,
+      LocalDateTime from,
+      LocalDateTime to,
+      int page,
+      int size);
+
+  /**
+   * Admin moderation: set status for a review.
+   */
+  void adminSetReviewStatus(Integer reviewId, ReviewStatus status, String reason);
+
+  /**
+   * Admin moderation: bulk set status for reviews.
+   */
+  void adminBulkSetReviewStatus(AdminBulkReviewStatusRequest request);
+
+  /**
+   * Get all job applications that are eligible for review but haven't been
+   * reviewed yet
+   * Used for the "Available to Review" tab in the frontend
+   */
+  List<ReviewEligibilityResponse> getPendingReviews(Integer candidateId);
+
+  /**
+   * Get all job applications with review status for each review type
+   * Shows which reviews are submitted, available, or not yet eligible
+   */
+  List<JobApplicationReviewStatusResponse> getApplicationsWithReviewStatus(Integer candidateId);
 }

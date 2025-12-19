@@ -26,9 +26,9 @@ import java.time.LocalDateTime;
 @Tag(name = "Recruiter Review Viewing", description = "Recruiter APIs for viewing company reviews (read-only)")
 @SecurityRequirement(name = "bearerAuth")
 public class RecruiterReviewController {
-    
+
     private final RecruiterReviewService recruiterReviewService;
-    
+
     @GetMapping("/my-company")
     @PreAuthorize("hasRole('RECRUITER')")
     @Operation(summary = "Get all reviews for recruiter's company (read-only)")
@@ -42,28 +42,29 @@ public class RecruiterReviewController {
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) Integer maxRating,
             @RequestParam(required = false) String searchText) {
-        
+
         // JWT claims store numbers as Long, need to convert to Integer
         Object recruiterIdObj = jwt.getClaim("recruiterId");
         if (recruiterIdObj == null) {
             log.error("Recruiter ID not found in JWT claims");
-            throw new RuntimeException("Recruiter ID not found in authentication token. Please ensure your recruiter profile is properly set up.");
+            throw new RuntimeException(
+                    "Recruiter ID not found in authentication token. Please ensure your recruiter profile is properly set up.");
         }
-        
-        Integer recruiterId = recruiterIdObj instanceof Long 
-            ? ((Long) recruiterIdObj).intValue() 
-            : (Integer) recruiterIdObj;
-        
+
+        Integer recruiterId = recruiterIdObj instanceof Long
+                ? ((Long) recruiterIdObj).intValue()
+                : (Integer) recruiterIdObj;
+
         log.info("Recruiter {} viewing their company reviews", recruiterId);
-        
+
         Page<AdminReviewResponse> reviews = recruiterReviewService.getRecruiterCompanyReviews(
                 recruiterId, page, size, reviewType, startDate, endDate, rating, maxRating, searchText);
-        
+
         return ApiResponse.<Page<AdminReviewResponse>>builder()
                 .result(reviews)
                 .build();
     }
-    
+
     @GetMapping("/stats")
     @PreAuthorize("hasRole('RECRUITER')")
     @Operation(summary = "Get review statistics for recruiter's company")
@@ -73,13 +74,14 @@ public class RecruiterReviewController {
         Object recruiterIdObj = jwt.getClaim("recruiterId");
         if (recruiterIdObj == null) {
             log.error("Recruiter ID not found in JWT claims");
-            throw new RuntimeException("Recruiter ID not found in authentication token. Please ensure your recruiter profile is properly set up.");
+            throw new RuntimeException(
+                    "Recruiter ID not found in authentication token. Please ensure your recruiter profile is properly set up.");
         }
-        
-        Integer recruiterId = recruiterIdObj instanceof Long 
-            ? ((Long) recruiterIdObj).intValue() 
-            : (Integer) recruiterIdObj;
-        
+
+        Integer recruiterId = recruiterIdObj instanceof Long
+                ? ((Long) recruiterIdObj).intValue()
+                : (Integer) recruiterIdObj;
+
         log.info("Recruiter {} fetching company review statistics", recruiterId);
         Object stats = recruiterReviewService.getRecruiterReviewStatistics(recruiterId);
         return ApiResponse.builder()

@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobApplicationReviewStatusResponse {
-    
+
     private Integer jobApplyId;
     private String jobTitle;
     private String companyName;
@@ -29,12 +29,12 @@ public class JobApplicationReviewStatusResponse {
     private LocalDateTime hiredAt;
     private Integer daysSinceApplication;
     private Integer daysEmployed;
-    
+
     // Status for each review type
     private ReviewTypeStatus applicationReview;
     private ReviewTypeStatus interviewReview;
     private ReviewTypeStatus workReview;
-    
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -46,13 +46,13 @@ public class JobApplicationReviewStatusResponse {
          * not_eligible - Not yet qualified (e.g., not enough days)
          */
         private String status;
-        
+
         /** Review ID if submitted */
         private Integer reviewId;
-        
+
         /** Rating if submitted */
         private Integer rating;
-        
+
         /** Reason why not eligible (e.g., "Need 5 more days", "Not interviewed yet") */
         private String reason;
     }

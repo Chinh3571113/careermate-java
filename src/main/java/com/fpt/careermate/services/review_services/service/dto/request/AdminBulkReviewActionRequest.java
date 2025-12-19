@@ -20,9 +20,9 @@ import java.util.List;
 public class AdminBulkReviewActionRequest {
     @NotEmpty(message = "Review IDs are required")
     private List<Integer> reviewIds;
-    
+
     @NotNull(message = "Action is required")
     private ReviewStatus newStatus;
-    
-    private String reason;  // Optional reason for the action
+
+    private String reason; // Optional reason for the action
 }

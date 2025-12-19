@@ -13,8 +13,8 @@ public interface RecruiterReviewService {
      * Get reviews for recruiter's company
      */
     Page<AdminReviewResponse> getRecruiterCompanyReviews(
-            Integer recruiterId, 
-            int page, 
+            Integer recruiterId,
+            int page,
             int size,
             String reviewType,
             String startDate,
@@ -22,7 +22,7 @@ public interface RecruiterReviewService {
             Integer rating,
             Integer maxRating,
             String searchText);
-    
+
     /**
      * Get review statistics for recruiter's company
      */

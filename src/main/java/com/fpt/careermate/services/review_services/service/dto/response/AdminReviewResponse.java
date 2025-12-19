@@ -26,13 +26,13 @@ public class AdminReviewResponse {
     private Integer jobPostingId;
     private String jobTitle;
     private Integer jobApplyId;
-    
+
     private ReviewType reviewType;
     private ReviewStatus status;
-    
+
     private String reviewText;
     private Integer overallRating;
-    
+
     // Category ratings
     private Integer communicationRating;
     private Integer responsivenessRating;
@@ -41,13 +41,13 @@ public class AdminReviewResponse {
     private Integer managementRating;
     private Integer benefitsRating;
     private Integer workLifeBalanceRating;
-    
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    
+
     private Boolean isAnonymous;
     private Boolean isVerified;
-    
+
     private Integer flagCount;
     private String removalReason;
     private Double sentimentScore;

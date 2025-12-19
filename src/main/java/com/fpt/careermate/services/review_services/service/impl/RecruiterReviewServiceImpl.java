@@ -29,10 +29,10 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class RecruiterReviewServiceImpl implements RecruiterReviewService {
-    
+
     private final CompanyReviewRepo reviewRepo;
     private final RecruiterRepo recruiterRepo;
-    
+
     @Override
     @Transactional(readOnly = true)
     public Page<AdminReviewResponse> getRecruiterCompanyReviews(
@@ -45,22 +45,22 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
             Integer rating,
             Integer maxRating,
             String searchText) {
-        
+
         // Verify recruiter exists
         Recruiter recruiter = recruiterRepo.findById(recruiterId)
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
-        
+
         log.info("📅 Date Filter Debug - startDate: {}, endDate: {}", startDateStr, endDateStr);
-        
+
         Specification<CompanyReview> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            
+
             // Filter by recruiter (company)
             predicates.add(cb.equal(root.get("recruiter").get("id"), recruiterId));
-            
+
             // Only show ACTIVE reviews to recruiters (hide HIDDEN, REMOVED, etc.)
             predicates.add(cb.equal(root.get("status"), ReviewStatus.ACTIVE));
-            
+
             // Review type filter
             if (reviewTypeStr != null && !reviewTypeStr.isEmpty()) {
                 try {
@@ -70,7 +70,7 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
                     log.warn("Invalid review type: {}", reviewTypeStr);
                 }
             }
-            
+
             // Date range filter (expects YYYY-MM-DD format from frontend)
             if (startDateStr != null && !startDateStr.isEmpty()) {
                 try {
@@ -82,7 +82,7 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
                     log.warn("❌ Invalid start date: {}", startDateStr, e);
                 }
             }
-            
+
             if (endDateStr != null && !endDateStr.isEmpty()) {
                 try {
                     LocalDate endDate = LocalDate.parse(endDateStr);
@@ -93,7 +93,7 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
                     log.warn("❌ Invalid end date: {}", endDateStr, e);
                 }
             }
-            
+
             // Rating filters
             if (rating != null) {
                 predicates.add(cb.equal(root.get("overallRating"), rating));
@@ -101,50 +101,51 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
             if (maxRating != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("overallRating"), maxRating));
             }
-            
+
             // Search text filter (search in review text and job title)
             if (searchText != null && !searchText.isEmpty()) {
                 String searchPattern = "%" + searchText.toLowerCase() + "%";
                 Predicate reviewTextPredicate = cb.like(cb.lower(root.get("reviewText")), searchPattern);
-                Predicate jobTitlePredicate = cb.like(cb.lower(root.get("jobApply").get("jobPosting").get("title")), searchPattern);
+                Predicate jobTitlePredicate = cb.like(cb.lower(root.get("jobApply").get("jobPosting").get("title")),
+                        searchPattern);
                 predicates.add(cb.or(reviewTextPredicate, jobTitlePredicate));
             }
-            
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        
+
         Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
         Pageable pageable = PageRequest.of(page, size, sort);
-        
+
         Page<CompanyReview> reviews = reviewRepo.findAll(spec, pageable);
-        
+
         return reviews.map(this::mapToAdminResponse);
     }
-    
+
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> getRecruiterReviewStatistics(Integer recruiterId) {
         // Verify recruiter exists
         Recruiter recruiter = recruiterRepo.findById(recruiterId)
                 .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_NOT_FOUND));
-        
+
         Map<String, Object> stats = new HashMap<>();
-        
+
         // Only count ACTIVE reviews (exclude hidden/removed)
         long totalActiveReviews = reviewRepo.countByRecruiterIdAndStatus(recruiterId, ReviewStatus.ACTIVE);
         stats.put("totalActiveReviews", totalActiveReviews);
-        
+
         // Count by review type (active only)
         Arrays.stream(ReviewType.values()).forEach(type -> {
             long count = reviewRepo.countByRecruiterIdAndReviewTypeAndStatus(recruiterId, type, ReviewStatus.ACTIVE);
             stats.put(type.name().toLowerCase() + "Count", count);
         });
-        
+
         // Average ratings (active only)
         Double avgOverallRating = reviewRepo.getAverageRatingByRecruiterAndStatus(
                 recruiterId, ReviewStatus.ACTIVE.name());
         stats.put("averageOverallRating", avgOverallRating != null ? avgOverallRating : 0.0);
-        
+
         // Reviews in time periods
         LocalDateTime now = LocalDateTime.now();
         stats.put("last24Hours", reviewRepo.countByRecruiterIdAndStatusAndCreatedAtAfter(
@@ -153,19 +154,19 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
                 recruiterId, ReviewStatus.ACTIVE, now.minusDays(7)));
         stats.put("last30Days", reviewRepo.countByRecruiterIdAndStatusAndCreatedAtAfter(
                 recruiterId, ReviewStatus.ACTIVE, now.minusDays(30)));
-        
+
         return stats;
     }
-    
+
     private AdminReviewResponse mapToAdminResponse(CompanyReview review) {
-        String candidateName = review.getIsAnonymous() 
-                ? "Anonymous" 
+        String candidateName = review.getIsAnonymous()
+                ? "Anonymous"
                 : (review.getCandidate().getFullName() != null ? review.getCandidate().getFullName() : "Unknown");
-        String candidateEmail = review.getIsAnonymous() 
-                ? null 
+        String candidateEmail = review.getIsAnonymous()
+                ? null
                 : (review.getCandidate().getAccount() != null ? review.getCandidate().getAccount().getEmail() : null);
         String companyName = review.getRecruiter().getCompanyName();
-        
+
         return AdminReviewResponse.builder()
                 .id(review.getId())
                 .candidateId(review.getCandidate().getCandidateId())
@@ -191,8 +192,8 @@ public class RecruiterReviewServiceImpl implements RecruiterReviewService {
                 .updatedAt(review.getUpdatedAt())
                 .isAnonymous(review.getIsAnonymous())
                 .isVerified(review.getIsVerified())
-                .flagCount(0)  // Don't show flag count to recruiters
-                .removalReason(null)  // Don't show removal reasons to recruiters
+                .flagCount(0) // Don't show flag count to recruiters
+                .removalReason(null) // Don't show removal reasons to recruiters
                 .sentimentScore(review.getSentimentScore())
                 .build();
     }
