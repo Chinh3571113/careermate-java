@@ -93,7 +93,7 @@ class RoadmapControllerTest {
             // Act & Assert
             mockMvc.perform(get("/api/roadmap")
                             .param("roadmapName", roadmapName))
-                    .andExpect(status().is5xxServerError());
+                    .andExpect(status().is4xxClientError());
 
             verify(roadmapImp, times(1)).getRoadmap(roadmapName);
         }

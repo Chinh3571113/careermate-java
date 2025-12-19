@@ -71,7 +71,7 @@ class AdminRecruiterControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200))
                     .andExpect(jsonPath("$.message").value("Success"))
-                    .andExpect(jsonPath("$.result.content[0].status").value("PENDING"))
+                    .andExpect(jsonPath("$.result.content[0].accountStatus").value("PENDING"))
                     .andExpect(jsonPath("$.result.totalElements").value(1));
 
             verify(recruiterImp, times(1)).getRecruitersByStatus("PENDING", 0, 10, "id", "desc");
@@ -109,7 +109,7 @@ class AdminRecruiterControllerTest {
                             .param("size", "10"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200))
-                    .andExpect(jsonPath("$.result.content[0].status").value("ACTIVE"))
+                    .andExpect(jsonPath("$.result.content[0].accountStatus").value("ACTIVE"))
                     .andExpect(jsonPath("$.result.totalElements").value(2));
 
             verify(recruiterImp, times(1)).getRecruitersByStatus("ACTIVE", 0, 10, "id", "desc");
@@ -176,7 +176,7 @@ class AdminRecruiterControllerTest {
                             .param("sortDir", "asc"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200))
-                    .andExpect(jsonPath("$.result.pageNumber").value(1))
+                    .andExpect(jsonPath("$.result.page").value(1))
                     .andExpect(jsonPath("$.result.totalElements").value(15))
                     .andExpect(jsonPath("$.result.totalPages").value(2));
 

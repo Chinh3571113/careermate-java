@@ -91,4 +91,49 @@ public interface JobApplyRepo extends JpaRepository<JobApply,Integer> {
            "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED) " +
            "ORDER BY ja.statusChangedAt DESC")
     List<JobApply> findActiveEmploymentsByCandidate(@Param("candidateId") int candidateId);
+    
+    /**
+     * Find all job applications for a candidate by their ID
+     * Used by review eligibility checking
+     */
+    @Query("SELECT ja FROM job_apply ja " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter " +
+           "WHERE ja.candidate.candidateId = :candidateId")
+    List<JobApply> findByCandidateId(@Param("candidateId") int candidateId);
+    
+    /**
+     * Find applications created within a date range
+     * Used for review reminder scheduling
+     */
+    @Query("SELECT ja FROM job_apply ja " +
+           "JOIN FETCH ja.candidate " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter " +
+           "WHERE ja.createAt BETWEEN :startDate AND :endDate")
+    List<JobApply> findByCreateAtBetween(@Param("startDate") java.time.LocalDateTime startDate,
+                                          @Param("endDate") java.time.LocalDateTime endDate);
+    
+    /**
+     * Find applications with interviews completed after a given date
+     * Used for interview review reminder scheduling
+     */
+    @Query("SELECT ja FROM job_apply ja " +
+           "JOIN FETCH ja.candidate " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter " +
+           "WHERE ja.interviewedAt > :afterDate")
+    List<JobApply> findByInterviewedAtAfter(@Param("afterDate") java.time.LocalDateTime afterDate);
+    
+    /**
+     * Find applications where candidate was hired within a date range
+     * Used for work experience review reminder scheduling
+     */
+    @Query("SELECT ja FROM job_apply ja " +
+           "JOIN FETCH ja.candidate " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter " +
+           "WHERE ja.hiredAt BETWEEN :startDate AND :endDate")
+    List<JobApply> findByHiredAtBetween(@Param("startDate") java.time.LocalDateTime startDate,
+                                         @Param("endDate") java.time.LocalDateTime endDate);
 }

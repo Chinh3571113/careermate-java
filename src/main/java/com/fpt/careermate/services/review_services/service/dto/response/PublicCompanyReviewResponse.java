@@ -1,35 +1,36 @@
 package com.fpt.careermate.services.review_services.service.dto.response;
 
-import com.fpt.careermate.services.review_services.constant.ReviewStatus;
 import com.fpt.careermate.services.review_services.constant.ReviewType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
 
+/**
+ * Public-facing review DTO.
+ * Does not expose reviewer identifiers.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CompanyReviewResponse {
-    
+public class PublicCompanyReviewResponse {
+
     Integer id;
-    Integer candidateId;
-    String candidateName;
+
+    // Company / job context
     Integer recruiterId;
     String companyName;
-    Integer jobApplyId;
     Integer jobPostingId;
     String jobTitle;
-    
+
+    // Review
     ReviewType reviewType;
-    ReviewStatus status;
-    
     String reviewText;
     Integer overallRating;
-    
-    // Aspect-specific ratings
+
+    // Aspect ratings
     Integer communicationRating;
     Integer responsivenessRating;
     Integer interviewProcessRating;
@@ -37,13 +38,11 @@ public class CompanyReviewResponse {
     Integer managementRating;
     Integer benefitsRating;
     Integer workLifeBalanceRating;
-    
-    LocalDateTime createdAt;
-    LocalDateTime updatedAt;
-    
+
+    // Public identity
     Boolean isAnonymous;
-    Boolean isVerified;
-    
-    Integer flagCount;
-    Double sentimentScore;
+    String candidateName; // null if anonymous
+
+    // Timestamps
+    LocalDateTime createdAt;
 }

@@ -2,10 +2,14 @@ package com.fpt.careermate.services.review_services.web;
 
 import com.fpt.careermate.common.response.ApiResponse;
 import com.fpt.careermate.services.review_services.constant.ReviewType;
+import com.fpt.careermate.services.review_services.constant.ReviewStatus;
 import com.fpt.careermate.services.review_services.service.dto.request.CompanyReviewRequest;
+import com.fpt.careermate.services.review_services.service.dto.request.AdminBulkReviewStatusRequest;
 import com.fpt.careermate.services.review_services.service.dto.response.CompanyReviewResponse;
 import com.fpt.careermate.services.review_services.service.dto.response.CompanyReviewStatsResponse;
+import com.fpt.careermate.services.review_services.service.dto.response.PublicCompanyReviewResponse;
 import com.fpt.careermate.services.review_services.service.dto.response.ReviewEligibilityResponse;
+import com.fpt.careermate.services.review_services.service.dto.response.JobApplicationReviewStatusResponse;
 import com.fpt.careermate.services.review_services.service.CompanyReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,7 +25,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 /**
  * REST controller for company review operations
@@ -80,6 +87,46 @@ public class CompanyReviewController {
     }
 
     /**
+     * Update an existing review (candidate only)
+     */
+    @PutMapping("/{reviewId}")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(
+        summary = "Update review",
+        description = "Update an existing review. Only the candidate who wrote the review can update it."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Review updated successfully",
+            content = @Content(schema = @Schema(implementation = CompanyReviewResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Not authorized to update this review"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Review not found"
+        )
+    })
+    public ResponseEntity<ApiResponse<CompanyReviewResponse>> updateReview(
+            @Parameter(description = "Review ID to update")
+            @PathVariable Integer reviewId,
+            @Valid @RequestBody CompanyReviewRequest request,
+            @Parameter(description = "Candidate ID from authentication context")
+            @RequestParam Integer candidateId) {
+        
+        log.info("PUT /api/v1/reviews/{} - Candidate {} updating review", reviewId, candidateId);
+        CompanyReviewResponse response = companyReviewService.updateReview(reviewId, request, candidateId);
+        return ResponseEntity.ok(ApiResponse.<CompanyReviewResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Review updated successfully")
+                .result(response)
+                .build());
+    }
+
+    /**
      * Check if candidate is eligible to review a company
      */
     @GetMapping("/eligibility")
@@ -119,9 +166,10 @@ public class CompanyReviewController {
      * Get all reviews for a company (paginated)
      */
     @GetMapping("/company/{recruiterId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     @Operation(
         summary = "Get company reviews",
-        description = "Get all reviews for a company with optional filtering by review type"
+        description = "Get public reviews for a company with optional filtering by review type (recruiters are not allowed to browse reviews)"
     )
     @ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -130,7 +178,7 @@ public class CompanyReviewController {
             content = @Content(schema = @Schema(implementation = Page.class))
         )
     })
-    public ResponseEntity<ApiResponse<Page<CompanyReviewResponse>>> getCompanyReviews(
+    public ResponseEntity<ApiResponse<Page<PublicCompanyReviewResponse>>> getCompanyReviews(
             @Parameter(description = "Recruiter/Company ID")
             @PathVariable Integer recruiterId,
             @Parameter(description = "Filter by review type (optional)")
@@ -142,9 +190,9 @@ public class CompanyReviewController {
         
         log.debug("GET /api/v1/reviews/company/{} - Page {} Size {} Type {}", 
             recruiterId, page, size, reviewType);
-        Page<CompanyReviewResponse> reviews = companyReviewService.getCompanyReviews(
+        Page<PublicCompanyReviewResponse> reviews = companyReviewService.getCompanyReviews(
             recruiterId, reviewType, page, size);
-        return ResponseEntity.ok(ApiResponse.<Page<CompanyReviewResponse>>builder()
+        return ResponseEntity.ok(ApiResponse.<Page<PublicCompanyReviewResponse>>builder()
                 .code(HttpStatus.OK.value())
                 .message("Reviews retrieved successfully")
                 .result(reviews)
@@ -187,9 +235,71 @@ public class CompanyReviewController {
     }
 
     /**
+     * Get all job applications that are eligible for review but haven't been reviewed yet
+     * Used for the "Available to Review" tab in the frontend
+     */
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(
+        summary = "Get pending reviews",
+        description = "Get all job applications that are eligible for review but haven't been reviewed yet"
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Pending reviews retrieved successfully",
+            content = @Content(schema = @Schema(implementation = java.util.List.class))
+        )
+    })
+    public ResponseEntity<ApiResponse<java.util.List<ReviewEligibilityResponse>>> getPendingReviews(
+            @Parameter(description = "Candidate ID from authentication context")
+            @RequestParam Integer candidateId) {
+        
+        log.debug("GET /api/v1/reviews/pending - Candidate {}", candidateId);
+        java.util.List<ReviewEligibilityResponse> pending = companyReviewService.getPendingReviews(candidateId);
+        return ResponseEntity.ok(ApiResponse.<java.util.List<ReviewEligibilityResponse>>builder()
+                .code(HttpStatus.OK.value())
+                .message("Pending reviews retrieved successfully")
+                .result(pending)
+                .build());
+    }
+
+    /**
+     * Get all job applications with review status for each review type
+     * Shows which reviews are submitted, available, or not yet eligible
+     * Used for the grouped review cards UI
+     */
+    @GetMapping("/applications")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(
+        summary = "Get job applications with review status",
+        description = "Get all job applications with status for each review type (submitted/available/not_eligible)"
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Applications with review status retrieved successfully",
+            content = @Content(schema = @Schema(implementation = java.util.List.class))
+        )
+    })
+    public ResponseEntity<ApiResponse<java.util.List<JobApplicationReviewStatusResponse>>> getApplicationsWithReviewStatus(
+            @Parameter(description = "Candidate ID from authentication context")
+            @RequestParam Integer candidateId) {
+        
+        log.debug("GET /api/v1/reviews/applications - Candidate {}", candidateId);
+        java.util.List<JobApplicationReviewStatusResponse> applications = companyReviewService.getApplicationsWithReviewStatus(candidateId);
+        return ResponseEntity.ok(ApiResponse.<java.util.List<JobApplicationReviewStatusResponse>>builder()
+                .code(HttpStatus.OK.value())
+                .message("Applications with review status retrieved successfully")
+                .result(applications)
+                .build());
+    }
+
+    /**
      * Get average rating for a company
      */
     @GetMapping("/company/{recruiterId}/rating")
+    @PreAuthorize("permitAll()")
     @Operation(
         summary = "Get company average rating",
         description = "Get the average overall rating for a company across all reviews"
@@ -217,6 +327,7 @@ public class CompanyReviewController {
      * Get comprehensive statistics for a company
      */
     @GetMapping("/company/{recruiterId}/statistics")
+    @PreAuthorize("permitAll()")
     @Operation(
         summary = "Get company review statistics",
         description = "Get comprehensive review statistics including rating distribution and aspect averages"
@@ -245,7 +356,7 @@ public class CompanyReviewController {
      * Flag a review for moderation
      */
     @PostMapping("/{reviewId}/flag")
-    @PreAuthorize("hasAnyRole('CANDIDATE', 'RECRUITER')")
+    @PreAuthorize("hasAnyRole('CANDIDATE', 'ADMIN')")
     @Operation(
         summary = "Flag review",
         description = "Flag a review for inappropriate content or policy violations"
@@ -314,6 +425,7 @@ public class CompanyReviewController {
      * Get a single review by ID
      */
     @GetMapping("/{reviewId}")
+    @PreAuthorize("hasAnyRole('CANDIDATE','ADMIN')")
     @Operation(
         summary = "Get review by ID",
         description = "Get detailed information about a specific review"
@@ -329,16 +441,77 @@ public class CompanyReviewController {
             description = "Review not found"
         )
     })
-    public ResponseEntity<ApiResponse<CompanyReviewResponse>> getReviewById(
+    public ResponseEntity<ApiResponse<PublicCompanyReviewResponse>> getReviewById(
             @Parameter(description = "Review ID")
             @PathVariable Integer reviewId) {
         
         log.debug("GET /api/v1/reviews/{}", reviewId);
-        CompanyReviewResponse review = companyReviewService.getReviewById(reviewId);
-        return ResponseEntity.ok(ApiResponse.<CompanyReviewResponse>builder()
+        PublicCompanyReviewResponse review = companyReviewService.getReviewById(reviewId);
+        return ResponseEntity.ok(ApiResponse.<PublicCompanyReviewResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Review retrieved successfully")
                 .result(review)
                 .build());
     }
+
+        // ==================== Admin Moderation ====================
+
+        @GetMapping("/admin")
+        @PreAuthorize("hasRole('ADMIN')")
+        @Operation(
+            summary = "Admin: list reviews",
+            description = "List reviews for moderation with optional filters (company/date/status/type)"
+        )
+        public ResponseEntity<ApiResponse<Page<CompanyReviewResponse>>> adminListReviews(
+            @RequestParam(required = false) Integer recruiterId,
+            @RequestParam(required = false) ReviewStatus status,
+            @RequestParam(required = false) ReviewType reviewType,
+                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+        ) {
+        Page<CompanyReviewResponse> result = companyReviewService.adminGetReviews(
+            recruiterId, status, reviewType, from, to, page, size
+        );
+        return ResponseEntity.ok(ApiResponse.<Page<CompanyReviewResponse>>builder()
+            .code(HttpStatus.OK.value())
+            .message("Admin reviews retrieved successfully")
+            .result(result)
+            .build());
+        }
+
+        @PutMapping("/admin/{reviewId}/status")
+        @PreAuthorize("hasRole('ADMIN')")
+        @Operation(
+            summary = "Admin: set review status",
+            description = "Set review status (e.g., ACTIVE, ARCHIVED, REMOVED)"
+        )
+        public ResponseEntity<ApiResponse<Void>> adminSetReviewStatus(
+            @PathVariable Integer reviewId,
+            @RequestParam ReviewStatus status,
+            @RequestParam(required = false) String reason
+        ) {
+        companyReviewService.adminSetReviewStatus(reviewId, status, reason);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+            .code(HttpStatus.OK.value())
+            .message("Review status updated")
+            .build());
+        }
+
+        @PutMapping("/admin/status")
+        @PreAuthorize("hasRole('ADMIN')")
+        @Operation(
+            summary = "Admin: bulk set review status",
+            description = "Bulk update review status for multiple review IDs"
+        )
+        public ResponseEntity<ApiResponse<Void>> adminBulkSetReviewStatus(
+            @Valid @RequestBody AdminBulkReviewStatusRequest request
+        ) {
+        companyReviewService.adminBulkSetReviewStatus(request);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+            .code(HttpStatus.OK.value())
+            .message("Bulk review status updated")
+            .build());
+        }
 }
