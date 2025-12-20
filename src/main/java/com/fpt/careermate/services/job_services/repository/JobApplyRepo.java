@@ -1,6 +1,5 @@
 package com.fpt.careermate.services.job_services.repository;
 
-
 import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.services.job_services.domain.JobApply;
 import org.springframework.data.domain.Page;
@@ -14,81 +13,131 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface JobApplyRepo extends JpaRepository<JobApply,Integer> {
-    List<JobApply> findByJobPostingId(int jobPostingId);
-    List<JobApply> findByCandidateCandidateId(int candidateId);
-    Optional<JobApply> findByJobPostingIdAndCandidateCandidateId(int jobPostingId, int candidateId);
-    
-    /**
-     * Find job apply by ID with candidate eagerly loaded (for ownership check)
-     */
-    @Query("SELECT ja FROM job_apply ja JOIN FETCH ja.candidate WHERE ja.id = :id")
-    Optional<JobApply> findByIdWithCandidate(@Param("id") Integer id);
-    
-    @Query("SELECT ja FROM job_apply ja WHERE ja.candidate.candidateId = :candidateId " +
-            "AND (:status IS NULL OR ja.status = :status)")
-    Page<JobApply> findByCandidateIdAndStatus(
-            @Param("candidateId") int candidateId,
-            @Param("status") StatusJobApply status,
-            Pageable pageable);
+public interface JobApplyRepo extends JpaRepository<JobApply, Integer> {
+       List<JobApply> findByJobPostingId(int jobPostingId);
 
-    @Query(value = "SELECT COUNT(*) FROM job_apply a WHERE a.candidate_id = :candidateId " +
-            "AND EXTRACT(MONTH FROM a.create_at) = :month AND EXTRACT(YEAR FROM a.create_at) = :year", nativeQuery = true)
-    int countByCandidateAndMonth(@Param("candidateId") int candidateId,
-                                 @Param("month") int month,
-                                 @Param("year") int year);
+       List<JobApply> findByCandidateCandidateId(int candidateId);
 
-    /**
-     * Find all pending applications for a candidate that should be auto-withdrawn when hired.
-     * Returns applications with status: SUBMITTED, REVIEWING, INTERVIEW_SCHEDULED, INTERVIEWED, APPROVED
-     * Excludes the specific hired application.
-     */
-    @Query("SELECT ja FROM job_apply ja WHERE ja.candidate.candidateId = :candidateId " +
-            "AND ja.id != :excludeApplicationId " +
-            "AND ja.status IN :activeStatuses")
-    List<JobApply> findActivePendingApplicationsByCandidate(
-            @Param("candidateId") int candidateId,
-            @Param("excludeApplicationId") int excludeApplicationId,
-            @Param("activeStatuses") List<StatusJobApply> activeStatuses);
+       Optional<JobApply> findByJobPostingIdAndCandidateCandidateId(int jobPostingId, int candidateId);
 
-    // Stats methods for recruiter dashboard
-    @Query("SELECT COUNT(ja) FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId")
-    long countByRecruiterId(@Param("recruiterId") int recruiterId);
+       /**
+        * Find job apply by ID with candidate eagerly loaded (for ownership check)
+        */
+       @Query("SELECT ja FROM job_apply ja JOIN FETCH ja.candidate WHERE ja.id = :id")
+       Optional<JobApply> findByIdWithCandidate(@Param("id") Integer id);
 
-    @Query("SELECT COUNT(ja) FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId AND ja.status = :status")
-    long countByRecruiterIdAndStatus(@Param("recruiterId") int recruiterId, @Param("status") StatusJobApply status);
+       @Query("SELECT ja FROM job_apply ja WHERE ja.candidate.candidateId = :candidateId " +
+                     "AND (:status IS NULL OR ja.status = :status)")
+       Page<JobApply> findByCandidateIdAndStatus(
+                     @Param("candidateId") int candidateId,
+                     @Param("status") StatusJobApply status,
+                     Pageable pageable);
 
-    // Find applications for all job postings of a recruiter
-    @Query("SELECT ja FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId ORDER BY ja.createAt DESC")
-    List<JobApply> findByRecruiterId(@Param("recruiterId") int recruiterId);
+       @Query(value = "SELECT COUNT(*) FROM job_apply a WHERE a.candidate_id = :candidateId " +
+                     "AND EXTRACT(MONTH FROM a.create_at) = :month AND EXTRACT(YEAR FROM a.create_at) = :year", nativeQuery = true)
+       int countByCandidateAndMonth(@Param("candidateId") int candidateId,
+                     @Param("month") int month,
+                     @Param("year") int year);
 
-    @Query("SELECT ja FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId ORDER BY ja.createAt DESC")
-    Page<JobApply> findByRecruiterId(@Param("recruiterId") int recruiterId, Pageable pageable);
-    
-    /**
-     * Check if candidate has any active employment (status = WORKING or ACCEPTED).
-     * Used to prevent candidate from being employed at multiple jobs simultaneously.
-     * 
-     * @param candidateId The candidate's ID
-     * @param excludeApplicationId The application ID to exclude (for updates)
-     * @return true if candidate has an active employment, false otherwise
-     */
-    @Query("SELECT CASE WHEN COUNT(ja) > 0 THEN true ELSE false END FROM job_apply ja " +
-           "WHERE ja.candidate.candidateId = :candidateId " +
-           "AND ja.id != :excludeApplicationId " +
-           "AND ja.status IN (com.fpt.careermate.common.constant.StatusJobApply.WORKING, " +
-           "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED)")
-    boolean hasActiveEmployment(@Param("candidateId") int candidateId, 
-                                 @Param("excludeApplicationId") int excludeApplicationId);
-    
-    /**
-     * Find active employment for a candidate.
-     * Returns the job application where status is WORKING or ACCEPTED.
-     */
-    @Query("SELECT ja FROM job_apply ja " +
-           "WHERE ja.candidate.candidateId = :candidateId " +
-           "AND ja.status IN (com.fpt.careermate.common.constant.StatusJobApply.WORKING, " +
-           "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED) " +
-           "ORDER BY ja.statusChangedAt DESC")
-    List<JobApply> findActiveEmploymentsByCandidate(@Param("candidateId") int candidateId);
+       /**
+        * Find all pending applications for a candidate that should be auto-withdrawn
+        * when hired.
+        * Returns applications with status: SUBMITTED, REVIEWING, INTERVIEW_SCHEDULED,
+        * INTERVIEWED, APPROVED
+        * Excludes the specific hired application.
+        */
+       @Query("SELECT ja FROM job_apply ja WHERE ja.candidate.candidateId = :candidateId " +
+                     "AND ja.id != :excludeApplicationId " +
+                     "AND ja.status IN :activeStatuses")
+       List<JobApply> findActivePendingApplicationsByCandidate(
+                     @Param("candidateId") int candidateId,
+                     @Param("excludeApplicationId") int excludeApplicationId,
+                     @Param("activeStatuses") List<StatusJobApply> activeStatuses);
+
+       // Stats methods for recruiter dashboard
+       @Query("SELECT COUNT(ja) FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId")
+       long countByRecruiterId(@Param("recruiterId") int recruiterId);
+
+       @Query("SELECT COUNT(ja) FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId AND ja.status = :status")
+       long countByRecruiterIdAndStatus(@Param("recruiterId") int recruiterId, @Param("status") StatusJobApply status);
+
+       // Find applications for all job postings of a recruiter
+       @Query("SELECT ja FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId ORDER BY ja.createAt DESC")
+       List<JobApply> findByRecruiterId(@Param("recruiterId") int recruiterId);
+
+       @Query("SELECT ja FROM job_apply ja WHERE ja.jobPosting.recruiter.id = :recruiterId ORDER BY ja.createAt DESC")
+       Page<JobApply> findByRecruiterId(@Param("recruiterId") int recruiterId, Pageable pageable);
+
+       /**
+        * Check if candidate has any active employment (status = WORKING or ACCEPTED).
+        * Used to prevent candidate from being employed at multiple jobs
+        * simultaneously.
+        * 
+        * @param candidateId          The candidate's ID
+        * @param excludeApplicationId The application ID to exclude (for updates)
+        * @return true if candidate has an active employment, false otherwise
+        */
+       @Query("SELECT CASE WHEN COUNT(ja) > 0 THEN true ELSE false END FROM job_apply ja " +
+                     "WHERE ja.candidate.candidateId = :candidateId " +
+                     "AND ja.id != :excludeApplicationId " +
+                     "AND ja.status IN (com.fpt.careermate.common.constant.StatusJobApply.WORKING, " +
+                     "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED)")
+       boolean hasActiveEmployment(@Param("candidateId") int candidateId,
+                     @Param("excludeApplicationId") int excludeApplicationId);
+
+       /**
+        * Find active employment for a candidate.
+        * Returns the job application where status is WORKING or ACCEPTED.
+        */
+       @Query("SELECT ja FROM job_apply ja " +
+                     "WHERE ja.candidate.candidateId = :candidateId " +
+                     "AND ja.status IN (com.fpt.careermate.common.constant.StatusJobApply.WORKING, " +
+                     "com.fpt.careermate.common.constant.StatusJobApply.ACCEPTED) " +
+                     "ORDER BY ja.statusChangedAt DESC")
+       List<JobApply> findActiveEmploymentsByCandidate(@Param("candidateId") int candidateId);
+
+       /**
+        * Find all job applications for a candidate by their ID
+        * Used by review eligibility checking
+        */
+       @Query("SELECT ja FROM job_apply ja " +
+                     "JOIN FETCH ja.jobPosting jp " +
+                     "JOIN FETCH jp.recruiter " +
+                     "WHERE ja.candidate.candidateId = :candidateId")
+       List<JobApply> findByCandidateId(@Param("candidateId") int candidateId);
+
+       /**
+        * Find applications created within a date range
+        * Used for review reminder scheduling
+        */
+       @Query("SELECT ja FROM job_apply ja " +
+                     "JOIN FETCH ja.candidate " +
+                     "JOIN FETCH ja.jobPosting jp " +
+                     "JOIN FETCH jp.recruiter " +
+                     "WHERE ja.createAt BETWEEN :startDate AND :endDate")
+       List<JobApply> findByCreateAtBetween(@Param("startDate") java.time.LocalDateTime startDate,
+                     @Param("endDate") java.time.LocalDateTime endDate);
+
+       /**
+        * Find applications with interviews completed after a given date
+        * Used for interview review reminder scheduling
+        */
+       @Query("SELECT ja FROM job_apply ja " +
+                     "JOIN FETCH ja.candidate " +
+                     "JOIN FETCH ja.jobPosting jp " +
+                     "JOIN FETCH jp.recruiter " +
+                     "WHERE ja.interviewedAt > :afterDate")
+       List<JobApply> findByInterviewedAtAfter(@Param("afterDate") java.time.LocalDateTime afterDate);
+
+       /**
+        * Find applications where candidate was hired within a date range
+        * Used for work experience review reminder scheduling
+        */
+       @Query("SELECT ja FROM job_apply ja " +
+                     "JOIN FETCH ja.candidate " +
+                     "JOIN FETCH ja.jobPosting jp " +
+                     "JOIN FETCH jp.recruiter " +
+                     "WHERE ja.hiredAt BETWEEN :startDate AND :endDate")
+       List<JobApply> findByHiredAtBetween(@Param("startDate") java.time.LocalDateTime startDate,
+                     @Param("endDate") java.time.LocalDateTime endDate);
 }

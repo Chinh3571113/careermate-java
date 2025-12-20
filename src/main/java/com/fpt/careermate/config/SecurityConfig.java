@@ -53,7 +53,7 @@ public class SecurityConfig {
             "/api/candidate-payment/return",
             // Public file upload for recruiter logos during registration
             "/api/upload/recruiter-logo-public",
-            "api/coach/course/recommendation",
+            "/api/coach/course/recommendation",
             // Public job postings endpoints - no authentication required
             "/api/job-postings",
             "/api/job-postings/**",
@@ -77,6 +77,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/blogs", "/api/blogs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/blogs", "/blogs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
+                    // Public company review aggregates (details/listing remain role-restricted)
+                    .requestMatchers(HttpMethod.GET,
+                        "/api/v1/reviews/company/*/statistics",
+                        "/api/v1/reviews/company/*/rating"
+                    ).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest()
                         .authenticated());

@@ -39,8 +39,8 @@ class RecruiterJobPostingRedisServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+
         testResponse = JobPostingForRecruiterResponse.builder()
                 .id(TEST_JOB_ID)
                 .title("Senior Java Developer")
@@ -178,4 +178,3 @@ class RecruiterJobPostingRedisServiceTest {
         verify(redisTemplate).expire(EXPECTED_KEY, 120L, TimeUnit.MINUTES);
     }
 }
-
