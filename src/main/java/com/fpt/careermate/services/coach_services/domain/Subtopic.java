@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 @Getter
 @Setter
@@ -28,6 +31,9 @@ public class Subtopic {
     @ManyToOne
     @JoinColumn(name = "topic_id")
     Topic topic;
+
+    @OneToMany(mappedBy = "subtopic", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<ResumeSubtopicProgress> resumeSubtopicProgresses = new ArrayList<>();
 
     public Subtopic(String subtopic, String tags, String resources, String description) {
         this.name = subtopic;

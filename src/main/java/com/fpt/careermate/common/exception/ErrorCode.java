@@ -101,6 +101,12 @@ public enum ErrorCode {
         TOPIC_NOT_FOUND(7003, "Topic not found", HttpStatus.NOT_FOUND),
         SUBTOPIC_NOT_FOUND(7004, "Subtopic not found", HttpStatus.NOT_FOUND),
         CANNOT_CREATE_ROADMAP_PROPERTY(7005, "Cannot create roadmap property", HttpStatus.BAD_REQUEST),
+        RESUME_ROADMAP_EXISTED(7006, "The resume already includes this roadmap", HttpStatus.BAD_REQUEST),
+        RESUME_ROADMAP_NOT_FOUND(7007, "Resume roadmap not found", HttpStatus.NOT_FOUND),
+        RESUME_SUBPTOPIC_PROGRESS_CREATE_FAIL(7008, "Cannot create resume subtopic progress", HttpStatus.BAD_REQUEST),
+        SUBTOPIC_PROGRESS_NOT_FOUND(7011, "Subtopic progress not found", HttpStatus.NOT_FOUND),
+        WEAVIATE_ERROR(7009, "Error occurred while interacting with Weaviate", HttpStatus.INTERNAL_SERVER_ERROR),
+        RESUME_HAS_NO_SKILLS(7010, "Resume has no skills. Cannot recommend roadmap without skills.", HttpStatus.BAD_REQUEST),
 
         BLOG_NOT_FOUND(1010, "Blog not found", HttpStatus.NOT_FOUND),
         BLOG_INVALID_STATUS(1011, "Invalid blog status", HttpStatus.BAD_REQUEST),
