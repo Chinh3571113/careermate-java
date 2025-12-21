@@ -60,6 +60,7 @@ public enum ErrorCode {
 
         // 50xx: JdSkill
         SKILL_EXISTED(5000, "JdSkill existed", HttpStatus.BAD_REQUEST),
+        INVALID_JDSKILL_TYPE(5001, "Invalid JdSkill type. Must be 'core' or 'soft'", HttpStatus.BAD_REQUEST),
 
         // 60xx: Job Posting
         JOB_POSTING_NOT_FOUND(6000, "Job posting not found", HttpStatus.NOT_FOUND),

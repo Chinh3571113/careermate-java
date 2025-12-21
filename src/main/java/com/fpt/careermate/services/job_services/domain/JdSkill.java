@@ -21,6 +21,7 @@ public class JdSkill {
 
     @Column(length = 100, nullable = false)
     String name;
+    String type;
 
     @OneToMany(mappedBy = "jdSkill")
     Set<JobDescription> jobDescriptions;
