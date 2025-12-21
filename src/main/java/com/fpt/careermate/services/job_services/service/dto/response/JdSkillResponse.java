@@ -13,5 +13,6 @@ public class JdSkillResponse {
 
     int id;
     String name;
+    String type;
 
 }

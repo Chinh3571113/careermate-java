@@ -44,10 +44,11 @@ public class JdSkillController {
     @Operation(summary = "Get jdSkill list with optional autocomplete search",
                description = "Returns all skills if no keyword is provided, otherwise returns skills matching the keyword (case-insensitive partial match)")
     ApiResponse<List<JdSkillResponse>> getSkillList(
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = true) String type
     ) {
         return ApiResponse.<List<JdSkillResponse>>builder()
-                .result(jdSkillImp.getAllSkill(keyword))
+                .result(jdSkillImp.getAllSkill(keyword, type))
                 .code(200)
                 .message("success")
                 .build();

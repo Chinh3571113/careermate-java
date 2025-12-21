@@ -1,17 +1,17 @@
 package com.fpt.careermate.services.job_services.web.rest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fpt.careermate.services.job_services.service.JdJdSkillImp;
 import com.fpt.careermate.services.job_services.service.dto.response.JdSkillResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Collections;
 import java.util.List;
@@ -22,25 +22,25 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(JdSkillController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
 @DisplayName("JdSkillController Tests")
 class JdSkillControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockBean
+    @Mock
     private JdJdSkillImp jdSkillImp;
+
+    @InjectMocks
+    private JdSkillController jdSkillController;
 
     private JdSkillResponse mockResponse;
     private List<JdSkillResponse> mockList;
 
     @BeforeEach
     void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(jdSkillController).build();
+
         mockResponse = JdSkillResponse.builder()
                 .id(1)
                 .name("Java")
@@ -70,7 +70,7 @@ class JdSkillControllerTest {
         @Test
         @DisplayName("Should search skills by keyword successfully")
         void searchSkills_ReturnsSuccess() throws Exception {
-            when(jdSkillImp.getAllSkill(anyString())).thenReturn(mockList);
+            when(jdSkillImp.getAllSkill(anyString(), anyString())).thenReturn(mockList);
 
             mockMvc.perform(get("/api/jdskill")
                             .param("keyword", "Java"))
@@ -81,10 +81,21 @@ class JdSkillControllerTest {
         @Test
         @DisplayName("Should search skills with empty keyword successfully")
         void searchSkills_EmptyKeyword_ReturnsSuccess() throws Exception {
-            when(jdSkillImp.getAllSkill(anyString())).thenReturn(mockList);
+            when(jdSkillImp.getAllSkill(anyString(), anyString())).thenReturn(mockList);
 
             mockMvc.perform(get("/api/jdskill")
                             .param("keyword", ""))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+        }
+
+        @Test
+        @DisplayName("Should accept type filter and return success")
+        void searchSkills_WithTypeFilter_ReturnsSuccess() throws Exception {
+            when(jdSkillImp.getAllSkill(anyString(), eq("core"))).thenReturn(mockList);
+
+            mockMvc.perform(get("/api/jdskill")
+                            .param("type", "core"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.code").value(200));
         }
