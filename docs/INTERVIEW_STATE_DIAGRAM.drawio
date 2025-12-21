@@ -1,0 +1,136 @@
+<mxfile host="app.diagrams.net" modified="2025-12-13T00:00:00.000Z" agent="GitHub Copilot" version="22.1.11" etag="drawio-generated" type="device">
+  <diagram id="InterviewWorkflow" name="Interview Workflow">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="Interview Schedule" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="150" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- START STATE -->
+        <mxCell id="start" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="410" y="70" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- SCHEDULED -->
+        <mxCell id="SCHEDULED" value="Scheduled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="140" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- CONFIRMED -->
+        <mxCell id="CONFIRMED" value="Confirmed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="230" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- COMPLETED -->
+        <mxCell id="COMPLETED" value="Completed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="340" y="320" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- RESCHEDULED -->
+        <mxCell id="RESCHEDULED" value="Rescheduled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="90" y="320" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- CANCELLED -->
+        <mxCell id="CANCELLED" value="Cancelled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="590" y="230" width="170" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- NO_SHOW -->
+        <mxCell id="NO_SHOW" value="No Show" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontStyle=0" vertex="1" parent="1">
+          <mxGeometry x="590" y="320" width="170" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- END STATE -->
+        <mxCell id="end" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=3;" vertex="1" parent="1">
+          <mxGeometry x="410" y="430" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="end_inner" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="417" y="437" width="16" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- TRANSITIONS -->
+        
+        <!-- Start to SCHEDULED -->
+        <mxCell id="edge1" value="Create interview" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="start" target="SCHEDULED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- SCHEDULED to CONFIRMED -->
+        <mxCell id="edge2" value="Candidate confirms" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="SCHEDULED" target="CONFIRMED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- CONFIRMED to COMPLETED -->
+        <mxCell id="edge3" value="Complete interview" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="CONFIRMED" target="COMPLETED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- COMPLETED to END -->
+        <mxCell id="edge4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="COMPLETED" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- COMPLETED to RESCHEDULED (needs 2nd round) -->
+        <mxCell id="edge5" value="Needs 2nd round" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;" edge="1" parent="1" source="COMPLETED" target="RESCHEDULED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- RESCHEDULED back to SCHEDULED -->
+        <mxCell id="edge6" value="Reschedule" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;curved=1;" edge="1" parent="1" source="RESCHEDULED" target="SCHEDULED">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="175" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- SCHEDULED to CANCELLED -->
+        <mxCell id="edge7" value="Cancel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="SCHEDULED" target="CANCELLED">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- CONFIRMED to CANCELLED -->
+        <mxCell id="edge8" value="Cancel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="CONFIRMED" target="CANCELLED">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- CONFIRMED to NO_SHOW -->
+        <mxCell id="edge9" value="No show" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=11;fontColor=#0000FF;dashed=1;" edge="1" parent="1" source="CONFIRMED" target="NO_SHOW">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="255" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- CANCELLED to END -->
+        <mxCell id="edge10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="CANCELLED" target="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="445" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- NO_SHOW to END -->
+        <mxCell id="edge11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;" edge="1" parent="1" source="NO_SHOW" target="end">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="445" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -9,6 +9,8 @@ import com.fpt.careermate.services.order_services.domain.RecruiterPackage;
 import com.fpt.careermate.services.order_services.repository.RecruiterInvoiceRepo;
 import com.fpt.careermate.services.order_services.repository.RecruiterPackageRepo;
 import com.fpt.careermate.services.order_services.service.dto.response.MyRecruiterInvoiceResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.MyInvoiceListItemResponse;
+import com.fpt.careermate.services.order_services.service.dto.response.PageMyInvoiceListResponse;
 import com.fpt.careermate.services.order_services.service.impl.RecruiterInvoiceService;
 import com.fpt.careermate.services.order_services.service.mapper.RecruiterInvoiceMapper;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
@@ -18,9 +20,13 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
+import java.util.stream.Collectors;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -105,5 +111,46 @@ public class RecruiterInvoiceImp implements RecruiterInvoiceService {
         if(exsting.isEmpty()) throw new AppException(ErrorCode.RECRUITER_INVOICE_NOT_FOUND);
 
         return recruiterInvoiceMapper.toMyRecruiterInvoiceResponse(exsting.get());
+    }
+
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    public PageMyInvoiceListResponse getMyInvoiceHistory(int page, int size) {
+        Recruiter currentRecruiter = coachUtil.getCurrentRecruiter();
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 100);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+
+        Page<RecruiterInvoice> invoicePage = recruiterInvoiceRepo.findByRecruiter_IdOrderByIdDesc(
+                currentRecruiter.getId(),
+                pageable
+        );
+
+        List<MyInvoiceListItemResponse> content = invoicePage.getContent().stream()
+                .map(recruiterInvoiceMapper::toMyInvoiceListItemResponse)
+            .collect(Collectors.toList());
+
+        return PageMyInvoiceListResponse.builder()
+                .content(content)
+                .number(invoicePage.getNumber())
+                .size(invoicePage.getSize())
+                .totalElements(invoicePage.getTotalElements())
+                .totalPages(invoicePage.getTotalPages())
+                .first(invoicePage.isFirst())
+                .last(invoicePage.isLast())
+                .build();
+    }
+
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    public MyInvoiceListItemResponse getMyInvoiceById(int invoiceId) {
+        Recruiter currentRecruiter = coachUtil.getCurrentRecruiter();
+        RecruiterInvoice invoice = recruiterInvoiceRepo.findByIdAndRecruiter_Id(
+                        invoiceId,
+                        currentRecruiter.getId()
+                )
+                .orElseThrow(() -> new AppException(ErrorCode.RECRUITER_INVOICE_NOT_FOUND));
+
+        return recruiterInvoiceMapper.toMyInvoiceListItemResponse(invoice);
     }
 }

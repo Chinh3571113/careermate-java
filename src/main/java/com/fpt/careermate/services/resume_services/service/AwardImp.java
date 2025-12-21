@@ -42,6 +42,8 @@ public class AwardImp implements AwardService {
 
         Award savedAward = awardRepo.save(awardInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return awardMapper.toResponse(savedAward);
     }
 
@@ -51,6 +53,7 @@ public class AwardImp implements AwardService {
         awardRepo.findById(awardId)
                 .orElseThrow(() -> new AppException(ErrorCode.AWARD_NOT_FOUND));
         awardRepo.deleteById(awardId);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
@@ -62,7 +65,9 @@ public class AwardImp implements AwardService {
                 .orElseThrow(() -> new AppException(ErrorCode.AWARD_NOT_FOUND));
 
         awardMapper.updateEntity(award, existingAward);
+        Award updated = awardRepo.save(existingAward);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
 
-        return awardMapper.toResponse(awardRepo.save(existingAward));
+        return awardMapper.toResponse(updated);
     }
 }

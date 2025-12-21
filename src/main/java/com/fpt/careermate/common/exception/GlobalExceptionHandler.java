@@ -4,6 +4,7 @@ import com.fpt.careermate.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -18,6 +19,33 @@ import jakarta.servlet.http.HttpServletResponse;
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(value = DataIntegrityViolationException.class)
+    ResponseEntity<ApiResponse> handlingDataIntegrityViolationException(
+            DataIntegrityViolationException exception,
+            HttpServletResponse response
+    ) {
+        if (response != null && response.isCommitted()) {
+            log.warn("Cannot send DataIntegrityViolation response - response already committed");
+            return null;
+        }
+
+        String mostSpecific = exception.getMostSpecificCause() != null
+                ? exception.getMostSpecificCause().getMessage()
+                : exception.getMessage();
+
+        String message = "Data integrity violation";
+        if (mostSpecific != null && mostSpecific.contains("job_apply_status_check")) {
+            message = "Database schema does not allow this job application status. " +
+                    "If you're using Neon, update the job_apply_status_check constraint to include 'OFFER_EXTENDED'.";
+        }
+
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setCode(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode());
+        apiResponse.setMessage(message);
+
+        return ResponseEntity.badRequest().body(apiResponse);
+    }
 
     /**
      * Handle client disconnection errors (browser closed, network drop, etc.)

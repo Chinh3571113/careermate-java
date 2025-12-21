@@ -25,6 +25,20 @@ public class EmploymentVerificationResponse {
     // Company info (from JobApply -> JobPosting -> Recruiter)
     String companyName;
 
+    // Basic employee/job display info (no contract/salary tracking)
+    String candidateName;
+
+    String candidateEmail;
+
+    String candidatePhone;
+
+    String candidateImage;
+
+    String jobTitle;
+
+    /** "ACTIVE" | "TERMINATED" */
+    String employmentStatus;
+
     LocalDate startDate;
 
     LocalDate endDate;

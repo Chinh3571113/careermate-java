@@ -1,6 +1,5 @@
 package com.fpt.careermate.services.resume_services.service;
 
-
 import com.fpt.careermate.services.resume_services.domain.ForeignLanguage;
 import com.fpt.careermate.services.resume_services.domain.Resume;
 import com.fpt.careermate.services.resume_services.repository.ForeignLanguageRepo;
@@ -43,6 +42,8 @@ public class ForeignLanguageImp implements ForeignLanguageService {
 
         ForeignLanguage savedLanguage = foreignLanguageRepo.save(languageInfo);
 
+        resumeImp.syncCandidateProfileByResumeId(resume.getResumeId());
+
         return foreignLanguageMapper.toResponse(savedLanguage);
     }
 
@@ -52,18 +53,22 @@ public class ForeignLanguageImp implements ForeignLanguageService {
         foreignLanguageRepo.findById(foreignLanguageId)
                 .orElseThrow(() -> new AppException(ErrorCode.FOREIGN_LANGUAGE_NOT_FOUND));
         foreignLanguageRepo.deleteById(foreignLanguageId);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
     }
 
     @Transactional
     @PreAuthorize("hasRole('CANDIDATE')")
     @Override
-    public ForeignLanguageResponse updateForeignLanguageInResume(int resumeId, int foreignLanguageId, ForeignLanguageRequest foreignLanguage) {
+    public ForeignLanguageResponse updateForeignLanguageInResume(int resumeId, int foreignLanguageId,
+            ForeignLanguageRequest foreignLanguage) {
         resumeRepo.findById(resumeId).orElseThrow(() -> new AppException(ErrorCode.RESUME_NOT_FOUND));
         ForeignLanguage existingLanguage = foreignLanguageRepo.findById(foreignLanguageId)
                 .orElseThrow(() -> new AppException(ErrorCode.FOREIGN_LANGUAGE_NOT_FOUND));
 
         foreignLanguageMapper.updateEntity(foreignLanguage, existingLanguage);
+        ForeignLanguage updated = foreignLanguageRepo.save(existingLanguage);
+        resumeImp.syncCandidateProfileByResumeId(resumeId);
 
-        return foreignLanguageMapper.toResponse(foreignLanguageRepo.save(existingLanguage));
+        return foreignLanguageMapper.toResponse(updated);
     }
 }

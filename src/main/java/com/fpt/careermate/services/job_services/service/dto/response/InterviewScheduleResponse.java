@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.job_services.service.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fpt.careermate.common.constant.InterviewOutcome;
 import com.fpt.careermate.common.constant.InterviewStatus;
 import com.fpt.careermate.common.constant.InterviewType;
@@ -11,6 +12,11 @@ import java.time.LocalDateTime;
 /**
  * DTO for interview schedule response
  * 
+ * Null fields are omitted from JSON response to:
+ * 1. Reduce payload size
+ * 2. Prevent frontend from receiving "field": null
+ * 3. Maintain consistency with other response DTOs
+ * 
  * @since 1.0
  */
 @Getter
@@ -19,6 +25,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class InterviewScheduleResponse {
 
     Integer id;

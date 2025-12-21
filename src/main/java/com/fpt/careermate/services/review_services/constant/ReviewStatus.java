@@ -5,20 +5,25 @@ package com.fpt.careermate.services.review_services.constant;
  */
 public enum ReviewStatus {
     /**
-     * Review is active and visible
+     * Review is active and visible (used in calculations)
      */
     ACTIVE,
-    
+
     /**
      * Review flagged for moderation (spam, abuse, etc.)
      */
     FLAGGED,
-    
+
+    /**
+     * Review hidden by admin (not visible, excluded from calculations)
+     */
+    HIDDEN,
+
     /**
      * Review removed by moderator for policy violation
      */
     REMOVED,
-    
+
     /**
      * Review archived (e.g., company no longer exists)
      */

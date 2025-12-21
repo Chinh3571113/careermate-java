@@ -11,6 +11,8 @@ import com.fpt.careermate.services.job_services.service.dto.request.EmploymentTe
 import com.fpt.careermate.services.job_services.service.dto.request.EmploymentVerificationRequest;
 import com.fpt.careermate.services.job_services.service.dto.response.EmploymentVerificationResponse;
 import com.fpt.careermate.services.job_services.service.mapper.EmploymentVerificationMapper;
+import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
+import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class EmploymentVerificationServiceImpl implements EmploymentVerification
 
     EmploymentVerificationRepo employmentVerificationRepo;
     JobApplyRepo jobApplyRepo;
+    RecruiterRepo recruiterRepo;
     EmploymentVerificationMapper mapper;
 
     @Override
@@ -53,9 +56,13 @@ public class EmploymentVerificationServiceImpl implements EmploymentVerification
             throw new AppException(ErrorCode.EMPLOYMENT_VERIFICATION_EXISTS);
         }
 
+        Recruiter recruiter = recruiterRepo.findById(recruiterId)
+            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
         // Create simplified employment verification
         EmploymentVerification verification = EmploymentVerification.builder()
                 .jobApply(jobApply)
+                .createdByRecruiter(recruiter)
                 .startDate(request.getStartDate())
                 .isActive(true)
                 .createdAt(LocalDateTime.now())
@@ -69,6 +76,7 @@ public class EmploymentVerificationServiceImpl implements EmploymentVerification
     }
 
     @Override
+    @Transactional
     public EmploymentVerificationResponse getByJobApplyId(Integer jobApplyId) {
         EmploymentVerification verification = employmentVerificationRepo.findByJobApplyId(jobApplyId)
                 .orElseThrow(() -> new AppException(ErrorCode.EMPLOYMENT_VERIFICATION_NOT_FOUND));
@@ -113,10 +121,7 @@ public class EmploymentVerificationServiceImpl implements EmploymentVerification
 
     @Override
     public List<EmploymentVerificationResponse> getActiveEmploymentsByRecruiter(Integer recruiterId) {
-        // Simplified: just return all active employments
-        // (In a real implementation, you'd filter by recruiter through job posting
-        // relationship)
-        return employmentVerificationRepo.findByIsActiveTrue().stream()
+        return employmentVerificationRepo.findActiveByRecruiterId(recruiterId).stream()
                 .map(mapper::toResponse)
                 .collect(Collectors.toList());
     }

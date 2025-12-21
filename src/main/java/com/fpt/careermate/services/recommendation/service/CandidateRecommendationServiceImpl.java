@@ -11,6 +11,8 @@ import com.fpt.careermate.services.recommendation.dto.RecommendationResponseDTO;
 import com.fpt.careermate.services.resume_services.domain.Resume;
 import com.fpt.careermate.services.resume_services.domain.Skill;
 import com.fpt.careermate.services.resume_services.repository.ResumeRepo;
+import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
+import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.google.gson.GsonBuilder;
 import io.weaviate.client.WeaviateClient;
 import io.weaviate.client.base.Result;
@@ -39,6 +41,7 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
     JobPostingRepo jobPostingRepo;
     CandidateRepo candidateRepo;
     ResumeRepo resumeRepo;
+    JobApplyRepo jobApplyRepo;
     com.fpt.careermate.services.recommendation.util.SkillMatcher skillMatcher;
 
     private static final String CANDIDATE_CLASS = "CandidateProfile";
@@ -72,13 +75,10 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
         // If no skills from job descriptions, try to extract from job description text
         if (requiredSkills.isEmpty() && jobPosting.getDescription() != null) {
             log.info("⚠️ No job descriptions found, using description text for job posting ID: {}", jobPostingId);
-            // Use the entire job description as search query
-            requiredSkills = Arrays.asList(jobPosting.getDescription().split("\\s+")).stream()
-                    .filter(word -> word.length() > 3) // Filter meaningful words
-                    .limit(20) // Limit to top 20 keywords
-                    .collect(Collectors.toList());
+            // Extract meaningful keywords from description, filtering out common words
+            requiredSkills = extractSkillKeywordsFromText(jobPosting.getDescription());
             log.info("📝 Extracted {} keywords from description: {}", requiredSkills.size(),
-                    String.join(", ", requiredSkills.subList(0, Math.min(5, requiredSkills.size()))));
+                    requiredSkills.isEmpty() ? "" : String.join(", ", requiredSkills.subList(0, Math.min(5, requiredSkills.size()))));
         }
 
         if (requiredSkills.isEmpty()) {
@@ -99,12 +99,31 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
         int limit = maxCandidates != null ? maxCandidates : DEFAULT_MAX_CANDIDATES;
         double threshold = minMatchScore != null ? minMatchScore : DEFAULT_MIN_MATCH_SCORE;
 
-        // Search in Weaviate using vector similarity
+        // Only consider candidates who have applied to this job posting
+        List<JobApply> applications = jobApplyRepo.findByJobPostingId(jobPostingId);
+        Set<Integer> eligibleCandidateIds = applications.stream()
+                .filter(app -> app.getCandidate() != null)
+                .map(app -> app.getCandidate().getCandidateId())
+                .collect(Collectors.toSet());
+
+        if (eligibleCandidateIds.isEmpty()) {
+            log.info("🛑 No applicants for job posting {}, returning empty recommendations", jobPostingId);
+            return RecommendationResponseDTO.builder()
+                    .jobPostingId(jobPostingId)
+                    .jobTitle(jobPosting.getTitle())
+                    .totalCandidatesFound(0)
+                    .recommendations(Collections.emptyList())
+                    .processingTimeMs(System.currentTimeMillis() - startTime)
+                    .build();
+        }
+
+        // Search in Weaviate using vector similarity, then filter by applied candidates
         List<CandidateRecommendationDTO> recommendations = searchCandidatesInWeaviate(
                 requiredSkills,
                 jobPosting.getYearsOfExperience(),
-                limit,
-                threshold);
+                Math.min(limit, eligibleCandidateIds.size()),
+                threshold,
+                eligibleCandidateIds);
 
         long processingTime = System.currentTimeMillis() - startTime;
         log.info("Found {} recommended candidates for job '{}' in {}ms",
@@ -123,7 +142,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             List<String> requiredSkills,
             int minYearsExperience,
             int limit,
-            double threshold) {
+            double threshold,
+            Set<Integer> eligibleCandidateIds) {
         try {
             // Create semantic search query from skills
             String searchQuery = String.join(" ", requiredSkills);
@@ -167,7 +187,7 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             log.info("✅ Weaviate semantic search completed, parsing results...");
             // Parse and rank results
             List<CandidateRecommendationDTO> recommendations = parseSemanticSearchResults(
-                    result.getResult(), requiredSkills, minYearsExperience, limit, threshold);
+                    result.getResult(), requiredSkills, minYearsExperience, limit, threshold, eligibleCandidateIds);
             log.info("📈 Found {} matching candidates", recommendations.size());
             return recommendations;
 
@@ -183,7 +203,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             List<String> requiredSkills,
             int minYearsExperience,
             int limit,
-            double threshold) {
+            double threshold,
+            Set<Integer> eligibleCandidateIds) {
         List<CandidateRecommendationDTO> recommendations = new ArrayList<>();
 
         try {
@@ -211,6 +232,11 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                     if (candidateIdObj == null)
                         continue;
                     int candidateId = ((Number) candidateIdObj).intValue();
+
+                    // Restrict to candidates who applied to this job
+                    if (!eligibleCandidateIds.contains(candidateId)) {
+                        continue;
+                    }
 
                     String candidateName = (String) candidate.get("candidateName");
                     String email = (String) candidate.get("email");
@@ -735,5 +761,46 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             log.error("❌ Error recreating schema: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to recreate schema", e);
         }
+    }
+
+    /**
+     * Extract meaningful skill keywords from job description text
+     * Filters out common words, punctuation, and short words
+     */
+    private List<String> extractSkillKeywordsFromText(String text) {
+        if (text == null || text.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Common words to exclude (stop words)
+        Set<String> stopWords = new HashSet<>(Arrays.asList(
+            "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not",
+            "on", "with", "he", "as", "you", "do", "at", "this", "but", "his", "by", "from",
+            "they", "we", "say", "her", "she", "or", "an", "will", "my", "one", "all", "would",
+            "there", "their", "what", "so", "up", "out", "if", "about", "who", "get", "which",
+            "go", "me", "when", "make", "can", "like", "time", "no", "just", "him", "know",
+            "take", "people", "into", "year", "your", "good", "some", "could", "them", "see",
+            "other", "than", "then", "now", "look", "only", "come", "its", "over", "think",
+            "also", "back", "after", "use", "two", "how", "our", "work", "first", "well",
+            "way", "even", "new", "want", "because", "any", "these", "give", "day", "most", "us",
+            "is", "was", "are", "been", "has", "had", "were", "said", "did", "having", "may",
+            "should", "must", "need", "working", "experience", "years", "year", "strong", "excellent",
+            "good", "great", "ability", "skills", "skill", "required", "preferred", "including",
+            "such", "well", "across", "within", "through", "during", "before", "after", "above",
+            "below", "between", "under", "again", "further", "once", "here", "where", "why",
+            "how", "both", "each", "few", "more", "most", "other", "some", "such", "only",
+            "own", "same", "than", "too", "very", "can", "will", "just", "should", "now"
+        ));
+
+        // Extract words, clean them, and filter
+        return Arrays.stream(text.toLowerCase().split("[\\s,;.!?()\\[\\]{}\"']+"))
+                .map(word -> word.replaceAll("[^a-z0-9+#-]", "")) // Keep alphanumeric and common tech symbols
+                .filter(word -> word.length() >= 3) // Minimum 3 characters
+                .filter(word -> word.length() <= 30) // Maximum 30 characters (avoid long phrases)
+                .filter(word -> !stopWords.contains(word)) // Not a stop word
+                .filter(word -> !word.matches("\\d+")) // Not purely numeric
+                .distinct()
+                .limit(30) // Limit to top 30 keywords
+                .collect(Collectors.toList());
     }
 }
