@@ -30,4 +30,7 @@ public class Roadmap {
     @OneToMany(mappedBy = "roadmap", cascade = CascadeType.ALL, orphanRemoval = true)
     List<Topic> topics = new ArrayList<>();
 
+    @Builder.Default
+    @OneToMany(mappedBy = "roadmap", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<ResumeRoadmap> resumeRoadmaps = new ArrayList<>();
 }

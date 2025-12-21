@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface RoadmapRepo extends JpaRepository<Roadmap,Integer> {
-    Optional<Roadmap> findByName(String name);
+    Optional<Roadmap> findByNameContainingIgnoreCase(String name);
 }

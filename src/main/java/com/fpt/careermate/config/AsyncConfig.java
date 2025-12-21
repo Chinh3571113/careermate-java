@@ -74,5 +74,19 @@ public class AsyncConfig {
 
         return executor;
     }
+
+    @Bean(name = "roadmapTaskExecutor")
+    public Executor roadmapTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("Roadmap-Async-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(120);
+        executor.initialize();
+        return executor;
+    }
+
 }
 

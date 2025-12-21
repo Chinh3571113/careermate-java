@@ -1,6 +1,7 @@
 package com.fpt.careermate.services.resume_services.domain;
 
 import com.fpt.careermate.common.constant.ResumeType;
+import com.fpt.careermate.services.coach_services.domain.ResumeRoadmap;
 import com.fpt.careermate.services.profile_services.domain.Candidate;
 import jakarta.persistence.*;
 import lombok.*;
@@ -61,4 +62,7 @@ public class Resume {
 
     @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
     List<Award> awards = new ArrayList<>();
+
+    @OneToMany(mappedBy = "resume", cascade = CascadeType.ALL, orphanRemoval = true)
+    List<ResumeRoadmap> resumeRoadmaps = new ArrayList<>();
 }

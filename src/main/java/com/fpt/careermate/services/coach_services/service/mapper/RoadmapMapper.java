@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.coach_services.service.mapper;
 
+import com.fpt.careermate.common.constant.ResumeSubtopicProgressStatus;
 import com.fpt.careermate.services.coach_services.domain.Roadmap;
 import com.fpt.careermate.services.coach_services.domain.Subtopic;
 import com.fpt.careermate.services.coach_services.domain.Topic;
@@ -7,17 +8,21 @@ import com.fpt.careermate.services.coach_services.service.dto.response.RoadmapRe
 import com.fpt.careermate.services.coach_services.service.dto.response.SubtopicResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.TopicDetailResponse;
 import com.fpt.careermate.services.coach_services.service.dto.response.TopicResponse;
+import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface RoadmapMapper {
     RoadmapResponse toRoadmapResponse(Roadmap roadmap);
     TopicResponse toTopicResponse(Topic topic);
+    @Mapping(target = "status", ignore = true)
     SubtopicResponse toSubtopicResponse(Subtopic subtopic);
 
     @Mapping(target = "resourceResponses", ignore = true)
     TopicDetailResponse topicDetailResponse(Topic topic);
     @Mapping(target = "resourceResponses", ignore = true)
     TopicDetailResponse toSubtopicDetailResponse(Subtopic subtopic);
+
 }
