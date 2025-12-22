@@ -194,6 +194,11 @@ public class BlogRatingImp {
         return blogRatingRepo.findAll(spec, pageable);
     }
 
+    // Added overload to match tests that call with fewer args (page,size,sortBy,sortDirection)
+    public Page<BlogRating> getAllRatingsForAdmin(int page, int size, String sortBy, String sortDirection) {
+        return getAllRatingsForAdmin(page, size, sortBy, sortDirection, null, null, null, null, null);
+    }
+
     public BlogRating getRatingById(Long id) {
         log.info("Getting rating by ID for admin: {}", id);
         return blogRatingRepo.findById(id)
