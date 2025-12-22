@@ -308,6 +308,29 @@ public class CompanyReviewController {
     }
 
     /**
+     * Delete own review (candidate only)
+     */
+    @DeleteMapping("/my-reviews/{reviewId}")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    @Operation(summary = "Delete own review", description = "Delete a review that you wrote")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Review deleted successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Not authorized to delete this review"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Review not found")
+    })
+    public ResponseEntity<ApiResponse<Void>> deleteOwnReview(
+            @Parameter(description = "Review ID to delete") @PathVariable Integer reviewId,
+            @Parameter(description = "Candidate ID from authentication context") @RequestParam Integer candidateId) {
+
+        log.info("DELETE /api/v1/reviews/my-reviews/{} - Candidate {}", reviewId, candidateId);
+        companyReviewService.deleteOwnReview(reviewId, candidateId);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .code(HttpStatus.OK.value())
+                .message("Review deleted successfully")
+                .build());
+    }
+
+    /**
      * Get a single review by ID
      */
     @GetMapping("/{reviewId}")

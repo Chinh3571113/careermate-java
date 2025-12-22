@@ -19,10 +19,15 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.criteria.Predicate;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -142,13 +147,51 @@ public class BlogRatingImp {
     }
 
     // Admin management methods
-    public Page<BlogRating> getAllRatingsForAdmin(int page, int size, String sortBy, String sortDirection) {
-        log.info("Getting all ratings for admin - Page: {}, Size: {}, Sort: {} {}", page, size, sortBy, sortDirection);
+    public Page<BlogRating> getAllRatingsForAdmin(int page, int size, String sortBy, String sortDirection,
+                                                  String startDateStr, String endDateStr, String userEmail,
+                                                  Long blogId, Integer ratingValue) {
+        log.info("Getting all ratings for admin - Page: {}, Size: {}, Sort: {} {}, StartDate: {}, EndDate: {}, UserEmail: {}, BlogId: {}, Rating: {}", 
+                page, size, sortBy, sortDirection, startDateStr, endDateStr, userEmail, blogId, ratingValue);
+
+        Specification<BlogRating> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Filter by userEmail if provided (case-insensitive partial match)
+            if (userEmail != null && !userEmail.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("userEmail")), "%" + userEmail.toLowerCase() + "%"));
+            }
+
+            // Filter by blogId if provided
+            if (blogId != null) {
+                predicates.add(cb.equal(root.get("blog").get("id"), blogId));
+            }
+
+            // Filter by rating value if provided
+            if (ratingValue != null) {
+                predicates.add(cb.equal(root.get("rating"), ratingValue));
+            }
+
+            // Filter by start date
+            if (startDateStr != null && !startDateStr.isEmpty()) {
+                LocalDate startDate = LocalDate.parse(startDateStr);
+                LocalDateTime startDateTime = startDate.atStartOfDay();
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), startDateTime));
+            }
+
+            // Filter by end date
+            if (endDateStr != null && !endDateStr.isEmpty()) {
+                LocalDate endDate = LocalDate.parse(endDateStr);
+                LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDateTime));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
 
         Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        return blogRatingRepo.findAll(pageable);
+        return blogRatingRepo.findAll(spec, pageable);
     }
 
     public BlogRating getRatingById(Long id) {

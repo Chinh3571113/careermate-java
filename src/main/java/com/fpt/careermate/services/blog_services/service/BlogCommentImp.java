@@ -23,7 +23,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -36,6 +42,7 @@ public class BlogCommentImp {
     AccountRepo accountRepo;
     BlogCommentMapper blogCommentMapper;
     ContentModerationService contentModerationService;
+    SemanticToxicityAnalyzer semanticToxicityAnalyzer;
 
     @Transactional
     public BlogCommentResponse createComment(Long blogId, BlogCommentRequest request) {
@@ -64,10 +71,11 @@ public class BlogCommentImp {
 
         if (moderation.shouldFlag) {
             comment.setIsFlagged(true);
+            comment.setIsHidden(true); // Auto-hide flagged comments
             comment.setFlagReason(moderation.flagReason);
             comment.setFlaggedAt(java.time.LocalDateTime.now());
             comment.setReviewedByAdmin(false);
-            log.warn("Comment auto-flagged for moderation. User: {}, Reason: {}",
+            log.warn("Comment auto-flagged and hidden for moderation. User: {}, Reason: {}",
                     email, moderation.flagReason);
         }
 
@@ -131,10 +139,11 @@ public class BlogCommentImp {
 
         if (moderation.shouldFlag) {
             comment.setIsFlagged(true);
+            comment.setIsHidden(true); // Auto-hide flagged comments
             comment.setFlagReason(moderation.flagReason);
             comment.setFlaggedAt(java.time.LocalDateTime.now());
             comment.setReviewedByAdmin(false);
-            log.warn("Updated comment auto-flagged for moderation. User: {}, Reason: {}",
+            log.warn("Updated comment auto-flagged and hidden for moderation. User: {}, Reason: {}",
                     email, moderation.flagReason);
         } else if (comment.getIsFlagged() && comment.getReviewedByAdmin()) {
             // If previously flagged but now clean, keep admin review status
@@ -191,22 +200,47 @@ public class BlogCommentImp {
     }
 
     // Admin management methods
-    public Page<BlogCommentResponse> getAllCommentsForAdmin(Pageable pageable, Long blogId, String userEmail) {
-        log.info("Admin getting all comments - page: {}, blogId: {}, userEmail: {}",
-                pageable.getPageNumber(), blogId, userEmail);
+    public Page<BlogCommentResponse> getAllCommentsForAdmin(Pageable pageable, Long blogId, String userEmail, 
+                                                            String content, String startDateStr, String endDateStr) {
+        log.info("Admin getting all comments - page: {}, blogId: {}, userEmail: {}, content: {}, startDate: {}, endDate: {}",
+                pageable.getPageNumber(), blogId, userEmail, content, startDateStr, endDateStr);
 
-        Page<BlogComment> comments;
-        if (blogId != null && userEmail != null) {
-            comments = blogCommentRepo.findByBlogIdAndUserEmailContainingIgnoreCaseOrderByCreatedAtDesc(
-                    blogId, userEmail, pageable);
-        } else if (blogId != null) {
-            comments = blogCommentRepo.findByBlogIdOrderByCreatedAtDesc(blogId, pageable);
-        } else if (userEmail != null) {
-            comments = blogCommentRepo.findByUserEmailContainingIgnoreCaseOrderByCreatedAtDesc(userEmail, pageable);
-        } else {
-            comments = blogCommentRepo.findAllByOrderByCreatedAtDesc(pageable);
-        }
+        Specification<BlogComment> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
 
+            // Filter by blogId if provided
+            if (blogId != null) {
+                predicates.add(cb.equal(root.get("blog").get("id"), blogId));
+            }
+
+            // Filter by userEmail if provided (case-insensitive partial match)
+            if (userEmail != null && !userEmail.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("userEmail")), "%" + userEmail.toLowerCase() + "%"));
+            }
+
+            // Filter by content if provided (case-insensitive partial match)
+            if (content != null && !content.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("content")), "%" + content.toLowerCase() + "%"));
+            }
+
+            // Filter by start date
+            if (startDateStr != null && !startDateStr.isEmpty()) {
+                LocalDate startDate = LocalDate.parse(startDateStr);
+                LocalDateTime startDateTime = startDate.atStartOfDay();
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), startDateTime));
+            }
+
+            // Filter by end date
+            if (endDateStr != null && !endDateStr.isEmpty()) {
+                LocalDate endDate = LocalDate.parse(endDateStr);
+                LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDateTime));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<BlogComment> comments = blogCommentRepo.findAll(spec, pageable);
         return comments.map(blogCommentMapper::toBlogCommentResponse);
     }
 
@@ -292,14 +326,61 @@ public class BlogCommentImp {
     }
 
     /**
-     * Search/filter flagged comments with optional filters
+     * Search/filter flagged comments with optional filters including date range and content
      */
-    public Page<BlogCommentResponse> searchFlaggedComments(String userEmail, Long blogId, Pageable pageable) {
-        log.info("Admin searching flagged comments - userEmail: {}, blogId: {}", userEmail, blogId);
+    public Page<BlogCommentResponse> searchFlaggedComments(String userEmail, Long blogId, String content, 
+                                                           String startDateStr, String endDateStr, Pageable pageable) {
+        log.info("Admin searching flagged comments - userEmail: {}, blogId: {}, content: {}, startDate: {}, endDate: {}", 
+                userEmail, blogId, content, startDateStr, endDateStr);
 
-        Page<BlogComment> flaggedComments = blogCommentRepo
-                .searchFlaggedComments(userEmail, blogId, pageable);
+        Specification<BlogComment> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Must be flagged
+            predicates.add(cb.equal(root.get("isFlagged"), true));
+            
+            // User email filter
+            if (userEmail != null && !userEmail.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("user").get("email")), 
+                    "%" + userEmail.toLowerCase() + "%"));
+            }
+            
+            // Blog ID filter
+            if (blogId != null) {
+                predicates.add(cb.equal(root.get("blog").get("id"), blogId));
+            }
+            
+            // Content filter (case-insensitive partial match)
+            if (content != null && !content.isEmpty()) {
+                predicates.add(cb.like(cb.lower(root.get("content")), 
+                    "%" + content.toLowerCase() + "%"));
+            }
+            
+            // Date range filter (expects YYYY-MM-DD format)
+            if (startDateStr != null && !startDateStr.isEmpty()) {
+                try {
+                    LocalDate startDate = LocalDate.parse(startDateStr);
+                    LocalDateTime startDateTime = startDate.atStartOfDay();
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), startDateTime));
+                } catch (Exception e) {
+                    log.warn("Invalid start date: {}", startDateStr);
+                }
+            }
+            
+            if (endDateStr != null && !endDateStr.isEmpty()) {
+                try {
+                    LocalDate endDate = LocalDate.parse(endDateStr);
+                    LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+                    predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDateTime));
+                } catch (Exception e) {
+                    log.warn("Invalid end date: {}", endDateStr);
+                }
+            }
+            
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
 
+        Page<BlogComment> flaggedComments = blogCommentRepo.findAll(spec, pageable);
         return flaggedComments.map(this::toBlogCommentResponseWithModerationInfo);
     }
 
@@ -420,5 +501,133 @@ public class BlogCommentImp {
         }
 
         return response;
+    }
+
+    /**
+     * Semantic Toxicity Analysis Methods
+     */
+    
+    @Transactional
+    public Map<String, Object> analyzeCommentToxicity(Long commentId) {
+        log.info("Analyzing toxicity for comment ID: {}", commentId);
+
+        BlogComment comment = blogCommentRepo.findById(commentId)
+                .orElseThrow(() -> new AppException(ErrorCode.COMMENT_NOT_EXISTED));
+
+        SemanticToxicityAnalyzer.ToxicityScore score = semanticToxicityAnalyzer.analyzeToxicity(
+                comment.getContent(), comment.getFlagReason());
+
+        // Update comment with toxicity score
+        comment.setToxicityScore(score.getToxicityScore());
+        comment.setToxicityConfidence(score.getConfidence().name());
+        comment.setAnalyzedAt(LocalDateTime.now());
+        blogCommentRepo.save(comment);
+
+        return Map.of(
+                "commentId", commentId,
+                "toxicityScore", score.getToxicityScore(),
+                "confidence", score.getConfidence(),
+                "reasoning", score.getReasoning(),
+                "toxicSimilarity", score.getToxicSimilarity(),
+                "positiveSimilarity", score.getPositiveSimilarity()
+        );
+    }
+
+    @Transactional
+    public Map<String, Object> batchAnalyzeToxicity(List<Long> commentIds) {
+        log.info("Batch analyzing toxicity for {} comments", commentIds.size());
+
+        List<BlogComment> comments = blogCommentRepo.findAllById(commentIds);
+        
+        Map<Long, String> commentTexts = new java.util.HashMap<>();
+        for (BlogComment comment : comments) {
+            commentTexts.put(comment.getId(), comment.getContent());
+        }
+
+        Map<Long, SemanticToxicityAnalyzer.ToxicityScore> scores = 
+                semanticToxicityAnalyzer.analyzeBatch(commentTexts);
+
+        // Update all comments with scores
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (BlogComment comment : comments) {
+            SemanticToxicityAnalyzer.ToxicityScore score = scores.get(comment.getId());
+            if (score != null) {
+                comment.setToxicityScore(score.getToxicityScore());
+                comment.setToxicityConfidence(score.getConfidence().name());
+                comment.setAnalyzedAt(LocalDateTime.now());
+                
+                results.add(Map.of(
+                        "commentId", comment.getId(),
+                        "toxicityScore", score.getToxicityScore(),
+                        "confidence", score.getConfidence(),
+                        "reasoning", score.getReasoning()
+                ));
+            }
+        }
+        
+        blogCommentRepo.saveAll(comments);
+
+        return Map.of(
+                "totalAnalyzed", results.size(),
+                "results", results
+        );
+    }
+
+    @Transactional
+    public Map<String, Object> bulkActionComments(String action, List<Long> commentIds, 
+                                                   Double minToxicity, String confidence) {
+        log.info("Performing bulk action: {} on {} comments", action, commentIds.size());
+
+        List<BlogComment> comments = blogCommentRepo.findAllById(commentIds);
+        
+        // Filter by toxicity score if provided
+        List<BlogComment> filteredComments = comments;
+        if (minToxicity != null || confidence != null) {
+            filteredComments = comments.stream()
+                    .filter(c -> {
+                        boolean matchToxicity = minToxicity == null || 
+                                (c.getToxicityScore() != null && c.getToxicityScore() >= minToxicity);
+                        boolean matchConfidence = confidence == null || 
+                                (c.getToxicityConfidence() != null && c.getToxicityConfidence().equals(confidence));
+                        return matchToxicity && matchConfidence;
+                    })
+                    .toList();
+        }
+
+        int actioned = 0;
+        switch (action.toLowerCase()) {
+            case "hide":
+                for (BlogComment comment : filteredComments) {
+                    comment.setIsHidden(true);
+                    actioned++;
+                }
+                break;
+            case "show":
+                for (BlogComment comment : filteredComments) {
+                    comment.setIsHidden(false);
+                    actioned++;
+                }
+                break;
+            case "delete":
+                for (BlogComment comment : filteredComments) {
+                    blogCommentRepo.delete(comment);
+                    updateBlogCommentCount(comment.getBlog());
+                    actioned++;
+                }
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid action: " + action);
+        }
+
+        if (!action.equalsIgnoreCase("delete")) {
+            blogCommentRepo.saveAll(filteredComments);
+        }
+
+        return Map.of(
+                "action", action,
+                "totalComments", commentIds.size(),
+                "filtered", filteredComments.size(),
+                "actioned", actioned
+        );
     }
 }

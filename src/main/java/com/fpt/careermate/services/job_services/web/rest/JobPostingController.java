@@ -97,7 +97,28 @@ public class JobPostingController {
                 .code(200)
                 .message("success")
                 .build();
+    }
 
+    @PatchMapping("/recruiter/{id}/resume")
+    @Operation(summary = "Recruiter can resume PAUSED job postings back to ACTIVE status")
+    ApiResponse<String> resumeJobPostingForRecruiter(@PathVariable int id) {
+        jobPostingImp.resumeJobPosting(id);
+
+        return ApiResponse.<String>builder()
+                .code(200)
+                .message("Job posting resumed successfully")
+                .build();
+    }
+
+    @PatchMapping("/recruiter/{id}/close")
+    @Operation(summary = "Recruiter can close ACTIVE job postings (position filled)")
+    ApiResponse<String> closeJobPostingForRecruiter(@PathVariable int id) {
+        jobPostingImp.closeJobPosting(id);
+
+        return ApiResponse.<String>builder()
+                .code(200)
+                .message("Job posting closed successfully")
+                .build();
     }
 
     @PutMapping("/{id}/extend")

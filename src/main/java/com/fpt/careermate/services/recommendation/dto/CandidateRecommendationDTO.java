@@ -1,8 +1,10 @@
 package com.fpt.careermate.services.recommendation.dto;
 
+import com.fpt.careermate.common.constant.StatusJobApply;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -32,5 +34,15 @@ public class CandidateRecommendationDTO {
 
     // Score breakdown for explainability
     Map<String, Double> scoreBreakdown;
+    
+    // Application details for recruiter
+    int applicationId;
+    StatusJobApply applicationStatus;
+    String cvFilePath;
+    String phoneNumber;
+    String avatarUrl;
+    String preferredWorkLocation;
+    LocalDateTime appliedAt;
+    String coverLetter;
 }
 

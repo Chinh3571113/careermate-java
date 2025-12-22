@@ -12,4 +12,9 @@ public interface SavedJobRepo extends JpaRepository<SavedJob, Integer> {
     Optional<SavedJob> findByCandidate_candidateIdAndJobPosting_Id(int candidateId, int jobId);
     Page<SavedJob> findByCandidate_CandidateId(int candidateId, Pageable pageable);
     List<SavedJob> findAllByCandidate_CandidateId(int candidateId);
+    
+    /**
+     * Find all saved jobs for a specific job posting (for notifications)
+     */
+    List<SavedJob> findByJobPostingId(int jobPostingId);
 }

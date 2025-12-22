@@ -16,6 +16,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Admin controller for content moderation and flagged comment management
  */
@@ -31,19 +34,22 @@ public class AdminCommentModerationController {
         BlogCommentImp blogCommentImp;
 
         @GetMapping("/flagged")
-        @Operation(summary = "Search/Filter Flagged Comments", description = "Search and filter flagged comments with optional filters: user email, blog ID. "
+        @Operation(summary = "Search/Filter Flagged Comments", description = "Search and filter flagged comments with optional filters: user email, blog ID, content, date range. "
                         +
                         "Supports flexible sorting by any field (flaggedAt, createdAt, etc.)")
         public ApiResponse<Page<BlogCommentResponse>> searchFlaggedComments(
                         @RequestParam(required = false) String userEmail,
                         @RequestParam(required = false) Long blogId,
+                        @RequestParam(required = false) String content,
+                        @RequestParam(required = false) String startDate,
+                        @RequestParam(required = false) String endDate,
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         @RequestParam(defaultValue = "flaggedAt") String sortBy,
                         @RequestParam(defaultValue = "DESC") String sortDirection) {
 
-                log.info("Admin searching flagged comments - userEmail: {}, blogId: {}, page: {}, size: {}",
-                                userEmail, blogId, page, size);
+                log.info("Admin searching flagged comments - userEmail: {}, blogId: {}, content: {}, startDate: {}, endDate: {}, page: {}, size: {}",
+                                userEmail, blogId, content, startDate, endDate, page, size);
 
                 Sort sort = sortDirection.equalsIgnoreCase("ASC")
                                 ? Sort.by(sortBy).ascending()
@@ -51,7 +57,7 @@ public class AdminCommentModerationController {
                 Pageable pageable = PageRequest.of(page, size, sort);
 
                 return ApiResponse.<Page<BlogCommentResponse>>builder()
-                                .result(blogCommentImp.searchFlaggedComments(userEmail, blogId, pageable))
+                                .result(blogCommentImp.searchFlaggedComments(userEmail, blogId, content, startDate, endDate, pageable))
                                 .message("Retrieved flagged comments")
                                 .build();
         }
@@ -123,6 +129,44 @@ public class AdminCommentModerationController {
                 return ApiResponse.builder()
                                 .result(blogCommentImp.getModerationStatistics())
                                 .message("Retrieved moderation statistics")
+                                .build();
+        }
+
+        @PostMapping("/{commentId}/analyze-toxicity")
+        @Operation(summary = "Analyze Comment Toxicity", description = "Run semantic analysis to determine toxicity score for a flagged comment")
+        public ApiResponse<Object> analyzeToxicity(@PathVariable Long commentId) {
+                log.info("Admin analyzing toxicity for comment ID: {}", commentId);
+
+                return ApiResponse.builder()
+                                .result(blogCommentImp.analyzeCommentToxicity(commentId))
+                                .message("Toxicity analysis complete")
+                                .build();
+        }
+
+        @PostMapping("/batch-analyze")
+        @Operation(summary = "Batch Analyze Toxicity", description = "Analyze toxicity for multiple flagged comments at once")
+        public ApiResponse<Object> batchAnalyzeToxicity(@RequestBody List<Long> commentIds) {
+                log.info("Admin batch analyzing {} comments", commentIds.size());
+
+                return ApiResponse.builder()
+                                .result(blogCommentImp.batchAnalyzeToxicity(commentIds))
+                                .message("Batch analysis complete")
+                                .build();
+        }
+
+        @PostMapping("/bulk-action")
+        @Operation(summary = "Bulk Action on Comments", description = "Perform bulk action (hide/show/delete) on multiple comments based on toxicity scores")
+        public ApiResponse<Object> bulkAction(
+                        @RequestParam String action,
+                        @RequestParam(required = false) Double minToxicity,
+                        @RequestParam(required = false) String confidence,
+                        @RequestBody List<Long> commentIds) {
+                log.info("Admin performing bulk action: {} on {} comments with minToxicity: {}, confidence: {}", 
+                        action, commentIds.size(), minToxicity, confidence);
+
+                return ApiResponse.builder()
+                                .result(blogCommentImp.bulkActionComments(action, commentIds, minToxicity, confidence))
+                                .message("Bulk action completed")
                                 .build();
         }
 }

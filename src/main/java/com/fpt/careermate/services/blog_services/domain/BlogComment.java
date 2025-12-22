@@ -51,6 +51,15 @@ public class BlogComment {
     @Column(name = "reviewed_by_admin")
     Boolean reviewedByAdmin;
 
+    @Column(name = "toxicity_score")
+    Double toxicityScore;  // 0.0-1.0 from semantic analysis
+
+    @Column(name = "toxicity_confidence")
+    String toxicityConfidence;  // HIGH, MEDIUM, LOW
+
+    @Column(name = "analyzed_at")
+    LocalDateTime analyzedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
