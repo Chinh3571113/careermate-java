@@ -244,6 +244,11 @@ public class BlogCommentImp {
         return comments.map(blogCommentMapper::toBlogCommentResponse);
     }
 
+    // Added overload: keep compatibility with older test expectations (pageable, blogId, userEmail)
+    public Page<BlogCommentResponse> getAllCommentsForAdmin(Pageable pageable, Long blogId, String userEmail) {
+        return getAllCommentsForAdmin(pageable, blogId, userEmail, null, null, null);
+    }
+
     @Transactional
     public void deleteCommentAsAdmin(Long commentId) {
         log.info("Admin permanently deleting comment ID: {}", commentId);
@@ -384,6 +389,11 @@ public class BlogCommentImp {
         return flaggedComments.map(this::toBlogCommentResponseWithModerationInfo);
     }
 
+    // Added overload to support tests: (userEmail, blogId, pageable)
+    public Page<BlogCommentResponse> searchFlaggedComments(String userEmail, Long blogId, Pageable pageable) {
+        return searchFlaggedComments(userEmail, blogId, null, null, null, pageable);
+    }
+
     /**
      * Get all flagged comments (including reviewed ones)
      */
@@ -399,6 +409,7 @@ public class BlogCommentImp {
     /**
      * Approve flagged comment (mark as reviewed, unflag, and show)
      */
+
     @Transactional
     public BlogCommentResponse approveFlaggedComment(Long commentId) {
         log.info("Admin approving flagged comment ID: {}", commentId);
@@ -436,7 +447,7 @@ public class BlogCommentImp {
 
         blogCommentRepo.save(comment);
 
-        // Update blog comment count
+        // Update blog's comment count
         updateBlogCommentCount(comment.getBlog());
 
         log.info("Comment rejected and hidden by admin: {}", commentId);
