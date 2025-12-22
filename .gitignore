@@ -42,3 +42,4 @@ postgre_data/
 src/main/resources/application.yml
 /careermate_docker/
 !/src/main/resources/onnx/
+/src/main/resources/db
