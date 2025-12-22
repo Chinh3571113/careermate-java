@@ -104,4 +104,9 @@ public interface CompanyReviewService {
    * Shows which reviews are submitted, available, or not yet eligible
    */
   List<JobApplicationReviewStatusResponse> getApplicationsWithReviewStatus(Integer candidateId);
+
+  /**
+   * Delete own review (candidate only)
+   */
+  void deleteOwnReview(Integer reviewId, Integer candidateId);
 }

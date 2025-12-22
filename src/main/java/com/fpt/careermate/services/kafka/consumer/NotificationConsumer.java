@@ -153,13 +153,20 @@ public class NotificationConsumer {
                 return;
             }
 
+            // Defensive: Use subject as fallback if title is null (for backward compatibility with old Kafka messages)
+            String title = event.getTitle();
+            if (title == null || title.trim().isEmpty()) {
+                title = event.getSubject();
+                log.warn("⚠️ Notification title is null, using subject as fallback: {}", title);
+            }
+
             // Save notification to database
             Notification notification = Notification.builder()
                     .eventId(event.getEventId())
                     .eventType(event.getEventType())
                     .recipientId(event.getRecipientId())
                     .recipientEmail(event.getRecipientEmail())
-                    .title(event.getTitle())
+                    .title(title)
                     .subject(event.getSubject())
                     .message(event.getMessage())
                     .category(event.getCategory())

@@ -1,5 +1,6 @@
 package com.fpt.careermate.services.recommendation.service;
 
+import com.fpt.careermate.common.constant.StatusJobApply;
 import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
@@ -47,6 +48,12 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
     private static final String CANDIDATE_CLASS = "CandidateProfile";
     private static final int DEFAULT_MAX_CANDIDATES = 10;
     private static final double DEFAULT_MIN_MATCH_SCORE = 0.5; // Require at least 50% match for better quality
+    
+    // Statuses that are eligible for recommendation (candidates actively being considered)
+    private static final List<StatusJobApply> ELIGIBLE_STATUSES = Arrays.asList(
+            StatusJobApply.SUBMITTED,
+            StatusJobApply.REVIEWING
+    );
 
     @Override
     @Transactional(readOnly = true)
@@ -99,15 +106,22 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
         int limit = maxCandidates != null ? maxCandidates : DEFAULT_MAX_CANDIDATES;
         double threshold = minMatchScore != null ? minMatchScore : DEFAULT_MIN_MATCH_SCORE;
 
-        // Only consider candidates who have applied to this job posting
-        List<JobApply> applications = jobApplyRepo.findByJobPostingId(jobPostingId);
-        Set<Integer> eligibleCandidateIds = applications.stream()
+        // Only consider candidates with SUBMITTED or REVIEWING status
+        List<JobApply> applications = jobApplyRepo.findByJobPostingIdAndStatusIn(jobPostingId, ELIGIBLE_STATUSES);
+        
+        // Build map of candidateId -> JobApply for enriching results with application details
+        Map<Integer, JobApply> candidateApplicationMap = applications.stream()
                 .filter(app -> app.getCandidate() != null)
-                .map(app -> app.getCandidate().getCandidateId())
-                .collect(Collectors.toSet());
+                .collect(Collectors.toMap(
+                        app -> app.getCandidate().getCandidateId(),
+                        app -> app,
+                        (existing, replacement) -> existing // Keep first if duplicate
+                ));
+        
+        Set<Integer> eligibleCandidateIds = candidateApplicationMap.keySet();
 
         if (eligibleCandidateIds.isEmpty()) {
-            log.info("🛑 No applicants for job posting {}, returning empty recommendations", jobPostingId);
+            log.info("🛑 No applicants with SUBMITTED/REVIEWING status for job posting {}, returning empty recommendations", jobPostingId);
             return RecommendationResponseDTO.builder()
                     .jobPostingId(jobPostingId)
                     .jobTitle(jobPosting.getTitle())
@@ -116,6 +130,9 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                     .processingTimeMs(System.currentTimeMillis() - startTime)
                     .build();
         }
+        
+        log.info("📋 Found {} eligible candidates (SUBMITTED/REVIEWING) for job posting {}", 
+                eligibleCandidateIds.size(), jobPostingId);
 
         // Search in Weaviate using vector similarity, then filter by applied candidates
         List<CandidateRecommendationDTO> recommendations = searchCandidatesInWeaviate(
@@ -123,7 +140,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                 jobPosting.getYearsOfExperience(),
                 Math.min(limit, eligibleCandidateIds.size()),
                 threshold,
-                eligibleCandidateIds);
+                eligibleCandidateIds,
+                candidateApplicationMap);
 
         long processingTime = System.currentTimeMillis() - startTime;
         log.info("Found {} recommended candidates for job '{}' in {}ms",
@@ -143,7 +161,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             int minYearsExperience,
             int limit,
             double threshold,
-            Set<Integer> eligibleCandidateIds) {
+            Set<Integer> eligibleCandidateIds,
+            Map<Integer, JobApply> candidateApplicationMap) {
         try {
             // Create semantic search query from skills
             String searchQuery = String.join(" ", requiredSkills);
@@ -187,7 +206,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             log.info("✅ Weaviate semantic search completed, parsing results...");
             // Parse and rank results
             List<CandidateRecommendationDTO> recommendations = parseSemanticSearchResults(
-                    result.getResult(), requiredSkills, minYearsExperience, limit, threshold, eligibleCandidateIds);
+                    result.getResult(), requiredSkills, minYearsExperience, limit, threshold, 
+                    eligibleCandidateIds, candidateApplicationMap);
             log.info("📈 Found {} matching candidates", recommendations.size());
             return recommendations;
 
@@ -204,7 +224,8 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
             int minYearsExperience,
             int limit,
             double threshold,
-            Set<Integer> eligibleCandidateIds) {
+            Set<Integer> eligibleCandidateIds,
+            Map<Integer, JobApply> candidateApplicationMap) {
         List<CandidateRecommendationDTO> recommendations = new ArrayList<>();
 
         try {
@@ -233,8 +254,15 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                         continue;
                     int candidateId = ((Number) candidateIdObj).intValue();
 
-                    // Restrict to candidates who applied to this job
+                    // Restrict to candidates who applied to this job with eligible status
                     if (!eligibleCandidateIds.contains(candidateId)) {
+                        continue;
+                    }
+                    
+                    // Get the application details for this candidate
+                    JobApply application = candidateApplicationMap.get(candidateId);
+                    if (application == null) {
+                        log.warn("⚠️ No application found for candidate {} (should not happen)", candidateId);
                         continue;
                     }
 
@@ -299,8 +327,12 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                             String.format("%.2f", skillMatchScore),
                             String.format("%.2f", experienceFactor),
                             String.format("%.2f", combinedScore));
+                    
+                    // Get candidate image from profile
+                    Candidate candidateEntity = application.getCandidate();
+                    String avatarUrl = candidateEntity != null ? candidateEntity.getImage() : null;
 
-                    // Build recommendation DTO
+                    // Build recommendation DTO with application details
                     CandidateRecommendationDTO recommendation = CandidateRecommendationDTO.builder()
                             .candidateId(candidateId)
                             .candidateName(candidateName)
@@ -310,6 +342,15 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                             .missingSkills(missingSkills)
                             .totalYearsExperience(totalExperience)
                             .profileSummary(aboutMe)
+                            // Application details for recruiter
+                            .applicationId(application.getId())
+                            .applicationStatus(application.getStatus())
+                            .cvFilePath(application.getCvFilePath())
+                            .phoneNumber(application.getPhoneNumber())
+                            .preferredWorkLocation(application.getPreferredWorkLocation())
+                            .appliedAt(application.getCreateAt())
+                            .coverLetter(application.getCoverLetter())
+                            .avatarUrl(avatarUrl)
                             .build();
 
                     recommendations.add(recommendation);

@@ -23,6 +23,10 @@ public interface JobPostingService {
 
     void pauseJobPosting(int id);
 
+    void resumeJobPosting(int id);
+
+    void closeJobPosting(int id);
+
     // Admin methods
     Page<JobPostingForAdminResponse> getAllJobPostingsForAdmin(int page, int size, String status, String sortBy,
             String sortDirection);

@@ -15,6 +15,11 @@ import java.util.Optional;
 @Repository
 public interface JobApplyRepo extends JpaRepository<JobApply, Integer> {
        List<JobApply> findByJobPostingId(int jobPostingId);
+       
+       /**
+        * Count applications for a specific job posting
+        */
+       int countByJobPostingId(int jobPostingId);
 
        List<JobApply> findByCandidateCandidateId(int candidateId);
 
@@ -140,4 +145,17 @@ public interface JobApplyRepo extends JpaRepository<JobApply, Integer> {
                      "WHERE ja.hiredAt BETWEEN :startDate AND :endDate")
        List<JobApply> findByHiredAtBetween(@Param("startDate") java.time.LocalDateTime startDate,
                      @Param("endDate") java.time.LocalDateTime endDate);
+
+       /**
+        * Find applications for a job posting with specific statuses
+        * Used for candidate recommendation - only SUBMITTED and REVIEWING applications
+        */
+       @Query("SELECT ja FROM job_apply ja " +
+                     "JOIN FETCH ja.candidate c " +
+                     "JOIN FETCH c.account " +
+                     "WHERE ja.jobPosting.id = :jobPostingId " +
+                     "AND ja.status IN :statuses")
+       List<JobApply> findByJobPostingIdAndStatusIn(
+                     @Param("jobPostingId") int jobPostingId,
+                     @Param("statuses") List<StatusJobApply> statuses);
 }

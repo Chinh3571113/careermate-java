@@ -6,10 +6,12 @@ import com.fpt.careermate.common.constant.StatusRecruiter;
 import com.fpt.careermate.common.response.PageResponse;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
 import com.fpt.careermate.services.job_services.domain.SavedJob;
+import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.fpt.careermate.services.job_services.repository.JdSkillRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
 import com.fpt.careermate.services.job_services.repository.JobDescriptionRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.job_services.repository.JobPostingAuditRepo;
 import com.fpt.careermate.services.job_services.repository.SavedJobRepo;
 import com.fpt.careermate.services.job_services.service.dto.response.*;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
@@ -23,6 +25,7 @@ import com.fpt.careermate.services.job_services.service.impl.JobPostingService;
 import com.fpt.careermate.services.job_services.domain.JdSkill;
 import com.fpt.careermate.services.job_services.domain.JobDescription;
 import com.fpt.careermate.services.job_services.domain.JobPosting;
+import com.fpt.careermate.services.job_services.domain.JobPostingAudit;
 import com.fpt.careermate.services.job_services.service.mapper.JobPostingMapper;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import com.fpt.careermate.services.recruiter_services.service.dto.response.RecruiterBasicInfoResponse;
@@ -49,6 +52,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -82,6 +86,7 @@ public class JobPostingImp implements JobPostingService {
     RecruiterJobPostingRedisService recruiterJobPostingRedisService;
     AdminJobPostingRedisService adminJobPostingRedisService;
     CandidateJobPostingRedisService candidateJobPostingRedisService;
+    JobPostingAuditRepo jobPostingAuditRepo;
 
     // Recruiter create job posting
     @PreAuthorize("hasRole('RECRUITER')")
@@ -184,6 +189,7 @@ public class JobPostingImp implements JobPostingService {
     // Recruiter update job posting
     @PreAuthorize("hasRole('RECRUITER')")
     @Override
+    @Transactional
     public void updateJobPosting(int id, JobPostingCreationRequest request) {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
 
@@ -194,11 +200,23 @@ public class JobPostingImp implements JobPostingService {
             throw new AppException(ErrorCode.CANNOT_MODIFY_JOB_POSTING);
         }
 
+        // Store old values for audit and notification
+        LocalDate oldExpirationDate = jobPosting.getExpirationDate();
+        String oldTitle = jobPosting.getTitle();
+        String oldDescription = jobPosting.getDescription();
+        String oldAddress = jobPosting.getAddress();
+
+        // Count current applicants for ACTIVE jobs
+        int applicantCount = 0;
+        if (jobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            applicantCount = jobApplyRepo.countByJobPostingId(jobPosting.getId());
+        }
+
         // If posting is ACTIVE or EXPIRED, only allow changing the expiration date.
-        // This prevents changing other fields while candidates may apply (ACTIVE) or
-        // allows reactivating an expired posting by updating its date (EXPIRED).
+        // Rule: ACTIVE jobs with applicants CANNOT modify content (title, description, skills)
         if (jobPosting.getStatus().equals(StatusJobPosting.ACTIVE) ||
                 jobPosting.getStatus().equals(StatusJobPosting.EXPIRED)) {
+            
             // Validate new expiration date (must be in the future)
             jobPostingValidator.validateExpirationDate(request.getExpirationDate());
 
@@ -207,6 +225,23 @@ public class JobPostingImp implements JobPostingService {
                 throw new AppException(ErrorCode.INVALID_EXPIRATION_DATE);
             }
 
+            // Rule: Limit expiration date changes for ACTIVE jobs with applicants
+            if (jobPosting.getStatus().equals(StatusJobPosting.ACTIVE) && applicantCount > 0) {
+                long daysDifference = java.time.temporal.ChronoUnit.DAYS.between(oldExpirationDate, request.getExpirationDate());
+                
+                // Cannot shorten deadline by more than 7 days
+                if (daysDifference < -7) {
+                    throw new AppException(ErrorCode.EXPIRATION_DATE_TOO_SHORT);
+                }
+                
+                // Cannot extend deadline by more than 60 days
+                if (daysDifference > 60) {
+                    throw new AppException(ErrorCode.EXPIRATION_DATE_TOO_LONG);
+                }
+            }
+
+            boolean expirationDateChanged = !oldExpirationDate.equals(request.getExpirationDate());
+            
             jobPosting.setExpirationDate(request.getExpirationDate());
 
             // If expired posting date is being updated, change status to ACTIVE
@@ -215,6 +250,18 @@ public class JobPostingImp implements JobPostingService {
             }
 
             JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+            // Create audit log for expiration date change
+            if (expirationDateChanged) {
+                createAuditLog(jobPosting, "UPDATE_EXPIRATION_DATE", "expirationDate", 
+                    oldExpirationDate.toString(), request.getExpirationDate().toString(), applicantCount);
+                
+                // Notify candidates of deadline change
+                if (applicantCount > 0) {
+                    notifyApplicantsOfDeadlineChange(jobPosting, oldExpirationDate, request.getExpirationDate());
+                }
+                notifySavedJobCandidatesOfDeadlineChange(jobPosting, oldExpirationDate, request.getExpirationDate());
+            }
 
             // Invalidate cache for this job posting
             recruiterJobPostingRedisService.deleteFromCache(id);
@@ -275,6 +322,11 @@ public class JobPostingImp implements JobPostingService {
 
         JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
 
+        // Create audit log for full update
+        createAuditLog(jobPosting, "FULL_UPDATE", "multiple", 
+            String.format("title=%s, description=%s", oldTitle, oldDescription),
+            String.format("title=%s, description=%s", request.getTitle(), request.getDescription()), 0);
+
         // Invalidate cache for this job posting
         recruiterJobPostingRedisService.deleteFromCache(id);
         // Clear list cache for this recruiter
@@ -285,6 +337,207 @@ public class JobPostingImp implements JobPostingService {
             weaviateImp.deleteJobPosting(id);
             weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
         }
+    }
+    
+    /**
+     * Create an audit log entry for job posting changes
+     */
+    private void createAuditLog(JobPosting jobPosting, String actionType, String fieldChanged,
+                                 String oldValue, String newValue, int applicantCount) {
+        try {
+            JobPostingAudit audit = JobPostingAudit.builder()
+                    .jobPostingId(jobPosting.getId())
+                    .jobTitle(jobPosting.getTitle())
+                    .recruiterId(jobPosting.getRecruiter().getId())
+                    .actionType(actionType)
+                    .fieldChanged(fieldChanged)
+                    .oldValue(oldValue != null ? oldValue.substring(0, Math.min(oldValue.length(), 1000)) : null)
+                    .newValue(newValue != null ? newValue.substring(0, Math.min(newValue.length(), 1000)) : null)
+                    .changedAt(LocalDateTime.now())
+                    .applicantsCountAtChange(applicantCount)
+                    .build();
+            jobPostingAuditRepo.save(audit);
+        } catch (Exception e) {
+            log.warn("Failed to create audit log for job posting {}: {}", jobPosting.getId(), e.getMessage());
+        }
+    }
+    
+    /**
+     * Notify applicants (SUBMITTED/REVIEWING status) about deadline changes
+     */
+    private void notifyApplicantsOfDeadlineChange(JobPosting jobPosting, LocalDate oldDate, LocalDate newDate) {
+        try {
+            List<StatusJobApply> eligibleStatuses = List.of(StatusJobApply.SUBMITTED, StatusJobApply.REVIEWING);
+            List<JobApply> applications = jobApplyRepo.findByJobPostingIdAndStatusIn(jobPosting.getId(), eligibleStatuses);
+            
+            for (JobApply application : applications) {
+                NotificationEvent notification = NotificationEvent.builder()
+                        .eventType(NotificationEvent.EventType.APPLICATION_STATUS_CHANGED.name())
+                        .recipientId(String.valueOf(application.getCandidate().getCandidateId()))
+                        .title("Job Deadline Changed")
+                        .subject("Job Deadline Changed")
+                        .message(String.format("The deadline for '%s' at %s has been changed from %s to %s",
+                                jobPosting.getTitle(),
+                                jobPosting.getRecruiter().getCompanyName(),
+                                oldDate.toString(),
+                                newDate.toString()))
+                        .metadata(Map.of(
+                                "jobTitle", jobPosting.getTitle(),
+                                "companyName", jobPosting.getRecruiter().getCompanyName(),
+                                "oldDeadline", oldDate.toString(),
+                                "newDeadline", newDate.toString(),
+                                "jobId", String.valueOf(jobPosting.getId())
+                        ))
+                        .priority(2)
+                        .build();
+                notificationProducer.sendRecruiterNotification(notification);
+            }
+            log.info("Sent deadline change notifications to {} applicants for job {}", applications.size(), jobPosting.getId());
+        } catch (Exception e) {
+            log.warn("Failed to notify applicants of deadline change for job {}: {}", jobPosting.getId(), e.getMessage());
+        }
+    }
+    
+    /**
+     * Notify candidates who saved the job about deadline changes
+     */
+    private void notifySavedJobCandidatesOfDeadlineChange(JobPosting jobPosting, LocalDate oldDate, LocalDate newDate) {
+        try {
+            List<SavedJob> savedJobs = savedJobRepo.findByJobPostingId(jobPosting.getId());
+            
+            for (SavedJob savedJob : savedJobs) {
+                NotificationEvent notification = NotificationEvent.builder()
+                        .eventType(NotificationEvent.EventType.APPLICATION_STATUS_CHANGED.name())
+                        .recipientId(String.valueOf(savedJob.getCandidate().getCandidateId()))
+                        .title("Saved Job Deadline Changed")
+                        .subject("Saved Job Deadline Changed")
+                        .message(String.format("The deadline for saved job '%s' at %s has been changed from %s to %s",
+                                jobPosting.getTitle(),
+                                jobPosting.getRecruiter().getCompanyName(),
+                                oldDate.toString(),
+                                newDate.toString()))
+                        .metadata(Map.of(
+                                "jobTitle", jobPosting.getTitle(),
+                                "companyName", jobPosting.getRecruiter().getCompanyName(),
+                                "oldDeadline", oldDate.toString(),
+                                "newDeadline", newDate.toString(),
+                                "jobId", String.valueOf(jobPosting.getId())
+                        ))
+                        .priority(3)
+                        .build();
+                notificationProducer.sendRecruiterNotification(notification);
+            }
+            log.info("Sent deadline change notifications to {} candidates who saved job {}", savedJobs.size(), jobPosting.getId());
+        } catch (Exception e) {
+            log.warn("Failed to notify saved job candidates of deadline change for job {}: {}", jobPosting.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Pause an ACTIVE job posting
+     */
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    @Transactional
+    public void pauseJobPosting(int id) {
+        JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
+
+        // Validate that job is ACTIVE
+        if (!jobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            throw new AppException(ErrorCode.CANNOT_PAUSE_NON_ACTIVE);
+        }
+
+        // Update status to PAUSED
+        jobPosting.setStatus(StatusJobPosting.PAUSED);
+        JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Create audit log
+        createAuditLog(jobPosting, "PAUSE", "status", 
+            StatusJobPosting.ACTIVE, StatusJobPosting.PAUSED, 
+            jobApplyRepo.countByJobPostingId(jobPosting.getId()));
+
+        // Invalidate cache
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+        candidateJobPostingRedisService.clearAllCandidateListCache();
+
+        // Remove from Weaviate (paused jobs should not appear in search)
+        weaviateImp.deleteJobPosting(id);
+
+        log.info("Job posting {} paused by recruiter {}", id, jobPosting.getRecruiter().getId());
+    }
+
+    /**
+     * Resume a PAUSED job posting back to ACTIVE
+     */
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    @Transactional
+    public void resumeJobPosting(int id) {
+        JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
+
+        // Validate that job is PAUSED
+        if (!jobPosting.getStatus().equals(StatusJobPosting.PAUSED)) {
+            throw new AppException(ErrorCode.CANNOT_RESUME_NON_PAUSED);
+        }
+
+        // Check if expiration date is still valid
+        if (jobPosting.getExpirationDate().isBefore(LocalDate.now())) {
+            throw new AppException(ErrorCode.INVALID_EXPIRATION_DATE);
+        }
+
+        // Update status to ACTIVE
+        jobPosting.setStatus(StatusJobPosting.ACTIVE);
+        JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Create audit log
+        createAuditLog(jobPosting, "RESUME", "status", 
+            StatusJobPosting.PAUSED, StatusJobPosting.ACTIVE, 
+            jobApplyRepo.countByJobPostingId(jobPosting.getId()));
+
+        // Invalidate cache
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+        candidateJobPostingRedisService.clearAllCandidateListCache();
+
+        // Add back to Weaviate
+        weaviateImp.addJobPostingToWeaviate(updatedJobPosting);
+
+        log.info("Job posting {} resumed by recruiter {}", id, jobPosting.getRecruiter().getId());
+    }
+
+    /**
+     * Close an ACTIVE job posting (position filled)
+     */
+    @PreAuthorize("hasRole('RECRUITER')")
+    @Override
+    @Transactional
+    public void closeJobPosting(int id) {
+        JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
+
+        // Validate that job is ACTIVE
+        if (!jobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
+            throw new AppException(ErrorCode.CANNOT_CLOSE_NON_ACTIVE);
+        }
+
+        // Update status to CLOSED
+        jobPosting.setStatus(StatusJobPosting.CLOSED);
+        JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Create audit log
+        createAuditLog(jobPosting, "CLOSE", "status", 
+            StatusJobPosting.ACTIVE, StatusJobPosting.CLOSED, 
+            jobApplyRepo.countByJobPostingId(jobPosting.getId()));
+
+        // Invalidate cache
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+        candidateJobPostingRedisService.clearAllCandidateListCache();
+
+        // Remove from Weaviate (closed jobs should not appear in search)
+        weaviateImp.deleteJobPosting(id);
+
+        log.info("Job posting {} closed by recruiter {}", id, jobPosting.getRecruiter().getId());
     }
 
     // Recruiter delete job posting
@@ -314,31 +567,8 @@ public class JobPostingImp implements JobPostingService {
         weaviateImp.deleteJobPosting(id);
     }
 
-    // Recruiter pause job posting
-    @PreAuthorize("hasRole('RECRUITER')")
-    @Override
-    public void pauseJobPosting(int id) {
-        JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
-
-        // Check job posting status
-        if (!jobPosting.getStatus().equals(StatusJobPosting.ACTIVE))
-            throw new AppException(ErrorCode.CANNOT_PAUSE_JOB_POSTING);
-
-        jobPosting.setStatus(StatusJobPosting.PAUSED);
-        jobPostingRepo.save(jobPosting);
-
-        // Invalidate cache for this job posting
-        recruiterJobPostingRedisService.deleteFromCache(id);
-        // Clear list cache for this recruiter
-        recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
-        // Clear candidate list cache (job is no longer publicly visible)
-        candidateJobPostingRedisService.clearAllCandidateListCache();
-
-        // Delete from Weaviate
-        weaviateImp.deleteJobPosting(id);
-    }
-
     // Recruiter extend job posting expiration date
+    @Transactional
     @PreAuthorize("hasRole('RECRUITER')")
     public void extendJobPosting(int id, String expirationDateStr) {
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
@@ -374,6 +604,11 @@ public class JobPostingImp implements JobPostingService {
         }
 
         JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
+
+        // Invalidate cache for this job posting
+        recruiterJobPostingRedisService.deleteFromCache(id);
+        // Clear list cache for this recruiter
+        recruiterJobPostingRedisService.clearRecruiterListCache(updatedJobPosting.getRecruiter().getId());
 
         // Sync with Weaviate: delete old entry and add updated job
         if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {

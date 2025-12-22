@@ -27,15 +27,22 @@ public class AdminRatingController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Get All Ratings", description = "Retrieve all ratings with pagination and sorting")
+    @Operation(summary = "Get All Ratings", description = "Retrieve all ratings with pagination, sorting, and optional filtering by date range, user email, blog ID, or rating value")
     public ApiResponse<Page<BlogRatingResponse>> getAllRatings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "DESC") String sortDirection) {
-        log.info("Admin request to get all ratings - page: {}, size: {}", page, size);
+            @RequestParam(defaultValue = "DESC") String sortDirection,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String userEmail,
+            @RequestParam(required = false) Long blogId,
+            @RequestParam(required = false) Integer rating) {
+        log.info("Admin request to get all ratings - page: {}, size: {}, startDate: {}, endDate: {}, userEmail: {}, blogId: {}, rating: {}", 
+                page, size, startDate, endDate, userEmail, blogId, rating);
 
-        Page<BlogRating> ratings = blogRatingImp.getAllRatingsForAdmin(page, size, sortBy, sortDirection);
+        Page<BlogRating> ratings = blogRatingImp.getAllRatingsForAdmin(page, size, sortBy, sortDirection, 
+                startDate, endDate, userEmail, blogId, rating);
         Page<BlogRatingResponse> ratingResponses = ratings.map(blogRatingMapper::toBlogRatingResponse);
 
         return ApiResponse.<Page<BlogRatingResponse>>builder()

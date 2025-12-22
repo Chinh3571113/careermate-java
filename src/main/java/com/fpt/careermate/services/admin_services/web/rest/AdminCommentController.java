@@ -27,15 +27,19 @@ public class AdminCommentController {
 
         @GetMapping
         @PreAuthorize("hasRole('ADMIN')")
-        @Operation(summary = "Get All Comments", description = "Retrieve all comments with pagination, sorting, and optional filtering by blog ID or user email")
+        @Operation(summary = "Get All Comments", description = "Retrieve all comments with pagination, sorting, and optional filtering by blog ID, user email, content, or date range")
         public ApiResponse<Page<BlogCommentResponse>> getAllComments(
                         @RequestParam(defaultValue = "0") int page,
                         @RequestParam(defaultValue = "20") int size,
                         @RequestParam(defaultValue = "createdAt") String sortBy,
                         @RequestParam(defaultValue = "DESC") String sortDirection,
                         @RequestParam(required = false) Long blogId,
-                        @RequestParam(required = false) String userEmail) {
-                log.info("Admin request to get all comments - page: {}, size: {}", page, size);
+                        @RequestParam(required = false) String userEmail,
+                        @RequestParam(required = false) String content,
+                        @RequestParam(required = false) String startDate,
+                        @RequestParam(required = false) String endDate) {
+                log.info("Admin request to get all comments - page: {}, size: {}, content: {}, startDate: {}, endDate: {}", 
+                        page, size, content, startDate, endDate);
 
                 Sort sort = sortDirection.equalsIgnoreCase("ASC")
                                 ? Sort.by(sortBy).ascending()
@@ -43,7 +47,7 @@ public class AdminCommentController {
                 Pageable pageable = PageRequest.of(page, size, sort);
 
                 return ApiResponse.<Page<BlogCommentResponse>>builder()
-                                .result(blogCommentImp.getAllCommentsForAdmin(pageable, blogId, userEmail))
+                                .result(blogCommentImp.getAllCommentsForAdmin(pageable, blogId, userEmail, content, startDate, endDate))
                                 .build();
         }
 

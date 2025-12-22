@@ -413,6 +413,25 @@ public class CompanyReviewServiceImpl implements CompanyReviewService {
         return reviewMapper.toPublicResponse(review);
     }
 
+    @Override
+    @Transactional
+    public void deleteOwnReview(Integer reviewId, Integer candidateId) {
+        log.info("Candidate {} deleting own review {}", candidateId, reviewId);
+
+        CompanyReview review = reviewRepo.findById(reviewId)
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_FOUND));
+
+        // Verify ownership
+        if (review.getCandidate().getCandidateId() != candidateId.intValue()) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Actually delete the review
+        reviewRepo.delete(review);
+
+        log.info("Review {} deleted successfully by candidate {}", reviewId, candidateId);
+    }
+
     /**
      * Helper method to calculate average of aspect ratings
      */
