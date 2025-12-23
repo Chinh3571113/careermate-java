@@ -47,7 +47,7 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
 
     private static final String CANDIDATE_CLASS = "CandidateProfile";
     private static final int DEFAULT_MAX_CANDIDATES = 10;
-    private static final double DEFAULT_MIN_MATCH_SCORE = 0.5; // Require at least 50% match for better quality
+    private static final double DEFAULT_MIN_MATCH_SCORE = 0.0; // No minimum threshold - show all applicants ranked by match score
     
     // Statuses that are eligible for recommendation (candidates actively being considered)
     private static final List<StatusJobApply> ELIGIBLE_STATUSES = Arrays.asList(
@@ -143,6 +143,13 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                 eligibleCandidateIds,
                 candidateApplicationMap);
 
+        // FALLBACK: If Weaviate returns no results (candidates not synced), return applicants directly
+        if (recommendations.isEmpty() && !eligibleCandidateIds.isEmpty()) {
+            log.warn("⚠️ Weaviate returned no results. Falling back to direct applicant list without AI ranking.");
+            recommendations = buildFallbackRecommendations(candidateApplicationMap, requiredSkills);
+            log.info("📋 Fallback: Returning {} applicants without AI ranking", recommendations.size());
+        }
+
         long processingTime = System.currentTimeMillis() - startTime;
         log.info("Found {} recommended candidates for job '{}' in {}ms",
                 recommendations.size(), jobPosting.getTitle(), processingTime);
@@ -154,6 +161,89 @@ public class CandidateRecommendationServiceImpl implements CandidateRecommendati
                 .recommendations(recommendations)
                 .processingTimeMs(processingTime)
                 .build();
+    }
+
+    /**
+     * Fallback method: Build recommendations directly from applicants when Weaviate search fails
+     * This ensures recruiters can still see applicants even if they're not synced to vector DB
+     */
+    private List<CandidateRecommendationDTO> buildFallbackRecommendations(
+            Map<Integer, JobApply> candidateApplicationMap,
+            List<String> requiredSkills) {
+        List<CandidateRecommendationDTO> recommendations = new ArrayList<>();
+        
+        for (Map.Entry<Integer, JobApply> entry : candidateApplicationMap.entrySet()) {
+            JobApply application = entry.getValue();
+            Candidate candidate = application.getCandidate();
+            
+            if (candidate == null) continue;
+            
+            // Try to get skills from candidate's resume
+            List<String> candidateSkills = new ArrayList<>();
+            String profileSummary = "";
+            try {
+                List<Resume> resumes = resumeRepo.findByCandidateCandidateId(candidate.getCandidateId());
+                if (!resumes.isEmpty()) {
+                    Resume resume = resumes.get(0);
+                    if (resume.getSkills() != null) {
+                        candidateSkills = resume.getSkills().stream()
+                                .map(Skill::getSkillName)
+                                .filter(name -> name != null && !name.isEmpty())
+                                .collect(Collectors.toList());
+                    }
+                    profileSummary = resume.getAboutMe() != null ? resume.getAboutMe() : "";
+                }
+            } catch (Exception e) {
+                log.warn("⚠️ Could not load skills for candidate {}: {}", candidate.getCandidateId(), e.getMessage());
+            }
+            
+            // Calculate basic skill match
+            Set<String> matchedSkillsSet = skillMatcher.findMatchingSkills(requiredSkills, candidateSkills);
+            Set<String> missingSkillsSet = skillMatcher.findMissingSkills(requiredSkills, candidateSkills);
+            double matchScore = requiredSkills.isEmpty() ? 0.0 : 
+                    skillMatcher.calculateEnhancedMatchScore(requiredSkills, candidateSkills);
+            
+            // Get candidate name from account or fullName
+            String candidateName = candidate.getFullName();
+            if (candidateName == null || candidateName.isEmpty()) {
+                candidateName = candidate.getAccount() != null ? candidate.getAccount().getUsername() : "Unknown";
+            }
+            String email = candidate.getAccount() != null ? candidate.getAccount().getEmail() : "";
+            
+            CandidateRecommendationDTO recommendation = CandidateRecommendationDTO.builder()
+                    .candidateId(candidate.getCandidateId())
+                    .candidateName(candidateName)
+                    .email(email)
+                    .matchScore(matchScore)
+                    .matchedSkills(new ArrayList<>(matchedSkillsSet))
+                    .missingSkills(new ArrayList<>(missingSkillsSet))
+                    .totalYearsExperience(candidate.getExperience() != null ? candidate.getExperience() : 0)
+                    .profileSummary(profileSummary)
+                    // Application details
+                    .applicationId(application.getId())
+                    .applicationStatus(application.getStatus())
+                    .cvFilePath(application.getCvFilePath())
+                    .phoneNumber(application.getPhoneNumber())
+                    .preferredWorkLocation(application.getPreferredWorkLocation())
+                    .appliedAt(application.getCreateAt())
+                    .coverLetter(application.getCoverLetter())
+                    .avatarUrl(candidate.getImage())
+                    .build();
+            
+            recommendations.add(recommendation);
+        }
+        
+        // Sort by match score descending, then by applied date
+        recommendations.sort((a, b) -> {
+            int scoreCompare = Double.compare(b.getMatchScore(), a.getMatchScore());
+            if (scoreCompare != 0) return scoreCompare;
+            if (a.getAppliedAt() != null && b.getAppliedAt() != null) {
+                return b.getAppliedAt().compareTo(a.getAppliedAt());
+            }
+            return 0;
+        });
+        
+        return recommendations;
     }
 
     private List<CandidateRecommendationDTO> searchCandidatesInWeaviate(

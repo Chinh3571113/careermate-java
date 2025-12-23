@@ -6,6 +6,8 @@ import com.fpt.careermate.services.account_services.repository.AccountRepo;
 import com.fpt.careermate.services.authentication_services.domain.Role;
 import com.fpt.careermate.services.authentication_services.repository.RoleRepo;
 import com.fpt.careermate.services.authentication_services.service.AuthenticationImp;
+import com.fpt.careermate.services.profile_services.domain.Candidate;
+import com.fpt.careermate.services.profile_services.repository.CandidateRepo;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterRepo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,6 +32,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final RoleRepo roleRepo;
     private final AuthenticationImp authenticationImp;
     private final RecruiterRepo recruiterRepo;
+    private final CandidateRepo candidateRepo;
 
     @Transactional
     @Override
@@ -91,6 +94,21 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
             account.setRoles(roles);
             account = accountRepo.save(account);
+            
+            // Create Candidate profile for new candidate accounts (not recruiter)
+            if (!isRecruiter) {
+                Candidate candidate = Candidate.builder()
+                        .account(account)
+                        .fullName(name)
+                        .title("")
+                        .jobLevel("")
+                        .experience(0)
+                        .link("")
+                        .build();
+                candidateRepo.save(candidate);
+                log.info("Created candidate profile for new Google OAuth user: {}", email);
+            }
+            
             log.info("Created new account {} with role: {}", email, isRecruiter ? "RECRUITER" : "CANDIDATE");
         } else {
             // Edge case: Account exists but has no roles (shouldn't happen)
