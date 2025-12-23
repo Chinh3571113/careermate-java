@@ -110,34 +110,8 @@ public class LoginWithGoogle {
         response.sendRedirect(finalUrl.toString());
     }
 
-    @GetMapping("/google/status")
-    public ApiResponse<GoogleResponse> getGoogleLoginStatus(HttpSession session) {
-        String accessToken = (String) session.getAttribute("accessToken");
-        String refreshToken = (String) session.getAttribute("refreshToken");
-        String email = (String) session.getAttribute("email");
-        Boolean isRecruiter = (Boolean) session.getAttribute("isRecruiter");
-        Boolean profileCompleted = (Boolean) session.getAttribute("profileCompleted");
-
-        GoogleResponse tokenResponse = GoogleResponse.builder()
-                .email(email)
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .recruiter(Boolean.TRUE.equals(isRecruiter))
-                .profileCompleted(Boolean.TRUE.equals(profileCompleted))
-                .build();
-
-
-        int code = (accessToken != null) ? 200 : 202;
-        String message = (accessToken != null)
-                ? "Login with Google successful"
-                : "Recruiter profile required before accessing the system.";
-
-        return ApiResponse.<GoogleResponse>builder()
-                .code(code)
-                .message(message)
-                .result(tokenResponse)
-                .build();
-    }
+    // Removed /google/status endpoint - frontend should use /google/success redirect parameters instead
+    // This prevents duplicate "login successful" messages
 
     @GetMapping("/google/error")
     public void googleLoginError(

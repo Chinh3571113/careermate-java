@@ -108,7 +108,12 @@ public class RecruiterInvoiceImp implements RecruiterInvoiceService {
         Optional<RecruiterInvoice> exsting =
                 recruiterInvoiceRepo.findByRecruiter_IdAndIsActiveTrue(currentRecruiter.getId());
 
-        if(exsting.isEmpty()) throw new AppException(ErrorCode.RECRUITER_INVOICE_NOT_FOUND);
+        // Return null instead of throwing exception when no active invoice
+        // This allows new recruiters or those without active subscriptions to access the app
+        if(exsting.isEmpty()) {
+            log.info("No active invoice found for recruiter ID: {}", currentRecruiter.getId());
+            return null;
+        }
 
         return recruiterInvoiceMapper.toMyRecruiterInvoiceResponse(exsting.get());
     }

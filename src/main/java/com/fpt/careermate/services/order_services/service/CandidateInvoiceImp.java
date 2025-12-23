@@ -122,7 +122,12 @@ public class CandidateInvoiceImp implements CandidateInvoiceService {
                         currentCandidate.getCandidateId()
                 );
 
-        if(exsting.isEmpty()) throw new AppException(ErrorCode.CANDIDATE_INVOICE_NOT_FOUND);
+        // Return null instead of throwing exception when no active invoice
+        // This allows new candidates or those without active subscriptions to access the app
+        if(exsting.isEmpty()) {
+            log.info("No active invoice found for candidate ID: {}", currentCandidate.getCandidateId());
+            return null;
+        }
 
         return candidateInvoiceMapper.toMyCandidateInvoiceResponse(exsting.get());
     }
