@@ -52,7 +52,7 @@ public class Notification {
     String category;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
+    @Column(columnDefinition = "TEXT")
     Map<String, Object> metadata;
 
     @Column(nullable = false)
