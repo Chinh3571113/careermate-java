@@ -30,16 +30,18 @@ RUN ONNX_SIZE=$(stat -c%s src/main/resources/onnx/model.onnx 2>/dev/null || echo
 RUN mvn clean package -DskipTests
 
 # ===========================================
-# Stage 2: Runtime (JRE 21)
+# Stage 2: Runtime (JRE 21 - Debian for ONNX Runtime compatibility)
 # ===========================================
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre-jammy
 
 # Set timezone to Vietnam
 ENV TZ=Asia/Ho_Chi_Minh
-RUN apk add --no-cache tzdata && \
-    cp /usr/share/zoneinfo/$TZ /etc/localtime && \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tzdata libgomp1 && \
+    ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone && \
-    apk del tzdata
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
