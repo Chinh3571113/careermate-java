@@ -15,6 +15,17 @@ RUN mvn dependency:go-offline -B
 # Copy source code into container
 COPY src ./src
 
+# Verify ONNX model is not a Git LFS pointer (should be > 1MB)
+RUN ONNX_SIZE=$(stat -c%s src/main/resources/onnx/model.onnx 2>/dev/null || echo "0") && \
+    echo "ONNX model size: $ONNX_SIZE bytes" && \
+    if [ "$ONNX_SIZE" -lt 1000000 ]; then \
+        echo "ERROR: ONNX model is too small ($ONNX_SIZE bytes). Git LFS files were not pulled!" && \
+        echo "The model.onnx file is a Git LFS pointer, not the actual model." && \
+        echo "Please ensure Git LFS is configured on Railway or upload the actual model file." && \
+        cat src/main/resources/onnx/model.onnx && \
+        exit 1; \
+    fi
+
 # Build the application (skip tests for faster build)
 RUN mvn clean package -DskipTests
 
@@ -39,8 +50,14 @@ COPY --from=builder /app/target/*.jar app.jar
 # Expose the application port
 EXPOSE 8080
 
-# JVM options with timezone setting
-ENV JAVA_OPTS="-Xms256m -Xmx512m -Duser.timezone=Asia/Ho_Chi_Minh"
-
-# Run the Spring Boot application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Run with percentage-based memory allocation for Railway
+# Requires at least 1.5GB memory in Railway settings
+ENTRYPOINT ["java", \
+    "-XX:InitialRAMPercentage=40", \
+    "-XX:MaxRAMPercentage=70", \
+    "-XX:MaxMetaspaceSize=256m", \
+    "-XX:+UseG1GC", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxGCPauseMillis=200", \
+    "-Duser.timezone=Asia/Ho_Chi_Minh", \
+    "-jar", "app.jar"]
