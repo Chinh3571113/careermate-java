@@ -45,11 +45,10 @@ public interface JobApplyRepo extends JpaRepository<JobApply, Integer> {
                      @Param("year") int year);
 
        /**
-        * Find all pending applications for a candidate that should be auto-withdrawn
-        * when hired.
-        * Returns applications with status: SUBMITTED, REVIEWING, INTERVIEW_SCHEDULED,
-        * INTERVIEWED, APPROVED
-        * Excludes the specific hired application.
+        * Find all pending applications for a candidate.
+        * Used for statistics and UI display.
+        * NOTE (v3.2): Auto-withdrawal feature removed - platform is neutral.
+        * Candidates manage their own applications manually.
         */
        @Query("SELECT ja FROM job_apply ja WHERE ja.candidate.candidateId = :candidateId " +
                      "AND ja.id != :excludeApplicationId " +
@@ -75,8 +74,9 @@ public interface JobApplyRepo extends JpaRepository<JobApply, Integer> {
 
        /**
         * Check if candidate has any active employment (status = WORKING or ACCEPTED).
-        * Used to prevent candidate from being employed at multiple jobs
-        * simultaneously.
+        * Used for UI display and statistics.
+        * NOTE (v3.2): This does NOT block new employments - platform allows multiple jobs
+        * (freelance, part-time, consulting, etc.).
         * 
         * @param candidateId          The candidate's ID
         * @param excludeApplicationId The application ID to exclude (for updates)

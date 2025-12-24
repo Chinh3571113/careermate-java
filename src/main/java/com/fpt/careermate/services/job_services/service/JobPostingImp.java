@@ -241,11 +241,12 @@ public class JobPostingImp implements JobPostingService {
             }
 
             boolean expirationDateChanged = !oldExpirationDate.equals(request.getExpirationDate());
+            boolean wasExpired = jobPosting.getStatus().equals(StatusJobPosting.EXPIRED);
             
             jobPosting.setExpirationDate(request.getExpirationDate());
 
             // If expired posting date is being updated, change status to ACTIVE
-            if (jobPosting.getStatus().equals(StatusJobPosting.EXPIRED)) {
+            if (wasExpired) {
                 jobPosting.setStatus(StatusJobPosting.ACTIVE);
             }
 
@@ -253,8 +254,13 @@ public class JobPostingImp implements JobPostingService {
 
             // Create audit log for expiration date change
             if (expirationDateChanged) {
-                createAuditLog(jobPosting, "UPDATE_EXPIRATION_DATE", "expirationDate", 
+                createAuditLog(jobPosting, wasExpired ? "EXTEND_EXPIRED_JOB" : "UPDATE_EXPIRATION_DATE", "expirationDate", 
                     oldExpirationDate.toString(), request.getExpirationDate().toString(), applicantCount);
+                
+                // Notify recruiter if they extended an expired job
+                if (wasExpired) {
+                    sendJobPostingExtendedNotification(updatedJobPosting, request.getExpirationDate());
+                }
                 
                 // Notify candidates of deadline change
                 if (applicantCount > 0) {
@@ -282,6 +288,9 @@ public class JobPostingImp implements JobPostingService {
         }
 
         // For PENDING or REJECTED postings allow full update
+        // Track if this was a rejected job being resubmitted
+        boolean wasRejected = jobPosting.getStatus().equals(StatusJobPosting.REJECTED);
+        
         // Validate request - check duplicate title within same recruiter, excluding current job
         jobPostingValidator.checkDuplicateJobPostingTitleForUpdate(request.getTitle(),
                 jobPosting.getRecruiter().getId(), jobPosting.getId());
@@ -320,10 +329,18 @@ public class JobPostingImp implements JobPostingService {
         });
         jobPosting.setJobDescriptions(newJobDescriptions);
 
+        // If this was a REJECTED job, set status back to PENDING for admin re-review
+        if (wasRejected) {
+            jobPosting.setStatus(StatusJobPosting.PENDING);
+            jobPosting.setRejectionReason(null);  // Clear the old rejection reason
+            log.info("Rejected job posting {} resubmitted for review. Status: REJECTED → PENDING", id);
+        }
+
         JobPosting updatedJobPosting = jobPostingRepo.save(jobPosting);
 
         // Create audit log for full update
-        createAuditLog(jobPosting, "FULL_UPDATE", "multiple", 
+        String actionType = wasRejected ? "RESUBMIT" : "FULL_UPDATE";
+        createAuditLog(jobPosting, actionType, "multiple", 
             String.format("title=%s, description=%s", oldTitle, oldDescription),
             String.format("title=%s, description=%s", request.getTitle(), request.getDescription()), 0);
 
@@ -331,6 +348,13 @@ public class JobPostingImp implements JobPostingService {
         recruiterJobPostingRedisService.deleteFromCache(id);
         // Clear list cache for this recruiter
         recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+
+        // If resubmitted, clear pending jobs cache and notify admin
+        if (wasRejected) {
+            adminJobPostingRedisService.clearPendingJobsCache();
+            adminJobPostingRedisService.clearAllAdminListCache();
+            sendJobPostingPendingNotification(updatedJobPosting);
+        }
 
         // Sync with Weaviate: delete old entry and add updated job if it's active
         if (updatedJobPosting.getStatus().equals(StatusJobPosting.ACTIVE)) {
@@ -715,6 +739,15 @@ public class JobPostingImp implements JobPostingService {
 
         // Save all updated job postings in batch
         jobPostingRepo.saveAll(expiredJobs);
+
+        // Send expiration notifications to recruiters
+        expiredJobs.forEach(jp -> {
+            try {
+                sendJobPostingExpiredNotification(jp);
+            } catch (Exception e) {
+                log.error("❌ Failed to send expiration notification for job ID: {}", jp.getId(), e);
+            }
+        });
 
         // Invalidate cache for all expired job postings
         expiredJobs.forEach(jp -> {
@@ -1179,6 +1212,128 @@ public class JobPostingImp implements JobPostingService {
             log.info("✅ Job posting approval email sent to recruiter for job ID: {}", jobPosting.getId());
         } catch (Exception e) {
             log.error("❌ Failed to send job posting approval email for job ID: {}",
+                    jobPosting.getId(), e);
+        }
+    }
+
+    /**
+     * Send notification to recruiter when their job posting expires
+     */
+    private void sendJobPostingExpiredNotification(JobPosting jobPosting) {
+        String emailMessage = String.format(
+                "Your job posting '%s' has expired and is no longer visible to candidates.\n\n" +
+                        "Job Details:\n" +
+                        "- Title: %s\n" +
+                        "- Location: %s\n" +
+                        "- Expired on: %s\n\n" +
+                        "You can extend the expiration date to reactivate this job posting from your dashboard.\n\n" +
+                        "Best regards,\n" +
+                        "CareerMate Team",
+                jobPosting.getTitle(),
+                jobPosting.getTitle(),
+                jobPosting.getAddress(),
+                jobPosting.getExpirationDate());
+
+        try {
+            // Send Kafka notification for in-app notification
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("jobPostingId", jobPosting.getId());
+            metadata.put("jobTitle", jobPosting.getTitle());
+            metadata.put("expirationDate", jobPosting.getExpirationDate().toString());
+            metadata.put("status", jobPosting.getStatus());
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.JOB_POSTING_EXPIRED.name())
+                    .recipientId(jobPosting.getRecruiter().getAccount().getEmail())
+                    .recipientEmail(jobPosting.getRecruiter().getAccount().getEmail())
+                    .title("Job Posting Expired")
+                    .subject("Your Job Posting Has Expired")
+                    .message(emailMessage)
+                    .category("JOB_POSTING_STATUS")
+                    .metadata(metadata)
+                    .priority(2) // MEDIUM priority
+                    .build();
+
+            notificationProducer.sendRecruiterNotification(event);
+            log.info("✅ Sent expiration notification to recruiter for job ID: {}", jobPosting.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send expiration notification to recruiter for job ID: {}",
+                    jobPosting.getId(), e);
+        }
+
+        // Send email notification
+        try {
+            MailBody mailBody = MailBody.builder()
+                    .to(jobPosting.getRecruiter().getAccount().getEmail())
+                    .subject("Your Job Posting Has Expired")
+                    .text(emailMessage)
+                    .build();
+
+            emailService.sendSimpleEmail(mailBody);
+            log.info("✅ Job posting expiration email sent to recruiter for job ID: {}", jobPosting.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send job posting expiration email for job ID: {}",
+                    jobPosting.getId(), e);
+        }
+    }
+
+    /**
+     * Send notification to recruiter when they extend an expired job posting
+     */
+    private void sendJobPostingExtendedNotification(JobPosting jobPosting, LocalDate newExpirationDate) {
+        String emailMessage = String.format(
+                "Your expired job posting '%s' has been successfully extended and reactivated!\n\n" +
+                        "Job Details:\n" +
+                        "- Title: %s\n" +
+                        "- Location: %s\n" +
+                        "- New Expiration Date: %s\n\n" +
+                        "Your job posting is now ACTIVE and visible to candidates again.\n\n" +
+                        "Best regards,\n" +
+                        "CareerMate Team",
+                jobPosting.getTitle(),
+                jobPosting.getTitle(),
+                jobPosting.getAddress(),
+                newExpirationDate);
+
+        try {
+            // Send Kafka notification for in-app notification
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("jobPostingId", jobPosting.getId());
+            metadata.put("jobTitle", jobPosting.getTitle());
+            metadata.put("newExpirationDate", newExpirationDate.toString());
+            metadata.put("status", jobPosting.getStatus());
+
+            NotificationEvent event = NotificationEvent.builder()
+                    .eventType(NotificationEvent.EventType.JOB_POSTING_EXTENDED.name())
+                    .recipientId(jobPosting.getRecruiter().getAccount().getEmail())
+                    .recipientEmail(jobPosting.getRecruiter().getAccount().getEmail())
+                    .title("Job Posting Extended & Reactivated")
+                    .subject("Your Job Posting Has Been Extended")
+                    .message(emailMessage)
+                    .category("JOB_POSTING_STATUS")
+                    .metadata(metadata)
+                    .priority(2) // MEDIUM priority
+                    .build();
+
+            notificationProducer.sendRecruiterNotification(event);
+            log.info("✅ Sent extension notification to recruiter for job ID: {}", jobPosting.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send extension notification to recruiter for job ID: {}",
+                    jobPosting.getId(), e);
+        }
+
+        // Send email notification
+        try {
+            MailBody mailBody = MailBody.builder()
+                    .to(jobPosting.getRecruiter().getAccount().getEmail())
+                    .subject("Your Job Posting Has Been Extended")
+                    .text(emailMessage)
+                    .build();
+
+            emailService.sendSimpleEmail(mailBody);
+            log.info("✅ Job posting extension email sent to recruiter for job ID: {}", jobPosting.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send job posting extension email for job ID: {}",
                     jobPosting.getId(), e);
         }
     }

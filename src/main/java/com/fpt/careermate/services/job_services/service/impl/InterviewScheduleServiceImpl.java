@@ -784,13 +784,18 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
             metadata.put("companyName", jobApply.getJobPosting().getRecruiter().getCompanyName());
             metadata.put("scheduledDate", scheduledTime);
+            metadata.put("scheduledDateISO", interview.getScheduledDate().toString());
+            metadata.put("endDateISO", interview.getExpectedEndTime().toString());
             metadata.put("durationMinutes", interview.getDurationMinutes());
             metadata.put("interviewType", interview.getInterviewType().name());
             metadata.put("location", interview.getLocation());
             metadata.put("meetingLink", interview.getMeetingLink());
             metadata.put("interviewerName", interview.getInterviewerName());
+            metadata.put("interviewerEmail", interview.getInterviewerEmail());
             metadata.put("preparationNotes", interview.getPreparationNotes());
             metadata.put("hasConflict", hasConflict);
+            metadata.put("requiresConfirmation", true);
+            metadata.put("confirmationUrl", "/candidate/interviews/" + interview.getId() + "/confirm");
 
             // Add conflict warning to message if applicable
             String conflictWarning = hasConflict 
@@ -811,7 +816,16 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                             "%s" +
                             "\n%s" +
                             "%s" +
-                            "\n\n⚡ Please confirm your attendance as soon as possible.\n\n" +
+                            "\n\n⚡ ACTION REQUIRED: Please confirm your attendance as soon as possible.\n" +
+                            "👉 Click 'Confirm Interview' in your dashboard to confirm your availability.\n" +
+                            "⏰ Please confirm within 24 hours to secure your interview slot.\n\n" +
+                            "📧 A calendar invitation has been sent to your email (%s).\n" +
+                            "You can add this interview to your calendar for reminders.\n\n" +
+                            "💡 Preparation Tips:\n" +
+                            "• Review the company's website and recent news\n" +
+                            "• Prepare answers to common interview questions\n" +
+                            "• Test your equipment if it's a video interview\n" +
+                            "• Arrive 5-10 minutes early\n\n" +
                             "Good luck with your interview!\n\n" +
                             "Best regards,\n" +
                             "CareerMate Team",
@@ -827,13 +841,14 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                     interview.getPreparationNotes() != null
                             ? "\n📝 Preparation Notes:\n" + interview.getPreparationNotes()
                             : "",
-                    conflictWarning);
+                    conflictWarning,
+                    candidateEmail);
 
             // Send to candidate - use different event type if there's a conflict
             String eventType = hasConflict ? "INTERVIEW_INVITATION_CONFLICT" : "INTERVIEW_INVITATION";
             String title = hasConflict 
                 ? "⚠️ Interview Invitation (Conflict) - " + jobApply.getJobPosting().getTitle()
-                : "Interview Invitation - " + jobApply.getJobPosting().getTitle();
+                : "📅 Interview Invitation - Please Confirm - " + jobApply.getJobPosting().getTitle();
 
             NotificationEvent candidateEvent = NotificationEvent.builder()
                     .eventId(java.util.UUID.randomUUID().toString())
@@ -842,7 +857,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
                     .category("CANDIDATE")
                     .eventType(eventType)
                     .title(title)
-                    .subject("🎉 Interview Scheduled: " + jobApply.getJobPosting().getTitle() + " at "
+                    .subject("🎉 Interview Invitation - Confirmation Required: " + jobApply.getJobPosting().getTitle() + " at "
                             + jobApply.getJobPosting().getRecruiter().getCompanyName())
                     .message(message)
                     .metadata(metadata)

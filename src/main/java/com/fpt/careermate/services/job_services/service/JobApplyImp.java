@@ -218,24 +218,9 @@ public class JobApplyImp implements JobApplyService {
                         throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
                 }
 
-                // Check if candidate already has active employment when trying to extend offer or hire them
-                // This prevents extending offers or hiring a candidate who is already employed
-                if (status == StatusJobApply.OFFER_EXTENDED || status == StatusJobApply.ACCEPTED || status == StatusJobApply.WORKING) {
-                        Integer candidateId = jobApply.getCandidate().getCandidateId();
-                        boolean hasActiveEmployment = jobApplyRepo.hasActiveEmployment(candidateId, id);
-                        
-                        if (hasActiveEmployment) {
-                                List<JobApply> activeEmployments = jobApplyRepo.findActiveEmploymentsByCandidate(candidateId);
-                                if (!activeEmployments.isEmpty()) {
-                                        JobApply currentJob = activeEmployments.get(0);
-                                        log.warn("❌ Cannot extend offer/hire candidate {} - already employed at '{}' (Application ID: {})",
-                                                candidateId, 
-                                                currentJob.getJobPosting().getTitle(),
-                                                currentJob.getId());
-                                }
-                                throw new AppException(ErrorCode.CANDIDATE_ALREADY_EMPLOYED);
-                        }
-                }
+                // Note: Platform allows multiple employments - we don't block offers/hiring
+                // Candidates may have multiple jobs (freelance, part-time, consulting, etc.)
+                // The platform's role is to connect, not enforce employment exclusivity
 
                 // Update status and relevant timestamps
                 jobApply.setStatus(status);
@@ -257,16 +242,8 @@ public class JobApplyImp implements JobApplyService {
                         // Don't fail the update process if notification fails
                 }
 
-                // Handle business rules when candidate is hired (ACCEPTED status)
-                if (status == StatusJobApply.ACCEPTED) {
-                        try {
-                                handleHireBusinessRules(updatedJobApply);
-                        } catch (Exception e) {
-                                log.error("Failed to process hire business rules for application {}: {}",
-                                                id, e.getMessage(), e);
-                                // Don't fail the main update if auto-withdraw fails
-                        }
-                }
+                // Note: Auto-withdrawal feature removed - platform is neutral and doesn't
+                // make decisions on behalf of candidates. They can manually withdraw if needed.
 
                 // Handle interview cancellation when application is manually withdrawn
                 if (status == StatusJobApply.WITHDRAWN) {
@@ -765,270 +742,12 @@ public class JobApplyImp implements JobApplyService {
                 }
         }
 
-        // ==================== AUTO-WITHDRAW ON HIRE ====================
-
-        /**
-         * Active statuses that should be auto-withdrawn when candidate is hired
-         * elsewhere.
-         * These represent applications that are still "in progress" and not yet
-         * finalized.
-         */
-        private static final List<StatusJobApply> ACTIVE_PENDING_STATUSES = List.of(
-                        StatusJobApply.SUBMITTED,
-                        StatusJobApply.REVIEWING,
-                        StatusJobApply.INTERVIEW_SCHEDULED,
-                        StatusJobApply.INTERVIEWED,
-                        StatusJobApply.APPROVED);
-
-        /**
-         * Handle business rules when a candidate is hired (status changed to ACCEPTED).
-         * This automatically withdraws all other pending applications for the same
-         * candidate.
-         * 
-         * Business Rule: When a candidate accepts a job offer, all their other active
-         * applications
-         * are automatically withdrawn to prevent conflicts and maintain data integrity.
-         * 
-         * @param hiredApplication The application that was just marked as
-         *                         ACCEPTED/hired
-         */
-        private void handleHireBusinessRules(JobApply hiredApplication) {
-                Integer candidateId = hiredApplication.getCandidate().getCandidateId();
-                Integer hiredApplicationId = hiredApplication.getId();
-                String hiredJobTitle = hiredApplication.getJobPosting().getTitle();
-                String hiredCompanyName = hiredApplication.getJobPosting().getRecruiter().getCompanyName();
-
-                log.info("🎯 Processing hire business rules for candidate {} hired at {}",
-                                candidateId, hiredCompanyName);
-
-                // Find all other active/pending applications for this candidate
-                List<JobApply> pendingApplications = jobApplyRepo.findActivePendingApplicationsByCandidate(
-                                candidateId,
-                                hiredApplicationId,
-                                ACTIVE_PENDING_STATUSES);
-
-                if (pendingApplications.isEmpty()) {
-                        log.info("No pending applications to withdraw for candidate {}", candidateId);
-                        return;
-                }
-
-                log.info("Found {} pending applications to auto-withdraw for candidate {}",
-                                pendingApplications.size(), candidateId);
-
-                int withdrawnCount = 0;
-                for (JobApply application : pendingApplications) {
-                        try {
-                                StatusJobApply previousStatus = application.getStatus();
-
-                                // Update status to WITHDRAWN
-                                application.setStatus(StatusJobApply.WITHDRAWN);
-                                application.setStatusChangedAt(LocalDateTime.now());
-                                jobApplyRepo.save(application);
-
-                                // Send notification to recruiter about auto-withdrawal
-                                sendAutoWithdrawNotificationToRecruiter(application, hiredJobTitle, hiredCompanyName);
-
-                                // Cancel any scheduled interviews for this application
-                                cancelInterviewIfExists(application, hiredJobTitle, hiredCompanyName);
-
-                                withdrawnCount++;
-                                log.info("✅ Auto-withdrew application {} for job '{}' (was: {})",
-                                                application.getId(),
-                                                application.getJobPosting().getTitle(),
-                                                previousStatus);
-
-                        } catch (Exception e) {
-                                log.error("Failed to auto-withdraw application {}: {}",
-                                                application.getId(), e.getMessage());
-                                // Continue processing other applications
-                        }
-                }
-
-                log.info("🎉 Auto-withdrew {} of {} pending applications for candidate {}",
-                                withdrawnCount, pendingApplications.size(), candidateId);
-
-                // Send summary notification to candidate about auto-withdrawals
-                if (withdrawnCount > 0) {
-                        sendAutoWithdrawSummaryToCandidate(hiredApplication, withdrawnCount);
-                }
-        }
-
-        /**
-         * Send notification to recruiter when a candidate auto-withdraws from their job
-         * posting.
-         */
-        private void sendAutoWithdrawNotificationToRecruiter(JobApply withdrawnApplication,
-                        String hiredJobTitle, String hiredCompanyName) {
-                String recruiterEmail = withdrawnApplication.getJobPosting().getRecruiter().getAccount().getEmail();
-                Integer recruiterId = withdrawnApplication.getJobPosting().getRecruiter().getId();
-
-                Map<String, Object> metadata = new HashMap<>();
-                metadata.put("applicationId", withdrawnApplication.getId());
-                metadata.put("jobPostingId", withdrawnApplication.getJobPosting().getId());
-                metadata.put("jobTitle", withdrawnApplication.getJobPosting().getTitle());
-                metadata.put("candidateName", withdrawnApplication.getFullName());
-                metadata.put("reason", "HIRED_ELSEWHERE");
-                metadata.put("hiredJobTitle", hiredJobTitle);
-                metadata.put("hiredCompanyName", hiredCompanyName);
-
-                String message = String.format(
-                                "A candidate has withdrawn their application.\n\n" +
-                                                "📋 Job Posting: %s\n" +
-                                                "👤 Candidate: %s\n" +
-                                                "ℹ️ Reason: Candidate has been hired at another company (%s)\n\n" +
-                                                "The application status has been automatically updated to WITHDRAWN.",
-                                withdrawnApplication.getJobPosting().getTitle(),
-                                withdrawnApplication.getFullName(),
-                                hiredCompanyName);
-
-                NotificationEvent event = NotificationEvent.builder()
-                                .eventId(UUID.randomUUID().toString())
-                                .recipientEmail(recruiterEmail)
-                                .recipientId(String.valueOf(recruiterId))
-                                .category("RECRUITER")
-                                .eventType("APPLICATION_AUTO_WITHDRAWN")
-                                .title("Application Withdrawn - Candidate Hired Elsewhere")
-                                .subject("Application Withdrawn: " + withdrawnApplication.getFullName())
-                                .message(message)
-                                .metadata(metadata)
-                                .timestamp(LocalDateTime.now())
-                                .build();
-
-                notificationProducer.sendRecruiterNotification(event);
-        }
-
-        /**
-         * Send summary notification to candidate about their auto-withdrawn
-         * applications.
-         */
-        private void sendAutoWithdrawSummaryToCandidate(JobApply hiredApplication, int withdrawnCount) {
-                String candidateEmail = hiredApplication.getCandidate().getAccount().getEmail();
-                Integer candidateId = hiredApplication.getCandidate().getCandidateId();
-                String hiredCompanyName = hiredApplication.getJobPosting().getRecruiter().getCompanyName();
-                String hiredJobTitle = hiredApplication.getJobPosting().getTitle();
-
-                Map<String, Object> metadata = new HashMap<>();
-                metadata.put("hiredApplicationId", hiredApplication.getId());
-                metadata.put("hiredJobTitle", hiredJobTitle);
-                metadata.put("hiredCompanyName", hiredCompanyName);
-                metadata.put("withdrawnCount", withdrawnCount);
-
-                String message = String.format(
-                                "Congratulations on your new job! 🎉\n\n" +
-                                                "You've been hired for the position of '%s' at %s.\n\n" +
-                                                "As a result, %d of your other pending application(s) have been automatically withdrawn "
-                                                +
-                                                "to help you focus on your new opportunity.\n\n" +
-                                                "We wish you all the best in your new role!",
-                                hiredJobTitle,
-                                hiredCompanyName,
-                                withdrawnCount);
-
-                NotificationEvent event = NotificationEvent.builder()
-                                .eventId(UUID.randomUUID().toString())
-                                .recipientEmail(candidateEmail)
-                                .recipientId(String.valueOf(candidateId))
-                                .category("CANDIDATE")
-                                .eventType("APPLICATIONS_AUTO_WITHDRAWN")
-                                .title("Your Applications Have Been Updated")
-                                .subject("Congratulations! " + withdrawnCount + " application(s) auto-withdrawn")
-                                .message(message)
-                                .metadata(metadata)
-                                .timestamp(LocalDateTime.now())
-                                .build();
-
-                notificationProducer.sendNotification("candidate-notifications", event);
-        }
-
-        /**
-         * Cancel interview if exists for an application being withdrawn.
-         * This ensures ghost interviews don't remain in the system when applications
-         * are withdrawn.
-         * 
-         * @param application      The application being withdrawn
-         * @param hiredJobTitle    The job title the candidate was hired for
-         * @param hiredCompanyName The company name where candidate was hired
-         */
-        private void cancelInterviewIfExists(JobApply application, String hiredJobTitle, String hiredCompanyName) {
-                try {
-                        interviewScheduleRepo.findByJobApplyId(application.getId())
-                                        .ifPresent(interview -> {
-                                                // Only cancel if interview is not already completed/cancelled/no-show
-                                                if (interview.getStatus() == InterviewStatus.SCHEDULED
-                                                                || interview.getStatus() == InterviewStatus.CONFIRMED
-                                                                || interview.getStatus() == InterviewStatus.RESCHEDULED) {
-
-                                                        InterviewStatus previousStatus = interview.getStatus();
-                                                        interview.setStatus(InterviewStatus.CANCELLED);
-                                                        interview.setInterviewerNotes(String.format(
-                                                                        "Auto-cancelled: Candidate hired for '%s' at %s. Previous status: %s",
-                                                                        hiredJobTitle, hiredCompanyName,
-                                                                        previousStatus));
-                                                        interviewScheduleRepo.save(interview);
-
-                                                        log.info("🗓️ Auto-cancelled interview {} for application {} (was: {})",
-                                                                        interview.getId(), application.getId(),
-                                                                        previousStatus);
-
-                                                        // Send notification to recruiter about cancelled interview
-                                                        sendInterviewCancelledNotification(interview, application,
-                                                                        hiredJobTitle, hiredCompanyName);
-                                                }
-                                        });
-                } catch (Exception e) {
-                        log.error("Failed to cancel interview for application {}: {}",
-                                        application.getId(), e.getMessage());
-                        // Don't fail the withdrawal process if interview cancellation fails
-                }
-        }
-
-        /**
-         * Send notification to recruiter when a scheduled interview is auto-cancelled.
-         */
-        private void sendInterviewCancelledNotification(InterviewSchedule interview, JobApply application,
-                        String hiredJobTitle, String hiredCompanyName) {
-                String recruiterEmail = application.getJobPosting().getRecruiter().getAccount().getEmail();
-                Integer recruiterId = application.getJobPosting().getRecruiter().getId();
-
-                Map<String, Object> metadata = new HashMap<>();
-                metadata.put("interviewId", interview.getId());
-                metadata.put("applicationId", application.getId());
-                metadata.put("jobPostingId", application.getJobPosting().getId());
-                metadata.put("jobTitle", application.getJobPosting().getTitle());
-                metadata.put("candidateName", application.getFullName());
-                metadata.put("scheduledDate", interview.getScheduledDate().toString());
-                metadata.put("reason", "CANDIDATE_HIRED_ELSEWHERE");
-                metadata.put("hiredJobTitle", hiredJobTitle);
-                metadata.put("hiredCompanyName", hiredCompanyName);
-
-                String message = String.format(
-                                "⚠️ An interview has been automatically cancelled.\n\n" +
-                                                "📋 Job Posting: %s\n" +
-                                                "👤 Candidate: %s\n" +
-                                                "📅 Scheduled: %s\n" +
-                                                "ℹ️ Reason: Candidate has been hired at another company (%s)\n\n" +
-                                                "The interview has been removed from your schedule.",
-                                application.getJobPosting().getTitle(),
-                                application.getFullName(),
-                                interview.getScheduledDate()
-                                                .format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm")),
-                                hiredCompanyName);
-
-                NotificationEvent event = NotificationEvent.builder()
-                                .eventId(UUID.randomUUID().toString())
-                                .recipientEmail(recruiterEmail)
-                                .recipientId(String.valueOf(recruiterId))
-                                .category("RECRUITER")
-                                .eventType("INTERVIEW_AUTO_CANCELLED")
-                                .title("Interview Cancelled - Candidate Hired Elsewhere")
-                                .subject("Interview Cancelled: " + application.getFullName())
-                                .message(message)
-                                .metadata(metadata)
-                                .timestamp(LocalDateTime.now())
-                                .build();
-
-                notificationProducer.sendNotification("recruiter-notifications", event);
-        }
+        // ==================== MANUAL WITHDRAWAL (CANDIDATE-INITIATED) ====================
+        // Note: Auto-withdrawal feature has been removed.
+        // Platform philosophy: CareerMate is a job matching platform, not an HR system.
+        // The platform should not make decisions on behalf of candidates.
+        // Candidates can have multiple jobs (freelance, part-time, consulting, etc.)
+        // and should manually manage their applications.
 
         /**
          * Cancel interview when candidate manually withdraws their application.
@@ -1166,10 +885,14 @@ public class JobApplyImp implements JobApplyService {
 
         /**
          * Candidate confirms a job offer - transitions from OFFER_EXTENDED to WORKING
+         * Platform-neutral (v3.2): Allows multiple simultaneous employments.
+         * 
          * This validates that:
          * 1. The application belongs to the current authenticated candidate
          * 2. The application is in OFFER_EXTENDED status
-         * 3. The candidate is not already employed elsewhere
+         * 
+         * Note: No restriction on multiple employments - candidates can have multiple
+         * active jobs (freelance, part-time, consulting, contract work, etc.)
          */
         @Override
         @Transactional
@@ -1192,10 +915,9 @@ public class JobApplyImp implements JobApplyService {
                         throw new AppException(ErrorCode.INVALID_STATUS_TRANSITION);
                 }
                 
-                // Check if candidate is already employed elsewhere
-                if (jobApplyRepo.hasActiveEmployment(candidate.getCandidateId(), jobApplyId)) {
-                        throw new AppException(ErrorCode.CANDIDATE_ALREADY_EMPLOYED);
-                }
+                // Note: Platform allows multiple employments - candidates may have multiple jobs
+                // (freelance, part-time, consulting, contract work, etc.)
+                // The platform's role is to facilitate connections, not enforce employment exclusivity
                 
                 StatusJobApply previousStatus = jobApply.getStatus();
                 
@@ -1241,13 +963,9 @@ public class JobApplyImp implements JobApplyService {
                         log.error("Failed to send offer confirmation notification: {}", e.getMessage(), e);
                 }
                 
-                // Handle business rules when candidate is hired (auto-withdraw other applications)
-                try {
-                        handleHireBusinessRules(updatedJobApply);
-                } catch (Exception e) {
-                        log.error("Failed to process hire business rules for application {}: {}",
-                                        jobApplyId, e.getMessage(), e);
-                }
+                // Note: Auto-withdrawal feature removed - platform is neutral and doesn't
+                // make decisions on behalf of candidates. Other applications remain active.
+                // Candidates can manually withdraw applications if they choose to.
                 
                 // Send notification to recruiter that candidate accepted
                 try {
