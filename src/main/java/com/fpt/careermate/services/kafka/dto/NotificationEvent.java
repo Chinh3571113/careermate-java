@@ -37,6 +37,8 @@ public class NotificationEvent implements Serializable {
         // Job Posting Events
         JOB_POSTING_APPROVED,
         JOB_POSTING_REJECTED,
+        JOB_POSTING_EXPIRED,
+        JOB_POSTING_EXTENDED,
 
         // Application Events
         APPLICATION_RECEIVED,

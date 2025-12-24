@@ -266,15 +266,8 @@ public class NotificationConsumer {
             case "INTERVIEW_REMINDER_2_HOUR":
                 log.info("⏰ 2-hour interview reminder processed for: {}", event.getRecipientId());
                 break;
-            case "INTERVIEW_AUTO_CANCELLED":
-                log.info("🗓️ Interview auto-cancelled notification processed for: {}", event.getRecipientId());
-                break;
-            case "APPLICATION_AUTO_WITHDRAWN":
-                log.info("📤 Application auto-withdrawn notification processed for: {}", event.getRecipientId());
-                break;
-            case "APPLICATIONS_AUTO_WITHDRAWN":
-                log.info("📤 Applications auto-withdrawn summary processed for: {}", event.getRecipientId());
-                break;
+            // Note: AUTO_WITHDRAWN events removed - platform no longer auto-withdraws applications
+            // Candidates manage their own applications manually
             default:
                 log.info("📧 Generic notification processed for: {}", event.getRecipientId());
         }
@@ -359,6 +352,7 @@ public class NotificationConsumer {
                 "APPLICATION_RECEIVED", // Recruiter should know about new applications
                 // Interview notifications - critical for scheduling
                 "INTERVIEW_INVITATION", // Candidate MUST know about interview invite
+                "INTERVIEW_INVITATION_CONFLICT", // Candidate MUST know about conflicting interview
                 "INTERVIEW_SCHEDULED", // Recruiter confirmation of scheduled interview
                 "INTERVIEW_CONFIRMED", // Recruiter knows candidate confirmed
                 "INTERVIEW_UPDATE", // Candidate knows interview was updated
@@ -369,11 +363,8 @@ public class NotificationConsumer {
                 "INTERVIEW_OUTCOME_PENDING", // Candidate knows decision pending
                 "INTERVIEW_NO_SHOW", // Candidate knows they were marked no-show
                 "INTERVIEW_REMINDER_24_HOUR", // 24-hour reminder
-                "INTERVIEW_REMINDER_2_HOUR", // 2-hour reminder
-                "INTERVIEW_AUTO_CANCELLED", // Recruiter knows interview was auto-cancelled
-                // Application withdrawal notifications
-                "APPLICATION_AUTO_WITHDRAWN", // Recruiter knows app was auto-withdrawn
-                "APPLICATIONS_AUTO_WITHDRAWN" // Candidate summary of auto-withdrawals
+                "INTERVIEW_REMINDER_2_HOUR" // 2-hour reminder
+                // Note: Auto-withdraw events removed - platform no longer auto-withdraws applications
         );
 
         return emailRequiredEvents.contains(event.getEventType());
