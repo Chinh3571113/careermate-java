@@ -39,7 +39,6 @@ firebase-service-account.json
 **/firebase-service-account.json
 src/main/resources/firebase-service-account.json
 postgre_data/
-src/main/resources/application.yml
 /careermate_docker/
 !/src/main/resources/onnx/
 /src/main/resources/db
