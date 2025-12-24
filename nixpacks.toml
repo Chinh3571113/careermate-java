@@ -1,0 +1,6 @@
+# Enable Git LFS support for Railway
+[phases.setup]
+aptPkgs = ["git-lfs"]
+
+[phases.install]
+cmds = ["git lfs install", "git lfs pull"]
