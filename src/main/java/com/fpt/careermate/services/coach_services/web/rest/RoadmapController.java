@@ -101,7 +101,7 @@ public class RoadmapController {
             @RequestParam int resumeId
     )
     {
-        asyncRoadmapImp.highlightedResumeAsync(resumeId);
+        roadmapImp.highlightedResume(resumeId);
         return ApiResponse.<Void>builder()
                 .code(200)
                 .message("success")
