@@ -178,4 +178,23 @@ public class AccountImp implements AccountService {
 
     }
 
+    @Override
+    public AccountResponse updateAvatar(String avatarUrl) {
+        Account account = authenticationImp.findByEmail();
+        account.setAvatarUrl(avatarUrl);
+        account = accountRepo.save(account);
+        return accountMapper.toAccountResponse(account);
+    }
+
+    @Override
+    public AccountResponse updateUsername(String username) {
+        if (username == null || username.trim().isEmpty()) {
+            throw new AppException(ErrorCode.USERNAME_INVALID);
+        }
+        Account account = authenticationImp.findByEmail();
+        account.setUsername(username.trim());
+        account = accountRepo.save(account);
+        return accountMapper.toAccountResponse(account);
+    }
+
 }

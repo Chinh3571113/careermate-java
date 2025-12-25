@@ -13,6 +13,7 @@ import org.mapstruct.MappingTarget;
 public interface AccountMapper {
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "avatarUrl", ignore = true)
     Account toAccount(AccountCreationRequest request);
 
     AccountResponse toAccountResponse(Account account);
@@ -23,5 +24,6 @@ public interface AccountMapper {
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "forgotPassword", ignore = true)
+    @Mapping(target = "avatarUrl", ignore = true)
     void updateAccount(AccountUpdateRequest request, @MappingTarget Account account);
 }

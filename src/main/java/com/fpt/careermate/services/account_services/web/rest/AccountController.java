@@ -2,7 +2,7 @@ package com.fpt.careermate.services.account_services.web.rest;
 
 import com.fpt.careermate.services.account_services.service.AccountImp;
 import com.fpt.careermate.services.account_services.service.dto.request.SignUpRequest;
-import com.fpt.careermate.services.email_services.service.EmailImp;
+import com.fpt.careermate.services.email_services.service.impl.EmailService;
 import com.fpt.careermate.services.account_services.service.dto.request.AccountCreationRequest;
 import com.fpt.careermate.services.account_services.service.dto.response.AccountResponse;
 import com.fpt.careermate.common.response.ApiResponse;
@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 public class AccountController {
     AccountImp accountImp;
-    EmailImp emailImp;
+    EmailService emailService;
 
     @PostMapping
     @Operation(summary = "Create Account", description = "Create a new account")
@@ -151,7 +151,7 @@ public class AccountController {
     @PostMapping("/verify-email/{email}")
     @Operation(summary = "Forget Password", description = "Handle forget password request")
     ApiResponse<String> forgetPassword(@PathVariable String email) {
-        String verified = emailImp.verifyEmail(email);
+        String verified = emailService.verifyEmail(email);
         return ApiResponse.<String>builder()
                 .code(200)
                 .message("If the email exists, a password reset link has been sent.")
@@ -162,7 +162,7 @@ public class AccountController {
     @PostMapping("verify-otp")
     @Operation(summary = "Verify Code", description = "Verify the code sent to the user's email")
     ApiResponse<String> verifyCode(@RequestParam String email, @RequestParam Integer code) {
-        String token = emailImp.verifyOtp(email, code);
+        String token = emailService.verifyOtp(email, code);
         return ApiResponse.<String>builder()
                 .code(200)
                 .message("Code verified successfully")
@@ -174,7 +174,7 @@ public class AccountController {
     @Operation(summary = "Change Password", description = "Change the user's password using a valid token")
     ApiResponse<String> changePassword(@RequestBody ChangePassword changePassword, @PathVariable String email
     ) {
-        String result = emailImp.changePassword(changePassword, email);
+        String result = emailService.changePassword(changePassword, email);
         return ApiResponse.<String>builder()
                 .code(200)
                 .message("Password changed successfully")
@@ -189,6 +189,34 @@ public class AccountController {
         return ApiResponse.<Void>builder()
                 .code(200)
                 .message("Sign up successful")
+                .build();
+    }
+
+    @PutMapping("/avatar")
+    @Operation(
+        summary = "Update User Avatar URL",
+        description = "Update the avatar URL for the current authenticated user"
+    )
+    ApiResponse<AccountResponse> updateAvatar(@RequestParam String avatarUrl) {
+        AccountResponse account = accountImp.updateAvatar(avatarUrl);
+        return ApiResponse.<AccountResponse>builder()
+                .code(200)
+                .message("Avatar updated successfully")
+                .result(account)
+                .build();
+    }
+
+    @PutMapping("/username")
+    @Operation(
+        summary = "Update Username",
+        description = "Update the username for the current authenticated user"
+    )
+    ApiResponse<AccountResponse> updateUsername(@RequestParam String username) {
+        AccountResponse account = accountImp.updateUsername(username);
+        return ApiResponse.<AccountResponse>builder()
+                .code(200)
+                .message("Username updated successfully")
+                .result(account)
                 .build();
     }
 
