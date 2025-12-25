@@ -5,6 +5,7 @@ import com.fpt.careermate.services.authentication_services.service.dto.response.
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +20,9 @@ import java.io.IOException;
 @RestController
 public class LoginWithGoogle {
     public static final String ACCOUNT_TYPE_SESSION_KEY = "OAUTH_ACCOUNT_TYPE";
+
+    @Value("${frontend.url:http://localhost:3000}")
+    private String frontendUrl;
 
     @GetMapping("/google/login")
     public void loginWithGoogle(
@@ -39,7 +43,7 @@ public class LoginWithGoogle {
             session.setAttribute("oauth_redirect_url", redirectUrl);
         } else {
             // Default frontend URL
-            session.setAttribute("oauth_redirect_url", "http://localhost:3000");
+            session.setAttribute("oauth_redirect_url", frontendUrl);
         }
 
         response.sendRedirect("/oauth2/authorization/google");
@@ -54,9 +58,9 @@ public class LoginWithGoogle {
         Boolean profileCompleted = (Boolean) session.getAttribute("profileCompleted");
         String redirectUrl = (String) session.getAttribute("oauth_redirect_url");
 
-        // Default to localhost if no redirect URL was stored
+        // Default to configured frontend URL if no redirect URL was stored
         if (redirectUrl == null || redirectUrl.isBlank()) {
-            redirectUrl = "http://localhost:3000";
+            redirectUrl = frontendUrl;
         }
 
         // Build redirect URL with OAuth result as query parameters
@@ -124,7 +128,7 @@ public class LoginWithGoogle {
         String redirectUrl = (String) session.getAttribute("oauth_redirect_url");
 
         if (redirectUrl == null || redirectUrl.isBlank()) {
-            redirectUrl = "http://localhost:3000";
+            redirectUrl = frontendUrl;
         }
 
         // Build error redirect URL
