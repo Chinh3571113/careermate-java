@@ -169,6 +169,8 @@ public class RoadmapImp implements RoadmapService {
         return recommendedRoadmapResponseList;
     }
 
+    // Sử dụng Roadmap Collection nếu recommend roadmap dựa trên role
+    // Sử dụng Roadmap Collection 2 nếu recommend roadmap dựa trên skills
     @Override
     @PreAuthorize("hasRole('CANDIDATE')")
     @Transactional
@@ -187,8 +189,8 @@ public class RoadmapImp implements RoadmapService {
             throw new AppException(ErrorCode.RESUME_HAS_NO_SKILLS);
         }
 
-        // Tìm roadmap phù hợp nhất dựa trên skills
-        String roadmapName = findRoadmapBySkills(skills);
+        // Tìm roadmap phù hợp nhất dựa trên roleName
+        String roadmapName = findRoadmapByRole(candidate.getTitle());
         Roadmap roadmap = roadmapRepo.findByNameContainingIgnoreCase(roadmapName)
                 .orElseThrow(() -> new AppException(ErrorCode.ROADMAP_NOT_FOUND));
 
@@ -425,6 +427,70 @@ public class RoadmapImp implements RoadmapService {
         Double certainty = (Double) additional.get("certainty");
         log.info("Found roadmap '{}' with certainty: {} based on skills: {}",
                 roadmapName, certainty, String.join(", ", skillNames));
+
+        return roadmapName;
+    }
+
+    // Tìm Roadmap dựa theo role của Candidate
+    private String findRoadmapByRole(String roleName) {
+        String[] concepts = new String[]{roleName};
+
+        // Tạo bộ lọc tìm kiếm gần theo văn bản (nearText) dựa trên roleName
+        // "concepts" là mảng các skills dùng để tìm kiếm ngữ nghĩa
+        // "certainty" là ngưỡng độ tin cậy tối thiểu của kết quả (0.7f = 70%)
+        NearTextArgument nearText = NearTextArgument.builder()
+                .concepts(concepts)
+                .certainty(0.75f)
+                .build();
+
+        // Xác định các trường cần lấy từ đối tượng "Roadmap" trong Weaviate
+        // Bao gồm: "name" và "_additional.certainty" (độ tương tự)
+        Fields fields = Fields.builder()
+                .fields(new Field[]{
+                        Field.builder().name("name").build(),
+                        Field.builder().name("_additional").fields(new Field[]{
+                                Field.builder().name("certainty").build()
+                        }).build()
+                })
+                .build();
+
+        // Tạo câu truy vấn GraphQL để lấy roadmap phù hợp nhất
+        String query = GetBuilder.builder()
+                .className(roadmapCollection)
+                .fields(fields)                 // các trường cần lấy
+                .withNearTextFilter(nearText)   // áp dụng bộ lọc nearText dựa trên skills
+                .limit(1)                       // chỉ lấy roadmap phù hợp nhất
+                .build()
+                .buildQuery();
+
+        // Gửi truy vấn GraphQL đến Weaviate và nhận kết quả trả về
+        Result<GraphQLResponse> result = client.graphQL().raw().withQuery(query).run();
+
+        if (result.hasErrors()) {
+            log.error("Error querying Weaviate: {}", result.getError().getMessages());
+            throw new AppException(ErrorCode.WEAVIATE_ERROR);
+        }
+
+        GraphQLResponse graphQLResponse = result.getResult();
+
+        // Trích xuất dữ liệu từ phản hồi GraphQL (ở dạng Map lồng nhau)
+        Map<String, Object> data = (Map<String, Object>) graphQLResponse.getData();
+        Map<String, Object> get = (Map<String, Object>) data.get("Get");
+        List<Map<String, Object>> roadmapData = (List<Map<String, Object>>) get.get(roadmapCollection);
+
+        // Kiểm tra có roadmap nào được tìm thấy không
+        if (roadmapData == null || roadmapData.isEmpty()) {
+            throw new AppException(ErrorCode.ROADMAP_NOT_FOUND);
+        }
+
+        // Lấy tên roadmap phù hợp nhất
+        String roadmapName = (String) roadmapData.get(0).get("name");
+
+        // Log thông tin để debug
+        Map<String, Object> additional = (Map<String, Object>) roadmapData.get(0).get("_additional");
+        Double certainty = (Double) additional.get("certainty");
+        log.info("Found roadmap '{}' with certainty: {} based on role name: {}",
+                roadmapName, certainty, roleName);
 
         return roadmapName;
     }
