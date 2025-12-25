@@ -15,11 +15,12 @@ public class RecruiterProfileResponse {
     int accountId;
     String email;
     String username;
+    String avatarUrl; // Personal avatar from Account
 
     // Current profile info
     String companyName;
     String website;
-    String logoUrl;
+    String logoUrl; // Company logo
     String about;
     Float rating;
     String companyEmail;

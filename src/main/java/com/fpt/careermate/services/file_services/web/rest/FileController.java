@@ -149,6 +149,100 @@ public class FileController {
         }
     }
 
+    // RECRUITER - Upload Avatar Image
+    @PostMapping("/upload/avatar")
+    @Operation(summary = "Upload Avatar", description = "Upload an avatar image to Firebase Storage for current user")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<Map<String, Object>> uploadAvatar(@RequestParam("image") MultipartFile file) {
+        log.info("Uploading avatar to Firebase Storage: {}", file.getOriginalFilename());
+
+        if (!isImageFile(file)) {
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1004)
+                    .message("Only image files are allowed")
+                    .build();
+        }
+
+        // Validate file size (max 2MB for avatar)
+        if (file.getSize() > 2 * 1024 * 1024) {
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1004)
+                    .message("File size must be less than 2MB")
+                    .build();
+        }
+
+        try {
+            Map<String, Object> uploadResult = firebaseStorageService.uploadFile(file, "careermate/avatars");
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("imageUrl", uploadResult.get("secure_url"));
+            result.put("publicId", uploadResult.get("public_id"));
+            result.put("fileSize", file.getSize());
+
+            log.info("Avatar uploaded successfully to Firebase: {}", uploadResult.get("public_id"));
+
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1000)
+                    .message("Avatar uploaded successfully")
+                    .result(result)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Firebase avatar upload failed: {}", e.getMessage());
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1005)
+                    .message("Upload failed: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    // RECRUITER - Upload Company Logo
+    @PostMapping("/upload/logo")
+    @Operation(summary = "Upload Company Logo", description = "Upload a company logo image to Firebase Storage")
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('CANDIDATE')")
+    public ApiResponse<Map<String, Object>> uploadLogo(@RequestParam("image") MultipartFile file) {
+        log.info("Uploading company logo to Firebase Storage: {}", file.getOriginalFilename());
+
+        if (!isImageFile(file)) {
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1004)
+                    .message("Only image files are allowed")
+                    .build();
+        }
+
+        // Validate file size (max 5MB for logo)
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1004)
+                    .message("File size must be less than 5MB")
+                    .build();
+        }
+
+        try {
+            Map<String, Object> uploadResult = firebaseStorageService.uploadFile(file, "careermate/logos");
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("imageUrl", uploadResult.get("secure_url"));
+            result.put("publicId", uploadResult.get("public_id"));
+            result.put("fileSize", file.getSize());
+
+            log.info("Logo uploaded successfully to Firebase: {}", uploadResult.get("public_id"));
+
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1000)
+                    .message("Logo uploaded successfully")
+                    .result(result)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Firebase logo upload failed: {}", e.getMessage());
+            return ApiResponse.<Map<String, Object>>builder()
+                    .code(1005)
+                    .message("Upload failed: " + e.getMessage())
+                    .build();
+        }
+    }
+
     private boolean isImageFile(MultipartFile file) {
         String contentType = file.getContentType();
         return contentType != null && contentType.startsWith("image/");

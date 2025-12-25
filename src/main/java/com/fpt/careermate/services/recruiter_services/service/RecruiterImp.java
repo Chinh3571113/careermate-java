@@ -242,6 +242,7 @@ public class RecruiterImp implements RecruiterService {
                 .accountId(recruiter.getAccount().getId())
                 .email(recruiter.getAccount().getEmail())
                 .username(recruiter.getAccount().getUsername())
+                .avatarUrl(recruiter.getAccount().getAvatarUrl())
                 .companyName(recruiter.getCompanyName())
                 .website(recruiter.getWebsite())
                 .logoUrl(recruiter.getLogoUrl())
@@ -589,7 +590,7 @@ public class RecruiterImp implements RecruiterService {
                     recruiter.getId(), e);
         }
 
-        // Send email notification
+        // Send email notification (async - non-blocking)
         try {
             MailBody mailBody = MailBody.builder()
                     .to(recruiter.getAccount().getEmail())
@@ -597,10 +598,10 @@ public class RecruiterImp implements RecruiterService {
                     .text(emailMessage)
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("✅ Profile update approval email sent to recruiter ID: {}", recruiter.getId());
+            emailService.sendSimpleEmailAsync(mailBody);
+            log.info("✅ Profile update approval email queued for recruiter ID: {}", recruiter.getId());
         } catch (Exception e) {
-            log.error("❌ Failed to send profile update approval email to recruiter ID: {}",
+            log.error("❌ Failed to queue profile update approval email to recruiter ID: {}",
                     recruiter.getId(), e);
         }
     }
@@ -647,7 +648,7 @@ public class RecruiterImp implements RecruiterService {
                     recruiter.getId(), e);
         }
 
-        // Send email notification
+        // Send email notification (async - non-blocking)
         try {
             MailBody mailBody = MailBody.builder()
                     .to(recruiter.getAccount().getEmail())
@@ -655,10 +656,10 @@ public class RecruiterImp implements RecruiterService {
                     .text(emailMessage)
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("✅ Profile update rejection email sent to recruiter ID: {}", recruiter.getId());
+            emailService.sendSimpleEmailAsync(mailBody);
+            log.info("✅ Profile update rejection email queued for recruiter ID: {}", recruiter.getId());
         } catch (Exception e) {
-            log.error("❌ Failed to send profile update rejection email to recruiter ID: {}",
+            log.error("❌ Failed to queue profile update rejection email to recruiter ID: {}",
                     recruiter.getId(), e);
         }
     }

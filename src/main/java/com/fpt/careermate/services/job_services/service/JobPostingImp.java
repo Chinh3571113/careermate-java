@@ -1200,7 +1200,7 @@ public class JobPostingImp implements JobPostingService {
                     jobPosting.getId(), e);
         }
 
-        // Send email notification
+        // Send email notification (async - non-blocking)
         try {
             MailBody mailBody = MailBody.builder()
                     .to(jobPosting.getRecruiter().getAccount().getEmail())
@@ -1208,10 +1208,10 @@ public class JobPostingImp implements JobPostingService {
                     .text(emailMessage)
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("✅ Job posting approval email sent to recruiter for job ID: {}", jobPosting.getId());
+            emailService.sendSimpleEmailAsync(mailBody);
+            log.info("✅ Job posting approval email queued for job ID: {}", jobPosting.getId());
         } catch (Exception e) {
-            log.error("❌ Failed to send job posting approval email for job ID: {}",
+            log.error("❌ Failed to queue job posting approval email for job ID: {}",
                     jobPosting.getId(), e);
         }
     }
@@ -1261,7 +1261,7 @@ public class JobPostingImp implements JobPostingService {
                     jobPosting.getId(), e);
         }
 
-        // Send email notification
+        // Send email notification (async - non-blocking)
         try {
             MailBody mailBody = MailBody.builder()
                     .to(jobPosting.getRecruiter().getAccount().getEmail())
@@ -1269,10 +1269,10 @@ public class JobPostingImp implements JobPostingService {
                     .text(emailMessage)
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("✅ Job posting expiration email sent to recruiter for job ID: {}", jobPosting.getId());
+            emailService.sendSimpleEmailAsync(mailBody);
+            log.info("✅ Job posting expiration email queued for job ID: {}", jobPosting.getId());
         } catch (Exception e) {
-            log.error("❌ Failed to send job posting expiration email for job ID: {}",
+            log.error("❌ Failed to queue job posting expiration email for job ID: {}",
                     jobPosting.getId(), e);
         }
     }
@@ -1322,7 +1322,7 @@ public class JobPostingImp implements JobPostingService {
                     jobPosting.getId(), e);
         }
 
-        // Send email notification
+        // Send email notification (async - non-blocking)
         try {
             MailBody mailBody = MailBody.builder()
                     .to(jobPosting.getRecruiter().getAccount().getEmail())
@@ -1330,10 +1330,10 @@ public class JobPostingImp implements JobPostingService {
                     .text(emailMessage)
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("✅ Job posting extension email sent to recruiter for job ID: {}", jobPosting.getId());
+            emailService.sendSimpleEmailAsync(mailBody);
+            log.info("✅ Job posting extension email queued for job ID: {}", jobPosting.getId());
         } catch (Exception e) {
-            log.error("❌ Failed to send job posting extension email for job ID: {}",
+            log.error("❌ Failed to queue job posting extension email for job ID: {}",
                     jobPosting.getId(), e);
         }
     }
@@ -1382,7 +1382,7 @@ public class JobPostingImp implements JobPostingService {
                     jobPosting.getId(), e);
         }
 
-        // Send email notification
+        // Send email notification (async - non-blocking)
         try {
             MailBody mailBody = MailBody.builder()
                     .to(jobPosting.getRecruiter().getAccount().getEmail())
@@ -1390,10 +1390,10 @@ public class JobPostingImp implements JobPostingService {
                     .text(emailMessage)
                     .build();
 
-            emailService.sendSimpleEmail(mailBody);
-            log.info("✅ Job posting rejection email sent to recruiter for job ID: {}", jobPosting.getId());
+            emailService.sendSimpleEmailAsync(mailBody);
+            log.info("✅ Job posting rejection email queued for job ID: {}", jobPosting.getId());
         } catch (Exception e) {
-            log.error("❌ Failed to send job posting rejection email for job ID: {}",
+            log.error("❌ Failed to queue job posting rejection email for job ID: {}",
                     jobPosting.getId(), e);
         }
     }

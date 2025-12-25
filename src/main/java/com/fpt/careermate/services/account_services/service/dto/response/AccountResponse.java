@@ -16,6 +16,7 @@ public class AccountResponse {
     String username;
     String email;
     String status;
+    String avatarUrl;
     Set<RoleResponse> roles;
 
 }

@@ -18,4 +18,6 @@ public interface AccountService {
     AccountResponse updateAccountStatus(int id, String status);
     AccountResponse getCurrentUser();
     void signUp(SignUpRequest request);
+    AccountResponse updateAvatar(String avatarUrl);
+    AccountResponse updateUsername(String username);
 }

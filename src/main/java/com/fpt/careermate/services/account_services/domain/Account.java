@@ -25,6 +25,9 @@ public class Account {
     String password;
     @Column(name = "status")
     String status;
+    
+    @Column(name = "avatar_url", length = 500)
+    String avatarUrl;
 
     @ManyToMany
     Set<Role> roles;

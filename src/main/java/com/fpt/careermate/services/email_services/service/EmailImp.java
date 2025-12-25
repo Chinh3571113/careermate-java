@@ -13,9 +13,11 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +29,7 @@ import java.util.Random;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-
+@Slf4j
 public class EmailImp implements EmailService {
     final JavaMailSender mailSender;
     @NonFinal
@@ -48,6 +50,23 @@ public class EmailImp implements EmailService {
         message.setText(mailBody.text());
 
         mailSender.send(message);
+    }
+
+    @Override
+    @Async("emailTaskExecutor")
+    public void sendSimpleEmailAsync(MailBody mailBody) {
+        try {
+            log.info("📧 Sending async email to: {}", mailBody.to());
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(sender);
+            message.setTo(mailBody.to());
+            message.setSubject(mailBody.subject());
+            message.setText(mailBody.text());
+            mailSender.send(message);
+            log.info("✅ Async email sent successfully to: {}", mailBody.to());
+        } catch (Exception e) {
+            log.error("❌ Failed to send async email to {}: {}", mailBody.to(), e.getMessage());
+        }
     }
 
     @Override
