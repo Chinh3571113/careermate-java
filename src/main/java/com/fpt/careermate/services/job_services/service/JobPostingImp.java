@@ -164,6 +164,10 @@ public class JobPostingImp implements JobPostingService {
         // If not in cache, fetch from database
         log.debug("Fetching job posting detail from database for ID: {}", id);
         JobPosting jobPosting = findJobPostingEntityForRecruiterById(id);
+        
+        // Check and update expired status in real-time
+        checkAndUpdateExpiredStatus(jobPosting);
+        
         JobPostingForRecruiterResponse jpResponse = jobPostingMapper.toJobPostingDetailForRecruiterResponse(jobPosting);
 
         // Get skills
@@ -304,9 +308,11 @@ public class JobPostingImp implements JobPostingService {
         // Validate JdSkill exist
         jobPostingValidator.validateJdSkill(request.getJdSkills());
 
-        // Remove all old job descriptions
+        // Remove all old job descriptions and flush to ensure deletion is committed
+        // This prevents unique constraint violation when re-inserting the same skill_id
         List<JobDescription> jobDescriptions = jobDescriptionRepo.findByJobPosting_Id(jobPosting.getId());
         jobDescriptionRepo.deleteAll(jobDescriptions);
+        jobDescriptionRepo.flush();  // Force flush to commit deletes before inserting new records
 
         // Update job posting
         jobPosting.setTitle(request.getTitle());
@@ -772,6 +778,55 @@ public class JobPostingImp implements JobPostingService {
         });
 
         log.info("Updated {} job postings to EXPIRED status and removed from Weaviate.", expiredJobs.size());
+    }
+
+    /**
+     * Check if a job posting should be expired based on current date
+     * and update its status if necessary.
+     * This provides real-time expiration checking when a job is accessed.
+     *
+     * @param jobPosting The job posting to check
+     * @return true if the job was expired (status changed), false otherwise
+     */
+    @Transactional
+    private boolean checkAndUpdateExpiredStatus(JobPosting jobPosting) {
+        LocalDate today = LocalDate.now();
+        
+        // Only check if current status is ACTIVE and expiration date has passed
+        if (jobPosting.getStatus().equals(StatusJobPosting.ACTIVE) &&
+                jobPosting.getExpirationDate().isBefore(today)) {
+            
+            log.info("Job posting {} has expired (expirationDate: {}, today: {}). Updating status to EXPIRED.",
+                    jobPosting.getId(), jobPosting.getExpirationDate(), today);
+            
+            jobPosting.setStatus(StatusJobPosting.EXPIRED);
+            jobPostingRepo.save(jobPosting);
+            
+            // Invalidate cache
+            recruiterJobPostingRedisService.deleteFromCache(jobPosting.getId());
+            recruiterJobPostingRedisService.clearRecruiterListCache(jobPosting.getRecruiter().getId());
+            candidateJobPostingRedisService.clearAllCandidateListCache();
+            adminJobPostingRedisService.clearAllAdminListCache();
+            
+            // Try to delete from Weaviate
+            try {
+                weaviateImp.deleteJobPosting(jobPosting.getId());
+                log.info("Deleted expired job posting from Weaviate - ID: {}", jobPosting.getId());
+            } catch (Exception e) {
+                log.error("Failed to delete job posting from Weaviate - ID: {}", jobPosting.getId(), e);
+            }
+            
+            // Send notification
+            try {
+                sendJobPostingExpiredNotification(jobPosting);
+            } catch (Exception e) {
+                log.error("Failed to send expiration notification for job ID: {}", jobPosting.getId(), e);
+            }
+            
+            return true;
+        }
+        
+        return false;
     }
 
     // ========== ADMIN METHODS ==========
@@ -1430,6 +1485,15 @@ public class JobPostingImp implements JobPostingService {
             pageJobPosting = jobPostingRepo
                     .findByRecruiterIdAndTitleContainingIgnoreCase(recruiterId, keyword, pageable);
         }
+
+        // Check and update expired status for each job posting in real-time
+        LocalDate today = LocalDate.now();
+        pageJobPosting.getContent().forEach(jp -> {
+            if (jp.getStatus().equals(StatusJobPosting.ACTIVE) &&
+                    jp.getExpirationDate().isBefore(today)) {
+                checkAndUpdateExpiredStatus(jp);
+            }
+        });
 
         List<JobPostingForRecruiterResponse> jobPostingForRecruiterResponses = pageJobPosting
                 .stream()
