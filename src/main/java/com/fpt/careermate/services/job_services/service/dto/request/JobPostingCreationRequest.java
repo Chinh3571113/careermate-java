@@ -19,7 +19,7 @@ public class JobPostingCreationRequest {
     @NotBlank
     String title;
 
-    @Size(max = 5000)
+    @Size(max = 65535)  // TEXT type can hold up to 65535 characters
     @NotBlank
     String description;
 

@@ -42,10 +42,10 @@ public class JdSkillController {
 
     @GetMapping
     @Operation(summary = "Get jdSkill list with optional autocomplete search",
-               description = "Returns all skills if no keyword is provided, otherwise returns skills matching the keyword (case-insensitive partial match)")
+               description = "Returns all skills if no keyword is provided, otherwise returns skills matching the keyword (case-insensitive partial match). Type can be 'core', 'soft', or 'all' (default)")
     ApiResponse<List<JdSkillResponse>> getSkillList(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = true) String type
+            @RequestParam(required = false, defaultValue = "all") String type
     ) {
         return ApiResponse.<List<JdSkillResponse>>builder()
                 .result(jdSkillImp.getAllSkill(keyword, type))

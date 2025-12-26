@@ -67,7 +67,7 @@ public class JdJdSkillImp implements JdSkillService {
     private String validateAndNormalizeType(String type) {
         if (type == null) return null;
         String normalized = type.trim().toLowerCase();
-        if (normalized.isEmpty()) return null;
+        if (normalized.isEmpty() || normalized.equals("all")) return null; // "all" means no filter
         if (!StatusJdSkill.CORE.equalsIgnoreCase(normalized) && !StatusJdSkill.SOFT.equalsIgnoreCase(normalized)) {
             throw new AppException(ErrorCode.INVALID_JDSKILL_TYPE);
         }
