@@ -16,6 +16,8 @@ import com.fpt.careermate.services.kafka.dto.NotificationEvent;
 
 import com.fpt.careermate.services.kafka.producer.NotificationProducer;
 import com.fpt.careermate.services.email_services.service.impl.EmailService;
+import com.fpt.careermate.services.admin_services.domain.Admin;
+import com.fpt.careermate.services.admin_services.repository.AdminRepo;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -42,6 +45,7 @@ public class RegistrationService {
     UrlValidator urlValidator;
     EmailService emailService;
     NotificationProducer notificationProducer;
+    AdminRepo adminRepo;
 
     /**
      * Register a new recruiter account with organization info
@@ -325,43 +329,55 @@ public class RegistrationService {
 
     /**
      * Send notification to admin when a new recruiter registers
+     * Sends to ALL active admins individually using their email as recipientId
      */
     private void sendRecruiterRegistrationNotificationToAdmin(Account account, Recruiter recruiter) {
         try {
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("accountId", account.getId());
-            metadata.put("recruiterId", recruiter.getId());
-            metadata.put("companyName", recruiter.getCompanyName());
-            metadata.put("email", account.getEmail());
-            metadata.put("username", account.getUsername());
-            metadata.put("actionType", "RECRUITER_REGISTRATION");
-            metadata.put("actionUrl", "/api/admin/recruiters/" + recruiter.getId());
+            // Get all active admins to send individual notifications
+            List<Admin> admins = adminRepo.findAll();
+            
+            for (Admin admin : admins) {
+                String adminEmail = admin.getAccount().getEmail();
+                // Only send to active admin accounts
+                if (!"ACTIVE".equals(admin.getAccount().getStatus())) {
+                    continue;
+                }
+                
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("accountId", account.getId());
+                metadata.put("recruiterId", recruiter.getId());
+                metadata.put("companyName", recruiter.getCompanyName());
+                metadata.put("email", account.getEmail());
+                metadata.put("username", account.getUsername());
+                metadata.put("actionType", "RECRUITER_REGISTRATION");
+                metadata.put("actionUrl", "/admin/pending-approval");
 
-            NotificationEvent event = NotificationEvent.builder()
-                    .eventType(NotificationEvent.EventType.PROFILE_VERIFICATION.name())
-                    .recipientId("ADMIN")
-                    .recipientEmail("admin@careermate.com")
-                    .title("New Recruiter Registration")
-                    .subject("New Recruiter Pending Approval")
-                    .message(String.format(
-                            "A new recruiter has registered and needs verification.\n\n" +
-                            "Company: %s\n" +
-                            "Email: %s\n" +
-                            "Username: %s\n" +
-                            "Contact: %s\n\n" +
-                            "Please review and approve/reject this registration.",
-                            recruiter.getCompanyName(),
-                            account.getEmail(),
-                            account.getUsername(),
-                            recruiter.getContactPerson()
-                    ))
-                    .category("ADMIN_ACTION_REQUIRED")
-                    .metadata(metadata)
-                    .priority(1) // High priority
-                    .build();
+                NotificationEvent event = NotificationEvent.builder()
+                        .eventType(NotificationEvent.EventType.PROFILE_VERIFICATION.name())
+                        .recipientId(adminEmail) // Use email to match authentication.getName()
+                        .recipientEmail(adminEmail)
+                        .title("New Recruiter Registration")
+                        .subject("New Recruiter Pending Approval")
+                        .message(String.format(
+                                "A new recruiter has registered and needs verification.\n\n" +
+                                "Company: %s\n" +
+                                "Email: %s\n" +
+                                "Username: %s\n" +
+                                "Contact: %s\n\n" +
+                                "Please review and approve/reject this registration.",
+                                recruiter.getCompanyName(),
+                                account.getEmail(),
+                                account.getUsername(),
+                                recruiter.getContactPerson()
+                        ))
+                        .category("ADMIN_ACTION_REQUIRED")
+                        .metadata(metadata)
+                        .priority(1) // High priority
+                        .build();
 
-            notificationProducer.sendAdminNotification(event);
-            log.info("✅ Admin notification sent for new recruiter registration: {}", account.getEmail());
+                notificationProducer.sendAdminNotification(event);
+            }
+            log.info("✅ Admin notification sent to {} admins for new recruiter registration: {}", admins.size(), account.getEmail());
         } catch (Exception e) {
             log.error("❌ Failed to send admin notification for recruiter registration: {}", account.getEmail(), e);
             // Don't throw exception - notification failure should not break registration
@@ -381,7 +397,7 @@ public class RegistrationService {
 
             NotificationEvent event = NotificationEvent.builder()
                     .eventType(NotificationEvent.EventType.ACCOUNT_APPROVED.name())
-                    .recipientId(String.valueOf(account.getId()))
+                    .recipientId(account.getEmail()) // Use email to match authentication.getName()
                     .recipientEmail(account.getEmail())
                     .title("Account Approved")
                     .subject("Your Recruiter Account Has Been Approved")
@@ -424,7 +440,7 @@ public class RegistrationService {
 
             NotificationEvent event = NotificationEvent.builder()
                     .eventType(NotificationEvent.EventType.ACCOUNT_REJECTED.name())
-                    .recipientId(String.valueOf(account.getId()))
+                    .recipientId(account.getEmail()) // Use email to match authentication.getName()
                     .recipientEmail(account.getEmail())
                     .title("Account Registration Rejected")
                     .subject("Your Recruiter Account Application")
