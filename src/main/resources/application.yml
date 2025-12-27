@@ -45,11 +45,12 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
+            client-id: ${GOOGLE_CLIENT_ID:966248572523-1g1iv05bmvrgs70l8oi1kfargefeghti.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
             redirect-uri: ${OAUTH2_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}
             scope:
               - profile
+              - email
               - email
 
 
@@ -144,8 +145,20 @@ logging:
       apache:
         http: WARN
         kafka: WARN
+        # Reduce Tomcat/Catalina authentication error noise (expected for expired tokens)
+        catalina: WARN
       springframework:
+        # Reduce Spring Security authentication error logging (expected for expired tokens)
+        security:
+          oauth2:
+            server:
+              resource:
+                web:
+                  authentication: WARN
         web:
+          servlet:
+            # Reduce DispatcherServlet auth error spam (expected for expired tokens)
+            DispatcherServlet: WARN
           client:
             RestTemplate: WARN
           http:

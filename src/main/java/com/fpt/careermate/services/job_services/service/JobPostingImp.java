@@ -401,9 +401,11 @@ public class JobPostingImp implements JobPostingService {
             List<JobApply> applications = jobApplyRepo.findByJobPostingIdAndStatusIn(jobPosting.getId(), eligibleStatuses);
             
             for (JobApply application : applications) {
+                String candidateEmail = application.getCandidate().getAccount().getEmail();
                 NotificationEvent notification = NotificationEvent.builder()
                         .eventType(NotificationEvent.EventType.APPLICATION_STATUS_CHANGED.name())
-                        .recipientId(String.valueOf(application.getCandidate().getCandidateId()))
+                        .recipientId(candidateEmail) // Use email to match authentication.getName()
+                        .recipientEmail(candidateEmail)
                         .title("Job Deadline Changed")
                         .subject("Job Deadline Changed")
                         .message(String.format("The deadline for '%s' at %s has been changed from %s to %s",
@@ -420,7 +422,7 @@ public class JobPostingImp implements JobPostingService {
                         ))
                         .priority(2)
                         .build();
-                notificationProducer.sendRecruiterNotification(notification);
+                notificationProducer.sendNotification("candidate-notifications", notification);
             }
             log.info("Sent deadline change notifications to {} applicants for job {}", applications.size(), jobPosting.getId());
         } catch (Exception e) {
@@ -436,9 +438,11 @@ public class JobPostingImp implements JobPostingService {
             List<SavedJob> savedJobs = savedJobRepo.findByJobPostingId(jobPosting.getId());
             
             for (SavedJob savedJob : savedJobs) {
+                String candidateEmail = savedJob.getCandidate().getAccount().getEmail();
                 NotificationEvent notification = NotificationEvent.builder()
                         .eventType(NotificationEvent.EventType.APPLICATION_STATUS_CHANGED.name())
-                        .recipientId(String.valueOf(savedJob.getCandidate().getCandidateId()))
+                        .recipientId(candidateEmail) // Use email to match authentication.getName()
+                        .recipientEmail(candidateEmail)
                         .title("Saved Job Deadline Changed")
                         .subject("Saved Job Deadline Changed")
                         .message(String.format("The deadline for saved job '%s' at %s has been changed from %s to %s",
@@ -455,7 +459,7 @@ public class JobPostingImp implements JobPostingService {
                         ))
                         .priority(3)
                         .build();
-                notificationProducer.sendRecruiterNotification(notification);
+                notificationProducer.sendNotification("candidate-notifications", notification);
             }
             log.info("Sent deadline change notifications to {} candidates who saved job {}", savedJobs.size(), jobPosting.getId());
         } catch (Exception e) {
@@ -1177,33 +1181,47 @@ public class JobPostingImp implements JobPostingService {
 
     /**
      * Send notification to admin when a new job posting is created (PENDING status)
+     * Sends to ALL active admins individually using their email as recipientId
      */
     private void sendJobPostingPendingNotification(JobPosting jobPosting) {
         try {
-            Map<String, Object> metadata = new HashMap<>();
-            metadata.put("jobPostingId", jobPosting.getId());
-            metadata.put("jobTitle", jobPosting.getTitle());
-            metadata.put("companyName", jobPosting.getRecruiter().getCompanyName());
-            metadata.put("recruiterId", jobPosting.getRecruiter().getId());
-            metadata.put("createdAt", jobPosting.getCreateAt().toString());
+            // Get all active admins to send individual notifications
+            List<Admin> admins = adminRepo.findAll();
+            
+            for (Admin admin : admins) {
+                String adminEmail = admin.getAccount().getEmail();
+                // Only send to active admin accounts
+                if (!"ACTIVE".equals(admin.getAccount().getStatus())) {
+                    continue;
+                }
+                
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("jobPostingId", jobPosting.getId());
+                metadata.put("jobTitle", jobPosting.getTitle());
+                metadata.put("companyName", jobPosting.getRecruiter().getCompanyName());
+                metadata.put("recruiterId", jobPosting.getRecruiter().getId());
+                metadata.put("createdAt", jobPosting.getCreateAt().toString());
+                metadata.put("actionType", "JOB_POSTING_PENDING");
+                metadata.put("actionUrl", "/admin/job-postings");
 
-            NotificationEvent event = NotificationEvent.builder()
-                    .eventType(NotificationEvent.EventType.SYSTEM_NOTIFICATION.name())
-                    .recipientId("ADMIN")
-                    .recipientEmail("admin@careermate.com")
-                    .title("New Job Posting Pending Approval")
-                    .subject("Job Posting Requires Review")
-                    .message(String.format(
-                            "A new job posting '%s' from company '%s' requires your review and approval.",
-                            jobPosting.getTitle(),
-                            jobPosting.getRecruiter().getCompanyName()))
-                    .category("JOB_POSTING_APPROVAL")
-                    .metadata(metadata)
-                    .priority(2) // MEDIUM priority
-                    .build();
+                NotificationEvent event = NotificationEvent.builder()
+                        .eventType(NotificationEvent.EventType.SYSTEM_NOTIFICATION.name())
+                        .recipientId(adminEmail) // Use email to match authentication.getName()
+                        .recipientEmail(adminEmail)
+                        .title("New Job Posting Pending Approval")
+                        .subject("Job Posting Requires Review")
+                        .message(String.format(
+                                "A new job posting '%s' from company '%s' requires your review and approval.",
+                                jobPosting.getTitle(),
+                                jobPosting.getRecruiter().getCompanyName()))
+                        .category("JOB_POSTING_APPROVAL")
+                        .metadata(metadata)
+                        .priority(2) // MEDIUM priority
+                        .build();
 
-            notificationProducer.sendAdminNotification(event);
-            log.info("✅ Sent pending job posting notification to admin for job ID: {}", jobPosting.getId());
+                notificationProducer.sendAdminNotification(event);
+            }
+            log.info("✅ Sent pending job posting notification to {} admins for job ID: {}", admins.size(), jobPosting.getId());
         } catch (Exception e) {
             log.error("❌ Failed to send pending job posting notification to admin for job ID: {}",
                     jobPosting.getId(), e);

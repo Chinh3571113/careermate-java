@@ -34,4 +34,11 @@ public class JobApplyResponse {
     String recruiterPhone;
     String companyAddress;
     String contactPerson;
+    
+    // Interview history info - shows previous cancelled interviews
+    // This helps recruiter see context when application returns to REVIEWING status
+    Boolean hasCancelledInterview;
+    String cancelledInterviewNotes;
+    LocalDateTime cancelledInterviewDate;
+    Integer totalInterviewRounds;
 }

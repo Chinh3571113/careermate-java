@@ -77,11 +77,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/blogs", "/api/blogs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/blogs", "/blogs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/files/**").permitAll()
-                    // Public company review aggregates (details/listing remain role-restricted)
-                    .requestMatchers(HttpMethod.GET,
-                        "/api/v1/reviews/company/*/statistics",
-                        "/api/v1/reviews/company/*/rating"
-                    ).permitAll()
+                        // Public company review aggregates (details/listing remain role-restricted)
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/reviews/company/*/statistics",
+                                "/api/v1/reviews/company/*/rating")
+                        .permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest()
                         .authenticated());
@@ -106,19 +106,19 @@ public class SecurityConfig {
 
         // Allow all HTTP methods
         corsConfiguration.addAllowedMethod("*");
-        
+
         // Allow all headers
         corsConfiguration.addAllowedHeader("*");
-        
+
         // Allow credentials (cookies, authorization headers)
         corsConfiguration.setAllowCredentials(true);
-        
+
         // Expose headers that frontend can read
         corsConfiguration.addExposedHeader("Set-Cookie");
         corsConfiguration.addExposedHeader("Content-Type");
         corsConfiguration.addExposedHeader("Cache-Control");
         corsConfiguration.addExposedHeader("Connection");
-        
+
         // SSE specific: Allow long-lived connections
         // Max age for preflight cache (1 hour)
         corsConfiguration.setMaxAge(3600L);

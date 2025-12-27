@@ -153,6 +153,19 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
 
         InterviewSchedule interview = findInterviewById(interviewId);
 
+        // Check if interview is in a valid state for confirmation
+        if (interview.getStatus() == InterviewStatus.CANCELLED) {
+            throw new AppException(ErrorCode.INTERVIEW_ALREADY_CANCELLED);
+        }
+        
+        if (interview.getStatus() == InterviewStatus.COMPLETED) {
+            throw new AppException(ErrorCode.INTERVIEW_ALREADY_COMPLETED);
+        }
+        
+        if (interview.getStatus() == InterviewStatus.NO_SHOW) {
+            throw new AppException(ErrorCode.INTERVIEW_MARKED_NO_SHOW);
+        }
+
         if (Boolean.TRUE.equals(interview.getCandidateConfirmed())) {
             throw new AppException(ErrorCode.INTERVIEW_ALREADY_CONFIRMED);
         }
@@ -298,6 +311,16 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         interview.setInterviewerNotes("Cancelled: " + reason);
 
         interview = interviewRepo.save(interview);
+
+        // Update job application status back to REVIEWING when interview is cancelled
+        // This allows the recruiter to schedule a new interview or take other actions
+        JobApply jobApply = interview.getJobApply();
+        if (jobApply.getStatus() == StatusJobApply.INTERVIEW_SCHEDULED) {
+            jobApply.setStatus(StatusJobApply.REVIEWING);
+            jobApplyRepo.save(jobApply);
+            log.info("Updated job application {} status from INTERVIEW_SCHEDULED to REVIEWING after cancellation", 
+                    jobApply.getId());
+        }
 
         // Send cancellation notification to candidate
         sendInterviewCancelledNotification(interview, reason);
@@ -491,7 +514,6 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         try {
             JobApply jobApply = interview.getJobApply();
             String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
-            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
 
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("jobTitle", jobApply.getJobPosting().getTitle());
@@ -503,15 +525,17 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             metadata.put("interviewId", interview.getId());
 
             NotificationEvent event = NotificationEvent.builder()
-                    .eventType("EMAIL")
-                    .recipientId(candidateId)
+                    .eventId(java.util.UUID.randomUUID().toString())
+                    .eventType("INTERVIEW_UPDATE")
+                    .recipientId(candidateEmail) // Use email to match authentication.getName()
                     .recipientEmail(candidateEmail)
                     .subject("Interview Updated - " + jobApply.getJobPosting().getTitle())
                     .title("Interview Schedule Updated")
                     .message(
                             "Your interview has been updated. Please review the new details and confirm your attendance.")
-                    .category("INTERVIEW_UPDATE")
+                    .category("CANDIDATE")
                     .metadata(metadata)
+                    .timestamp(LocalDateTime.now())
                     .priority(1) // High priority
                     .build();
 
@@ -772,7 +796,6 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
     private void sendInterviewScheduledNotification(InterviewSchedule interview, JobApply jobApply, boolean hasConflict) {
         try {
             String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
-            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
             String recruiterEmail = jobApply.getJobPosting().getRecruiter().getAccount().getEmail();
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm");
@@ -853,7 +876,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             NotificationEvent candidateEvent = NotificationEvent.builder()
                     .eventId(java.util.UUID.randomUUID().toString())
                     .recipientEmail(candidateEmail)
-                    .recipientId(candidateId)
+                    .recipientId(candidateEmail) // Use email to match authentication.getName()
                     .category("CANDIDATE")
                     .eventType(eventType)
                     .title(title)
@@ -1192,7 +1215,6 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
         try {
             JobApply jobApply = interview.getJobApply();
             String candidateEmail = jobApply.getCandidate().getAccount().getEmail();
-            String candidateId = String.valueOf(jobApply.getCandidate().getCandidateId());
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' HH:mm");
             String scheduledTime = interview.getScheduledDate().format(formatter);
@@ -1224,7 +1246,7 @@ public class InterviewScheduleServiceImpl implements InterviewScheduleService {
             NotificationEvent event = NotificationEvent.builder()
                     .eventId(java.util.UUID.randomUUID().toString())
                     .recipientEmail(candidateEmail)
-                    .recipientId(candidateId)
+                    .recipientId(candidateEmail) // Use email to match authentication.getName()
                     .category("CANDIDATE")
                     .eventType("INTERVIEW_CANCELLED")
                     .title("Interview Cancelled")

@@ -1,12 +1,15 @@
 package com.fpt.careermate.services.job_services.service.mapper;
 
+import com.fpt.careermate.common.constant.InterviewStatus;
 import com.fpt.careermate.common.constant.StatusJobApply;
+import com.fpt.careermate.services.job_services.domain.InterviewSchedule;
 import com.fpt.careermate.services.job_services.domain.JobApply;
 import com.fpt.careermate.services.job_services.service.dto.response.JobApplyResponse;
 import com.fpt.careermate.services.recruiter_services.domain.Recruiter;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
 import java.util.Set;
 
 @Mapper(componentModel = "spring")
@@ -29,6 +32,10 @@ public interface JobApplyMapper {
     @Mapping(target = "recruiterPhone", ignore = true)
     @Mapping(target = "companyAddress", ignore = true)
     @Mapping(target = "contactPerson", ignore = true)
+    @Mapping(target = "hasCancelledInterview", ignore = true)
+    @Mapping(target = "cancelledInterviewNotes", ignore = true)
+    @Mapping(target = "cancelledInterviewDate", ignore = true)
+    @Mapping(target = "totalInterviewRounds", ignore = true)
     JobApplyResponse toJobApplyResponseBasic(JobApply jobApply);
 
     /**
@@ -49,6 +56,38 @@ public interface JobApplyMapper {
                 response.setCompanyAddress(recruiter.getCompanyAddress());
                 response.setContactPerson(recruiter.getContactPerson());
             }
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Maps JobApply to JobApplyResponse with interview history information.
+     * Use this method when you have the interview list available to avoid N+1 queries.
+     */
+    default JobApplyResponse toJobApplyResponseWithInterviewHistory(JobApply jobApply, List<InterviewSchedule> interviews) {
+        JobApplyResponse response = toJobApplyResponse(jobApply);
+        
+        if (interviews != null && !interviews.isEmpty()) {
+            response.setTotalInterviewRounds(interviews.size());
+            
+            // Find the most recent cancelled interview to show notes
+            interviews.stream()
+                    .filter(i -> i.getStatus() == InterviewStatus.CANCELLED)
+                    .reduce((first, second) -> second) // get the last cancelled one
+                    .ifPresent(cancelledInterview -> {
+                        response.setHasCancelledInterview(true);
+                        response.setCancelledInterviewNotes(cancelledInterview.getInterviewerNotes());
+                        response.setCancelledInterviewDate(cancelledInterview.getScheduledDate());
+                    });
+            
+            // Default to false if no cancelled interview found
+            if (response.getHasCancelledInterview() == null) {
+                response.setHasCancelledInterview(false);
+            }
+        } else {
+            response.setHasCancelledInterview(false);
+            response.setTotalInterviewRounds(0);
         }
         
         return response;
