@@ -28,7 +28,25 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
 
     /**
      * Find interview by job apply ID with all nested entities for response mapping.
-     * Returns the most recent interview (highest round) for the job application.
+     * Returns the most recent ACTIVE interview (SCHEDULED or CONFIRMED) for the job application.
+     * Excludes cancelled, completed, and no-show interviews.
+     */
+    @Query("SELECT i FROM interview_schedule i " +
+           "JOIN FETCH i.jobApply ja " +
+           "JOIN FETCH ja.candidate c " +
+           "JOIN FETCH c.account " +
+           "JOIN FETCH ja.jobPosting jp " +
+           "JOIN FETCH jp.recruiter r " +
+           "JOIN FETCH r.account " +
+           "WHERE ja.id = :jobApplyId " +
+           "AND i.status IN ('SCHEDULED', 'CONFIRMED') " +
+           "ORDER BY i.interviewRound DESC " +
+           "LIMIT 1")
+    Optional<InterviewSchedule> findByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
+    
+    /**
+     * Find ANY interview by job apply ID (including cancelled/completed).
+     * Use this for history/audit purposes only.
      */
     @Query("SELECT i FROM interview_schedule i " +
            "JOIN FETCH i.jobApply ja " +
@@ -40,7 +58,7 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
            "WHERE ja.id = :jobApplyId " +
            "ORDER BY i.interviewRound DESC " +
            "LIMIT 1")
-    Optional<InterviewSchedule> findByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
+    Optional<InterviewSchedule> findAnyByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
     
     /**
      * Find all interviews for a job application (all rounds)
@@ -55,6 +73,13 @@ public interface InterviewScheduleRepo extends JpaRepository<InterviewSchedule, 
            "WHERE ja.id = :jobApplyId " +
            "ORDER BY i.interviewRound ASC")
     List<InterviewSchedule> findAllByJobApplyId(@Param("jobApplyId") Integer jobApplyId);
+    
+    /**
+     * Find all interviews for a job application (simple query without joins)
+     * Use this when you only need interview status/notes info, not full entity graph
+     */
+    @Query("SELECT i FROM interview_schedule i WHERE i.jobApply.id = :jobApplyId ORDER BY i.interviewRound ASC")
+    List<InterviewSchedule> findAllByJobApplyIdSimple(@Param("jobApplyId") Integer jobApplyId);
     
     /**
      * Find the latest active interview for a job application (SCHEDULED or CONFIRMED status)

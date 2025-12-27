@@ -21,6 +21,8 @@ import com.fpt.careermate.common.exception.AppException;
 import com.fpt.careermate.common.exception.ErrorCode;
 import com.fpt.careermate.services.kafka.dto.NotificationEvent;
 import com.fpt.careermate.services.kafka.producer.NotificationProducer;
+import com.fpt.careermate.services.admin_services.domain.Admin;
+import com.fpt.careermate.services.admin_services.repository.AdminRepo;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -49,6 +51,7 @@ public class RecruiterImp implements RecruiterService {
     AuthenticationImp authenticationImp;
     EmailService emailService;
     NotificationProducer notificationProducer;
+    AdminRepo adminRepo;
 
     // Method for authenticated users to add their recruiter/company profile
     // Used by existing accounts that want to add organization information
@@ -507,39 +510,51 @@ public class RecruiterImp implements RecruiterService {
 
     /**
      * Send notification to admin when recruiter creates profile update request
+     * Sends to ALL active admins individually using their email as recipientId
      */
     private void sendProfileUpdateRequestNotificationToAdmin(Recruiter recruiter,
             RecruiterProfileUpdateRequest updateRequest) {
         try {
-            java.util.Map<String, Object> metadata = new java.util.HashMap<>();
-            metadata.put("requestId", updateRequest.getId());
-            metadata.put("recruiterId", recruiter.getId());
-            metadata.put("companyName", recruiter.getCompanyName());
-            metadata.put("email", recruiter.getAccount().getEmail());
-            metadata.put("actionType", "PROFILE_UPDATE_REQUEST");
-            metadata.put("actionUrl", "/api/admin/recruiter-update-requests/" + updateRequest.getId());
+            // Get all active admins to send individual notifications
+            List<Admin> admins = adminRepo.findAll();
+            
+            for (Admin admin : admins) {
+                String adminEmail = admin.getAccount().getEmail();
+                // Only send to active admin accounts
+                if (!"ACTIVE".equals(admin.getAccount().getStatus())) {
+                    continue;
+                }
+                
+                java.util.Map<String, Object> metadata = new java.util.HashMap<>();
+                metadata.put("requestId", updateRequest.getId());
+                metadata.put("recruiterId", recruiter.getId());
+                metadata.put("companyName", recruiter.getCompanyName());
+                metadata.put("email", recruiter.getAccount().getEmail());
+                metadata.put("actionType", "PROFILE_UPDATE_REQUEST");
+                metadata.put("actionUrl", "/admin/profile-updates");
 
-            NotificationEvent event = NotificationEvent.builder()
-                    .eventType(NotificationEvent.EventType.PROFILE_UPDATE_REQUEST.name())
-                    .recipientId("ADMIN")
-                    .recipientEmail("admin@careermate.com")
-                    .title("Profile Update Request")
-                    .subject("Recruiter Profile Update Pending Review")
-                    .message(String.format(
-                            "Recruiter %s has requested to update their profile.\n\n" +
-                                    "Company: %s\n" +
-                                    "Email: %s\n\n" +
-                                    "Please review and approve/reject this request.",
-                            recruiter.getAccount().getUsername(),
-                            recruiter.getCompanyName(),
-                            recruiter.getAccount().getEmail()))
-                    .category("ADMIN_ACTION_REQUIRED")
-                    .metadata(metadata)
-                    .priority(2) // MEDIUM priority
-                    .build();
+                NotificationEvent event = NotificationEvent.builder()
+                        .eventType(NotificationEvent.EventType.PROFILE_UPDATE_REQUEST.name())
+                        .recipientId(adminEmail) // Use email to match authentication.getName()
+                        .recipientEmail(adminEmail)
+                        .title("Profile Update Request")
+                        .subject("Recruiter Profile Update Pending Review")
+                        .message(String.format(
+                                "Recruiter %s has requested to update their profile.\n\n" +
+                                        "Company: %s\n" +
+                                        "Email: %s\n\n" +
+                                        "Please review and approve/reject this request.",
+                                recruiter.getAccount().getUsername(),
+                                recruiter.getCompanyName(),
+                                recruiter.getAccount().getEmail()))
+                        .category("ADMIN_ACTION_REQUIRED")
+                        .metadata(metadata)
+                        .priority(2) // MEDIUM priority
+                        .build();
 
-            notificationProducer.sendAdminNotification(event);
-            log.info("✅ Profile update request notification sent to admin for recruiter ID: {}", recruiter.getId());
+                notificationProducer.sendAdminNotification(event);
+            }
+            log.info("✅ Profile update request notification sent to {} admins for recruiter ID: {}", admins.size(), recruiter.getId());
         } catch (Exception e) {
             log.error("❌ Failed to send profile update request notification to admin for recruiter ID: {}",
                     recruiter.getId(), e);

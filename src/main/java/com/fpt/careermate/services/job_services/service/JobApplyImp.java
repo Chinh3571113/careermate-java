@@ -245,12 +245,23 @@ public class JobApplyImp implements JobApplyService {
                 // Note: Auto-withdrawal feature removed - platform is neutral and doesn't
                 // make decisions on behalf of candidates. They can manually withdraw if needed.
 
-                // Handle interview cancellation when application is manually withdrawn
+                // Handle interview cancellation when application is withdrawn or rejected
                 if (status == StatusJobApply.WITHDRAWN) {
                         try {
                                 cancelInterviewOnManualWithdrawal(updatedJobApply);
                         } catch (Exception e) {
                                 log.error("Failed to cancel interview for withdrawn application {}: {}",
+                                                id, e.getMessage(), e);
+                                // Don't fail the main update if interview cancellation fails
+                        }
+                }
+
+                // Handle interview cancellation when application is rejected
+                if (status == StatusJobApply.REJECTED) {
+                        try {
+                                cancelInterviewOnRejection(updatedJobApply);
+                        } catch (Exception e) {
+                                log.error("Failed to cancel interview for rejected application {}: {}",
                                                 id, e.getMessage(), e);
                                 // Don't fail the main update if interview cancellation fails
                         }
@@ -563,6 +574,30 @@ public class JobApplyImp implements JobApplyService {
                                 priority = 2; // MEDIUM priority
                                 break;
 
+                        case BANNED:
+                                title = "⚠️ Employment Status - Account Action Required";
+                                subject = String.format("Important: Your Employment at '%s' Has Been Terminated",
+                                                jobPosting.getRecruiter().getCompanyName());
+                                message = String.format(
+                                                "⚠️ Important Notice\n\n" +
+                                                                "Your employment has been terminated and you have been banned from " +
+                                                                "reapplying to this position.\n\n" +
+                                                                "Job Position: %s\n" +
+                                                                "Company: %s\n" +
+                                                                "Status: Banned\n\n" +
+                                                                "This action was taken due to a policy violation or misconduct during employment. " +
+                                                                "You will not be able to apply for this position again.\n\n" +
+                                                                "If you believe this was done in error, you may:\n" +
+                                                                "- Contact the company directly to appeal this decision\n" +
+                                                                "- Reach out to CareerMate Support for assistance\n\n" +
+                                                                "Please note that your other applications on CareerMate are not affected.\n\n" +
+                                                                "Best regards,\n" +
+                                                                "CareerMate Team",
+                                                jobPosting.getTitle(),
+                                                jobPosting.getRecruiter().getCompanyName());
+                                priority = 1; // HIGH priority - important action required
+                                break;
+
                         default:
                                 title = "Application Status Updated";
                                 subject = String.format("Your Application Status for '%s' Has Been Updated",
@@ -794,7 +829,6 @@ public class JobApplyImp implements JobApplyService {
         private void sendManualWithdrawInterviewCancelledNotification(InterviewSchedule interview,
                         JobApply application) {
                 String recruiterEmail = application.getJobPosting().getRecruiter().getAccount().getEmail();
-                Integer recruiterId = application.getJobPosting().getRecruiter().getId();
 
                 Map<String, Object> metadata = new HashMap<>();
                 metadata.put("interviewId", interview.getId());
@@ -820,7 +854,7 @@ public class JobApplyImp implements JobApplyService {
                 NotificationEvent event = NotificationEvent.builder()
                                 .eventId(UUID.randomUUID().toString())
                                 .recipientEmail(recruiterEmail)
-                                .recipientId(String.valueOf(recruiterId))
+                                .recipientId(recruiterEmail) // Use email to match authentication.getName()
                                 .category("RECRUITER")
                                 .eventType("INTERVIEW_CANCELLED")
                                 .title("Interview Cancelled - Candidate Withdrew")
@@ -831,6 +865,88 @@ public class JobApplyImp implements JobApplyService {
                                 .build();
 
                 notificationProducer.sendNotification("recruiter-notifications", event);
+        }
+
+        /**
+         * Cancel interview when recruiter rejects an application.
+         * Similar to withdrawal, but initiated by recruiter.
+         * 
+         * @param application The application being rejected
+         */
+        private void cancelInterviewOnRejection(JobApply application) {
+                try {
+                        interviewScheduleRepo.findByJobApplyId(application.getId())
+                                        .ifPresent(interview -> {
+                                                // Only cancel if interview is not already completed/cancelled/no-show
+                                                if (interview.getStatus() == InterviewStatus.SCHEDULED
+                                                                || interview.getStatus() == InterviewStatus.CONFIRMED
+                                                                || interview.getStatus() == InterviewStatus.RESCHEDULED) {
+
+                                                        InterviewStatus previousStatus = interview.getStatus();
+                                                        interview.setStatus(InterviewStatus.CANCELLED);
+                                                        interview.setInterviewerNotes(String.format(
+                                                                        "Cancelled: Application was rejected. Previous status: %s",
+                                                                        previousStatus));
+                                                        interviewScheduleRepo.save(interview);
+
+                                                        log.info("🗓️ Cancelled interview {} for rejected application {} (was: {})",
+                                                                        interview.getId(), application.getId(),
+                                                                        previousStatus);
+
+                                                        // Notify candidate about cancelled interview
+                                                        sendRejectionInterviewCancelledNotification(interview, application);
+                                                }
+                                        });
+                } catch (Exception e) {
+                        log.error("Failed to cancel interview for rejected application {}: {}",
+                                        application.getId(), e.getMessage());
+                }
+        }
+
+        /**
+         * Send notification to candidate when interview is cancelled due to application rejection.
+         */
+        private void sendRejectionInterviewCancelledNotification(InterviewSchedule interview, JobApply application) {
+                String candidateEmail = application.getCandidate().getAccount().getEmail();
+
+                Map<String, Object> metadata = new HashMap<>();
+                metadata.put("interviewId", interview.getId());
+                metadata.put("applicationId", application.getId());
+                metadata.put("jobPostingId", application.getJobPosting().getId());
+                metadata.put("jobTitle", application.getJobPosting().getTitle());
+                metadata.put("companyName", application.getJobPosting().getRecruiter().getCompanyName());
+                metadata.put("scheduledDate", interview.getScheduledDate().toString());
+                metadata.put("reason", "APPLICATION_REJECTED");
+
+                String message = String.format(
+                                "We regret to inform you that your scheduled interview has been cancelled.\n\n" +
+                                                "📋 Position: %s\n" +
+                                                "🏢 Company: %s\n" +
+                                                "📅 Was Scheduled: %s\n" +
+                                                "ℹ️ Reason: Your application was not selected to proceed further\n\n" +
+                                                "We encourage you to continue exploring other opportunities on CareerMate.\n\n" +
+                                                "Best of luck in your job search!",
+                                application.getJobPosting().getTitle(),
+                                application.getJobPosting().getRecruiter().getCompanyName(),
+                                interview.getScheduledDate()
+                                                .format(DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' HH:mm")));
+
+                NotificationEvent event = NotificationEvent.builder()
+                                .eventId(UUID.randomUUID().toString())
+                                .recipientEmail(candidateEmail)
+                                .recipientId(candidateEmail) // Use email to match authentication.getName()
+                                .category("CANDIDATE")
+                                .eventType("INTERVIEW_CANCELLED")
+                                .title("Interview Cancelled")
+                                .subject("Interview Cancelled: " + application.getJobPosting().getTitle())
+                                .message(message)
+                                .metadata(metadata)
+                                .timestamp(LocalDateTime.now())
+                                .build();
+
+                notificationProducer.sendNotification("candidate-notifications", event);
+                log.info("📧 Sent interview cancellation notification to candidate {} for rejected application {}",
+                                candidateEmail, application.getId());
         }
 
         // Get current recruiter helper method
@@ -867,10 +983,15 @@ public class JobApplyImp implements JobApplyService {
                 Pageable pageable = PageRequest.of(page, size, Sort.by("createAt").descending());
                 Page<JobApply> jobApplyPage = jobApplyRepo.findByRecruiterId(recruiter.getId(), pageable);
 
-                // Filter by status if provided
+                // Filter by status if provided and include interview history
                 List<JobApplyResponse> filteredList = jobApplyPage.getContent().stream()
                                 .filter(ja -> status == null || ja.getStatus() == status)
-                                .map(jobApplyMapper::toJobApplyResponse)
+                                .map(jobApply -> {
+                                        // Fetch interview history for this application
+                                        List<InterviewSchedule> interviews = interviewScheduleRepo
+                                                        .findAllByJobApplyIdSimple(jobApply.getId());
+                                        return jobApplyMapper.toJobApplyResponseWithInterviewHistory(jobApply, interviews);
+                                })
                                 .collect(Collectors.toList());
 
                 return new PageResponse<>(

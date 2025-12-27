@@ -22,8 +22,8 @@ public class JobFeedbackRequest {
 
     @NotBlank(message = "Feedback type is required")
     @Size(max = 20, message = "Feedback type must not exceed 20 characters")
-    @Pattern(regexp = "^(like|dislike|save|view)$",
-             message = "Feedback type must be one of: like, dislike, save, view")
+    @Pattern(regexp = "^(like|dislike|save|view|apply)$",
+             message = "Feedback type must be one of: like, dislike, save, view, apply")
     String feedbackType;
 
     @DecimalMin(value = "0.0", message = "Score must be at least 0.0")
