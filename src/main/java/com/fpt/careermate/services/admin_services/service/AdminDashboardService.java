@@ -6,6 +6,8 @@ import com.fpt.careermate.services.blog_services.repository.BlogCommentRepo;
 import com.fpt.careermate.services.blog_services.repository.BlogRepo;
 import com.fpt.careermate.services.job_services.repository.JobApplyRepo;
 import com.fpt.careermate.services.job_services.repository.JobPostingRepo;
+import com.fpt.careermate.services.order_services.repository.CandidateInvoiceRepo;
+import com.fpt.careermate.services.order_services.repository.RecruiterInvoiceRepo;
 import com.fpt.careermate.services.recruiter_services.repository.RecruiterProfileUpdateRequestRepo;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class AdminDashboardService {
     JobApplyRepo jobApplyRepo;
     RecruiterProfileUpdateRequestRepo recruiterUpdateRequestRepo;
     BlogCommentRepo blogCommentRepo;
+    RecruiterInvoiceRepo recruiterInvoiceRepo;
+    CandidateInvoiceRepo candidateInvoiceRepo;
     Map<String, HealthIndicator> healthIndicators;
 
     public DashboardStatsResponse getAllDashboardStats() {
@@ -57,6 +61,13 @@ public class AdminDashboardService {
                     .pendingRecruiterApprovals(recruiterUpdateRequestRepo.countByStatus("PENDING"))
                     .flaggedComments(blogCommentRepo.countByIsFlaggedTrue())
                     .flaggedRatings(0L) // BlogRating doesn't have flagged field
+
+                    // Revenue & Payment stats
+                    .totalRevenue(calculateTotalRevenue())
+                    .recruiterRevenue(calculateRecruiterRevenue())
+                    .candidateRevenue(calculateCandidateRevenue())
+                    .activeSubscriptions(countActiveSubscriptions())
+                    .totalTransactions(countTotalTransactions())
 
                     // System health
                     .databaseStatus(getComponentStatus("db"))
@@ -129,6 +140,66 @@ public class AdminDashboardService {
         } catch (Exception e) {
             log.error("Error checking system health", e);
             return false;
+        }
+    }
+
+    // Revenue calculation methods
+    private Long calculateTotalRevenue() {
+        try {
+            Long recruiterRevenue = calculateRecruiterRevenue();
+            Long candidateRevenue = calculateCandidateRevenue();
+            return recruiterRevenue + candidateRevenue;
+        } catch (Exception e) {
+            log.error("Error calculating total revenue", e);
+            return 0L;
+        }
+    }
+
+    private Long calculateRecruiterRevenue() {
+        try {
+            // Sum all amounts from invoices (active subscriptions represent completed payments)
+            return recruiterInvoiceRepo.findAll().stream()
+                    .mapToLong(invoice -> invoice.getAmount() != null ? invoice.getAmount() : 0L)
+                    .sum();
+        } catch (Exception e) {
+            log.error("Error calculating recruiter revenue", e);
+            return 0L;
+        }
+    }
+
+    private Long calculateCandidateRevenue() {
+        try {
+            // Sum all amounts from invoices (active subscriptions represent completed payments)
+            return candidateInvoiceRepo.findAll().stream()
+                    .mapToLong(invoice -> invoice.getAmount() != null ? invoice.getAmount() : 0L)
+                    .sum();
+        } catch (Exception e) {
+            log.error("Error calculating candidate revenue", e);
+            return 0L;
+        }
+    }
+
+    private Long countActiveSubscriptions() {
+        try {
+            long activeRecruiterSubs = recruiterInvoiceRepo.findAll().stream()
+                    .filter(invoice -> invoice.isActive())
+                    .count();
+            long activeCandidateSubs = candidateInvoiceRepo.findAll().stream()
+                    .filter(invoice -> invoice.isActive())
+                    .count();
+            return activeRecruiterSubs + activeCandidateSubs;
+        } catch (Exception e) {
+            log.error("Error counting active subscriptions", e);
+            return 0L;
+        }
+    }
+
+    private Long countTotalTransactions() {
+        try {
+            return recruiterInvoiceRepo.count() + candidateInvoiceRepo.count();
+        } catch (Exception e) {
+            log.error("Error counting total transactions", e);
+            return 0L;
         }
     }
 }

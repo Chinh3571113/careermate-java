@@ -32,6 +32,13 @@ public class DashboardStatsResponse {
     Long flaggedComments;
     Long flaggedRatings;
 
+    // Revenue & Payment Statistics
+    Long totalRevenue;
+    Long recruiterRevenue;
+    Long candidateRevenue;
+    Long activeSubscriptions;
+    Long totalTransactions;
+
     // System Health
     String databaseStatus; // "UP" or "DOWN"
     String kafkaStatus; // "UP" or "DOWN"
